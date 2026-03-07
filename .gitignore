@@ -1,0 +1,46 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+
+# Cache / build
+.cache/
+dist/
+build/
+
+# Local data
+data/
+tmp/
+uploads/
+storage/
+
+# Databases
+postgres_data/
+redis_data/
+
+# Ollama
+ollama/
+models/
+
+# Wiki.js
+wiki_data/
+
+# n8n
+n8n_data/
