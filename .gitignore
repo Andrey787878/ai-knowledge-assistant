@@ -44,3 +44,9 @@ wiki_data/
 
 # n8n
 n8n_data/
+
+# Ansible
+hosts.ini
+vault.yml
+*.retry
+.ansible/
