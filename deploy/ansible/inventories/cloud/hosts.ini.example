@@ -1,0 +1,17 @@
+[db]
+db       ansible_host=203.0.113.10 private_ip=10.10.0.10
+
+[ollama]
+ollama   ansible_host=203.0.113.11 private_ip=10.10.0.11
+
+[n8n]
+n8n      ansible_host=203.0.113.12 private_ip=10.10.0.12
+
+[wiki]
+wiki     ansible_host=203.0.113.13 private_ip=10.10.0.13
+
+[docker_hosts:children]
+db
+ollama
+n8n
+wiki
