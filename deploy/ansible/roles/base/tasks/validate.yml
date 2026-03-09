@@ -1,0 +1,16 @@
+---
+- name: Validate supported OS family
+  ansible.builtin.assert:
+    that:
+      - ansible_os_family in base_supported_os_families
+    fail_msg: "Unsupported OS family for base role: {{ ansible_os_family }}"
+  tags: [base, validation]
+
+- name: Validate timezone value when timezone management enabled
+  ansible.builtin.assert:
+    that:
+      - base_timezone is string
+      - base_timezone | trim | length > 0
+    fail_msg: "base_timezone must be a non-empty string when base_manage_timezone is true"
+  when: base_manage_timezone | bool
+  tags: [base, validation]
