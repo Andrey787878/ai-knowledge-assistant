@@ -1,0 +1,26 @@
+---
+- name: Verify docker binary
+  ansible.builtin.command: docker --version
+  register: docker_engine_version
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Verify docker compose plugin
+  ansible.builtin.command: docker compose version
+  register: docker_compose_version
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Verify docker service is enabled
+  ansible.builtin.command: systemctl is-enabled docker
+  register: docker_service_enabled
+  changed_when: false
+  failed_when: docker_service_enabled.stdout | trim != "enabled"
+  when: not ansible_check_mode
+
+- name: Verify docker service is active
+  ansible.builtin.command: systemctl is-active docker
+  register: docker_service_active
+  changed_when: false
+  failed_when: docker_service_active.stdout | trim != "active"
+  when: not ansible_check_mode

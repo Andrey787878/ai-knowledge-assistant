@@ -1,0 +1,54 @@
+---
+- name: Validate supported OS family
+  ansible.builtin.assert:
+    that:
+      - ansible_os_family in docker_engine_supported_os_families
+    fail_msg: 'Unsupported OS family for docker_engine role: {{ ansible_os_family }}'
+  tags: [docker, validation]
+
+- name: Validate supported distribution
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution in docker_engine_distribution_map
+    fail_msg: 'Unsupported distribution for docker_engine role: {{ ansible_distribution }}'
+  tags: [docker, validation]
+
+- name: Validate supported architecture
+  ansible.builtin.assert:
+    that:
+      - ansible_architecture in docker_engine_arch_map
+    fail_msg: 'Unsupported architecture for docker_engine role: {{ ansible_architecture }}'
+  tags: [docker, validation]
+
+- name: Validate Docker repo codename
+  ansible.builtin.assert:
+    that:
+      - docker_engine_codename is string
+      - docker_engine_codename | trim | length > 0
+    fail_msg: 'docker_engine_codename must be a non-empty string'
+  tags: [docker, validation]
+
+- name: Validate Docker repo architecture
+  ansible.builtin.assert:
+    that:
+      - docker_engine_architecture is string
+      - docker_engine_architecture | trim | length > 0
+    fail_msg: 'docker_engine_architecture must be a non-empty string'
+  tags: [docker, validation]
+
+- name: Validate Docker GPG fingerprint
+  ansible.builtin.assert:
+    that:
+      - docker_engine_gpg_fingerprint is string
+      - docker_engine_gpg_fingerprint | trim | length > 0
+    fail_msg: 'docker_engine_gpg_fingerprint must be a non-empty string'
+  tags: [docker, validation]
+
+- name: Validate docker group user when group management enabled
+  ansible.builtin.assert:
+    that:
+      - docker_engine_group_user is string
+      - docker_engine_group_user | trim | length > 0
+    fail_msg: 'docker_engine_group_user must be set when docker_engine_manage_user_group is true'
+  when: docker_engine_manage_user_group | bool
+  tags: [docker, validation]

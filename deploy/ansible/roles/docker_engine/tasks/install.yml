@@ -1,0 +1,53 @@
+---
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install prerequisite packages
+  ansible.builtin.apt:
+    name: '{{ docker_engine_prerequisite_packages }}'
+    state: present
+
+- name: Ensure Docker keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Download Docker repository GPG key
+  ansible.builtin.get_url:
+    url: '{{ docker_engine_gpg_key_url }}'
+    dest: '{{ docker_engine_gpg_key_path }}'
+    owner: root
+    group: root
+    mode: '0644'
+    checksum: '{{ docker_engine_gpg_key_checksum if docker_engine_gpg_key_checksum | trim | length > 0 else omit }}'
+
+- name: Read Docker repository GPG fingerprint
+  ansible.builtin.command: 'gpg --batch --show-keys --with-colons {{ docker_engine_gpg_key_path }}'
+  register: docker_engine_gpg_key_info
+  changed_when: false
+
+- name: Validate downloaded Docker GPG fingerprint
+  ansible.builtin.assert:
+    that:
+      - docker_engine_gpg_fingerprint | upper in (docker_engine_gpg_key_info.stdout | upper)
+    fail_msg: 'Docker GPG fingerprint validation failed for {{ docker_engine_gpg_key_path }}'
+
+- name: Configure Docker apt repository
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [arch={{ docker_engine_architecture }} signed-by={{ docker_engine_gpg_key_path }}]
+      {{ docker_engine_repo_base_url }}/{{ docker_engine_distribution }}
+      {{ docker_engine_codename }} {{ docker_engine_repo_component }}
+    filename: docker
+    state: present
+
+- name: Install Docker Engine packages
+  ansible.builtin.apt:
+    name: '{{ docker_engine_packages }}'
+    state: present
+    update_cache: true
