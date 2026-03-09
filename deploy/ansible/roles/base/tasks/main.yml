@@ -1,0 +1,17 @@
+---
+- name: Include validation tasks
+  ansible.builtin.import_tasks: validate.yml
+  tags: [base, validation]
+
+- name: Include package tasks
+  ansible.builtin.import_tasks: packages.yml
+  tags: [base, packages]
+
+- name: Include filesystem tasks
+  ansible.builtin.import_tasks: filesystem.yml
+  tags: [base, filesystem]
+
+- name: Include timezone tasks
+  ansible.builtin.import_tasks: timezone.yml
+  when: base_manage_timezone | bool
+  tags: [base, timezone]

@@ -1,0 +1,17 @@
+---
+base_supported_os_families:
+  - Debian
+
+base_packages:
+  - curl
+  - ca-certificates
+
+base_directories:
+  - /opt/ai-agent
+  - /opt/ai-agent/configs
+  - /opt/ai-agent/data
+  - /opt/ai-agent/scripts
+
+base_manage_timezone: false
+
+base_timezone: UTC
