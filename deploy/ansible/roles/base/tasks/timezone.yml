@@ -1,11 +1,5 @@
 ---
-- name: Get current timezone
-  ansible.builtin.command: timedatectl show -p Timezone --value
-  register: base_current_timezone
-  changed_when: false
-  tags: [base, timezone]
-
 - name: Set timezone
-  ansible.builtin.command: "timedatectl set-timezone {{ base_timezone }}"
-  when: base_current_timezone.stdout != base_timezone
+  community.general.timezone:
+    name: '{{ base_timezone }}'
   tags: [base, timezone]

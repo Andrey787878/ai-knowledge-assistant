@@ -1,32 +1,63 @@
 ---
 docker_engine_supported_os_families:
   - Debian
+  - RedHat
 
+# Canonical distribution names Docker uses in repository URLs.
 docker_engine_distribution_map:
   Ubuntu: ubuntu
   Debian: debian
+  RedHat: centos
+  Rocky: centos
+  AlmaLinux: centos
+  CentOS: centos
+  Fedora: fedora
 
-docker_engine_arch_map:
+# Docker apt repository architecture mapping.
+docker_engine_arch_map_debian:
   x86_64: amd64
   aarch64: arm64
 
-docker_engine_distribution: '{{ docker_engine_distribution_map.get(ansible_distribution, ansible_distribution | lower) }}'
-docker_engine_architecture: '{{ docker_engine_arch_map.get(ansible_architecture, ansible_architecture) }}'
+# Docker yum/dnf repository architecture mapping.
+docker_engine_arch_map_redhat:
+  x86_64: x86_64
+  aarch64: aarch64
+
+docker_engine_distribution: '{{ docker_engine_distribution_map[ansible_distribution] }}'
+docker_engine_architecture_debian: '{{ docker_engine_arch_map_debian[ansible_architecture] }}'
+docker_engine_architecture_redhat: '{{ docker_engine_arch_map_redhat[ansible_architecture] }}'
 docker_engine_codename: '{{ ansible_distribution_release }}'
+docker_engine_redhat_releasever: '{{ ansible_distribution_major_version }}'
 docker_engine_repo_component: stable
 docker_engine_repo_base_url: https://download.docker.com/linux
 
 docker_engine_gpg_key_url: '{{ docker_engine_repo_base_url }}/{{ docker_engine_distribution }}/gpg'
-docker_engine_gpg_key_path: /etc/apt/keyrings/docker.asc
-# Официальный fingerprint Docker apt key.
+docker_engine_gpg_key_path_debian: /etc/apt/keyrings/docker.asc
+docker_engine_gpg_key_path_redhat: /etc/pki/rpm-gpg/docker.asc
+# Official Docker repository key fingerprint.
 docker_engine_gpg_fingerprint: '9DC858229FC7DD38854AE2D88D81803C0EBFCD88'
-# Опционально: "sha256:<digest>" для строгой проверки ключа на этапе get_url.
+# Optional strict integrity check for key download: "sha256:<digest>".
 docker_engine_gpg_key_checksum: ''
 
-docker_engine_prerequisite_packages:
-  - ca-certificates
-  - curl
-  - gnupg
+docker_engine_conflicting_packages_debian:
+  - docker.io
+  - docker-doc
+  - docker-compose
+  - podman-docker
+  - containerd
+  - runc
+
+docker_engine_conflicting_packages_redhat:
+  - docker
+  - docker-client
+  - docker-client-latest
+  - docker-common
+  - docker-latest
+  - docker-latest-logrotate
+  - docker-logrotate
+  - docker-engine
+  - podman
+  - runc
 
 docker_engine_packages:
   - docker-ce
@@ -35,7 +66,10 @@ docker_engine_packages:
   - docker-buildx-plugin
   - docker-compose-plugin
 
-docker_engine_manage_user_group: true
-docker_engine_group_user: "{{ ansible_user | default('') }}"
+docker_engine_manage_user_group: false
+docker_engine_group_user: ""
+docker_engine_daemon_config: {}
+docker_engine_service_enabled: true
+docker_engine_service_state: started
 
 docker_engine_validate_installation: true
