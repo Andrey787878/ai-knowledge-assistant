@@ -6,6 +6,12 @@
   when: ansible_os_family == "Debian"
   tags: [base, packages]
 
+- name: Update dnf cache
+  ansible.builtin.dnf:
+    update_cache: true
+  when: ansible_os_family == "RedHat"
+  tags: [base, packages]
+
 - name: Install base packages
   ansible.builtin.package:
     name: "{{ base_packages }}"
