@@ -1,0 +1,6 @@
+---
+- name: Restart docker
+  ansible.builtin.service:
+    name: docker
+    state: restarted
+  when: docker_engine_service_state in ["started", "restarted", "reloaded"]

@@ -3,37 +3,48 @@
   ansible.builtin.assert:
     that:
       - ansible_os_family in docker_engine_supported_os_families
-    fail_msg: 'Unsupported OS family for docker_engine role: {{ ansible_os_family }}'
+    fail_msg: "Unsupported OS family for docker_engine role: {{ ansible_os_family }}"
   tags: [docker, validation]
 
 - name: Validate supported distribution
   ansible.builtin.assert:
     that:
       - ansible_distribution in docker_engine_distribution_map
-    fail_msg: 'Unsupported distribution for docker_engine role: {{ ansible_distribution }}'
+    fail_msg: "Unsupported distribution for docker_engine role: {{ ansible_distribution }}"
   tags: [docker, validation]
 
-- name: Validate supported architecture
+- name: Validate supported architecture for Debian repository
   ansible.builtin.assert:
     that:
-      - ansible_architecture in docker_engine_arch_map
-    fail_msg: 'Unsupported architecture for docker_engine role: {{ ansible_architecture }}'
+      - ansible_architecture in docker_engine_arch_map_debian
+    fail_msg: "Unsupported architecture for Debian Docker repository: {{ ansible_architecture }}"
+  when: ansible_os_family == "Debian"
   tags: [docker, validation]
 
-- name: Validate Docker repo codename
+- name: Validate supported architecture for RedHat repository
+  ansible.builtin.assert:
+    that:
+      - ansible_architecture in docker_engine_arch_map_redhat
+    fail_msg: "Unsupported architecture for RedHat Docker repository: {{ ansible_architecture }}"
+  when: ansible_os_family == "RedHat"
+  tags: [docker, validation]
+
+- name: Validate Docker repo codename on Debian
   ansible.builtin.assert:
     that:
       - docker_engine_codename is string
       - docker_engine_codename | trim | length > 0
-    fail_msg: 'docker_engine_codename must be a non-empty string'
+    fail_msg: "docker_engine_codename must be a non-empty string on Debian hosts"
+  when: ansible_os_family == "Debian"
   tags: [docker, validation]
 
-- name: Validate Docker repo architecture
+- name: Validate Docker repo releasever on RedHat
   ansible.builtin.assert:
     that:
-      - docker_engine_architecture is string
-      - docker_engine_architecture | trim | length > 0
-    fail_msg: 'docker_engine_architecture must be a non-empty string'
+      - docker_engine_redhat_releasever is string
+      - docker_engine_redhat_releasever | trim | length > 0
+    fail_msg: "docker_engine_redhat_releasever must be a non-empty string on RedHat hosts"
+  when: ansible_os_family == "RedHat"
   tags: [docker, validation]
 
 - name: Validate Docker GPG fingerprint
@@ -41,7 +52,7 @@
     that:
       - docker_engine_gpg_fingerprint is string
       - docker_engine_gpg_fingerprint | trim | length > 0
-    fail_msg: 'docker_engine_gpg_fingerprint must be a non-empty string'
+    fail_msg: "docker_engine_gpg_fingerprint must be a non-empty string"
   tags: [docker, validation]
 
 - name: Validate docker group user when group management enabled
@@ -49,6 +60,27 @@
     that:
       - docker_engine_group_user is string
       - docker_engine_group_user | trim | length > 0
-    fail_msg: 'docker_engine_group_user must be set when docker_engine_manage_user_group is true'
+    fail_msg: "docker_engine_group_user must be set when docker_engine_manage_user_group is true"
   when: docker_engine_manage_user_group | bool
+  tags: [docker, validation]
+
+- name: Validate docker daemon configuration type
+  ansible.builtin.assert:
+    that:
+      - docker_engine_daemon_config is mapping
+    fail_msg: "docker_engine_daemon_config must be a dictionary"
+  tags: [docker, validation]
+
+- name: Validate docker service enabled flag
+  ansible.builtin.assert:
+    that:
+      - docker_engine_service_enabled is boolean
+    fail_msg: "docker_engine_service_enabled must be boolean"
+  tags: [docker, validation]
+
+- name: Validate docker service state
+  ansible.builtin.assert:
+    that:
+      - docker_engine_service_state in ["started", "stopped", "restarted", "reloaded"]
+    fail_msg: "docker_engine_service_state must be one of: started, stopped, restarted, reloaded"
   tags: [docker, validation]

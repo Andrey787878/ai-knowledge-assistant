@@ -1,0 +1,26 @@
+---
+- name: Ensure Docker config directory exists
+  ansible.builtin.file:
+    path: /etc/docker
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: docker_engine_daemon_config | length > 0
+
+- name: Render Docker daemon configuration
+  ansible.builtin.copy:
+    dest: /etc/docker/daemon.json
+    content: "{{ docker_engine_daemon_config | to_nice_json }}\n"
+    owner: root
+    group: root
+    mode: "0644"
+  when: docker_engine_daemon_config | length > 0
+  notify: Restart docker
+
+- name: Remove Docker daemon configuration when empty
+  ansible.builtin.file:
+    path: /etc/docker/daemon.json
+    state: absent
+  when: docker_engine_daemon_config | length == 0
+  notify: Restart docker
