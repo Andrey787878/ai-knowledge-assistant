@@ -14,6 +14,20 @@
 
 - name: Install base packages
   ansible.builtin.package:
-    name: "{{ base_packages }}"
+    name: "{{ base_packages_common }}"
     state: present
+  tags: [base, packages]
+
+- name: Install Debian-specific base packages
+  ansible.builtin.package:
+    name: "{{ base_packages_debian }}"
+    state: present
+  when: ansible_os_family == "Debian"
+  tags: [base, packages]
+
+- name: Install RedHat-specific base packages
+  ansible.builtin.package:
+    name: "{{ base_packages_redhat }}"
+    state: present
+  when: ansible_os_family == "RedHat"
   tags: [base, packages]
