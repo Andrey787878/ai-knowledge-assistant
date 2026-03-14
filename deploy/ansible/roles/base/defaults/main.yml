@@ -1,16 +1,11 @@
 ---
 base_supported_os_families:
   - Debian
+  - RedHat
 
 base_packages:
-  - curl
   - ca-certificates
-
-base_directories:
-  - /opt/ai-agent
-  - /opt/ai-agent/configs
-  - /opt/ai-agent/data
-  - /opt/ai-agent/scripts
+  - curl
 
 base_manage_timezone: false
 
