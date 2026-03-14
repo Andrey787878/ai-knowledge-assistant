@@ -1,0 +1,67 @@
+---
+- name: Update dnf cache
+  ansible.builtin.dnf:
+    update_cache: true
+
+- name: Remove conflicting Docker packages
+  ansible.builtin.dnf:
+    name: "{{ docker_engine_conflicting_packages_redhat }}"
+    state: absent
+
+- name: Ensure Docker GPG key directory exists
+  ansible.builtin.file:
+    path: /etc/pki/rpm-gpg
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Download Docker repository GPG key
+  ansible.builtin.get_url:
+    url: "{{ docker_engine_gpg_key_url }}"
+    dest: "{{ docker_engine_gpg_key_path_redhat }}"
+    owner: root
+    group: root
+    mode: "0644"
+    checksum: "{{ docker_engine_gpg_key_checksum if docker_engine_gpg_key_checksum | trim | length > 0 else omit }}"
+
+- name: Read Docker repository GPG fingerprint
+  ansible.builtin.command: "gpg --batch --show-keys --with-colons {{ docker_engine_gpg_key_path_redhat }}"
+  register: docker_engine_gpg_key_info
+  changed_when: false
+
+- name: Extract downloaded Docker GPG fingerprint
+  ansible.builtin.set_fact:
+    docker_engine_downloaded_gpg_fingerprint: >-
+      {{
+        (
+          docker_engine_gpg_key_info.stdout
+          | regex_search('(?m)^fpr:+([0-9A-F]{40}):$', '\\1')
+          | default('')
+        )
+        | upper
+      }}
+  changed_when: false
+
+- name: Validate downloaded Docker GPG fingerprint
+  ansible.builtin.assert:
+    that:
+      - docker_engine_downloaded_gpg_fingerprint == (docker_engine_gpg_fingerprint | upper)
+    fail_msg: "Docker GPG fingerprint validation failed for {{ docker_engine_gpg_key_path_redhat }}"
+
+- name: Configure Docker yum repository
+  ansible.builtin.yum_repository:
+    name: docker-ce-stable
+    description: Docker CE Stable
+    baseurl: "{{ docker_engine_repo_base_url }}/{{ docker_engine_distribution }}/{{ docker_engine_redhat_releasever }}/{{ docker_engine_architecture_redhat }}/{{ docker_engine_repo_component }}"
+    enabled: true
+    gpgcheck: true
+    repo_gpgcheck: false
+    gpgkey: "file://{{ docker_engine_gpg_key_path_redhat }}"
+    state: present
+
+- name: Install Docker Engine packages
+  ansible.builtin.dnf:
+    name: "{{ docker_engine_packages }}"
+    state: present
+    update_cache: true

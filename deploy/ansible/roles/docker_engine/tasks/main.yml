@@ -3,13 +3,28 @@
   ansible.builtin.import_tasks: validate.yml
   tags: [docker, validation]
 
-- name: Import install tasks
-  ansible.builtin.import_tasks: install.yml
+- name: Import Debian install tasks
+  ansible.builtin.import_tasks: install_debian.yml
+  when: ansible_os_family == "Debian"
+  tags: [docker, packages]
+
+- name: Import RedHat install tasks
+  ansible.builtin.import_tasks: install_redhat.yml
+  when: ansible_os_family == "RedHat"
   tags: [docker, packages]
 
 - name: Import service tasks
   ansible.builtin.import_tasks: service.yml
   tags: [docker, service]
+
+- name: Import configuration tasks
+  ansible.builtin.import_tasks: configure.yml
+  tags: [docker, config]
+
+- name: Flush handlers before verification
+  meta: flush_handlers
+  when: docker_engine_validate_installation | bool
+  tags: [docker, verify]
 
 - name: Import verification tasks
   ansible.builtin.import_tasks: verify.yml
