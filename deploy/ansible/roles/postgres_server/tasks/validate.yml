@@ -1,0 +1,106 @@
+---
+- name: Validate required postgres variables
+  ansible.builtin.assert:
+    that:
+      - postgres_bind_host | trim | length > 0
+      - postgres_port | int > 0
+      - postgres_port | int < 65536
+      - postgres_image_platform | trim | length > 0
+      - postgres_superuser | trim | length > 0
+      - postgres_superuser is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
+      - postgres_superuser_password | trim | length > 0
+      - postgres_superuser_password != "CHANGE_ME_IN_VAULT"
+      - postgres_n8n_user | trim | length > 0
+      - postgres_n8n_user is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
+      - postgres_n8n_db | trim | length > 0
+      - postgres_n8n_db is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
+      - postgres_n8n_password | trim | length > 0
+      - postgres_wiki_user | trim | length > 0
+      - postgres_wiki_user is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
+      - postgres_wiki_db | trim | length > 0
+      - postgres_wiki_db is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
+      - postgres_wiki_password | trim | length > 0
+      - postgres_hba_rules is iterable
+      - postgres_hba_rules | length > 0
+    fail_msg: "Postgres role validation failed: check architecture/credentials/network/HBA variables."
+  tags: [postgres, postgres_validate]
+
+- name: Validate pg_hba rules are mappings
+  ansible.builtin.assert:
+    that:
+      - item is mapping
+    fail_msg: "Each postgres_hba_rules item must be a mapping/dictionary."
+  loop: "{{ postgres_hba_rules }}"
+  loop_control:
+    label: "{{ item | to_json }}"
+  tags: [postgres, postgres_validate]
+
+- name: Validate pg_hba rule required fields and values
+  ansible.builtin.assert:
+    that:
+      - "'type' in item"
+      - "'database' in item"
+      - "'user' in item"
+      - "'address' in item"
+      - "'method' in item"
+      - item.type is string
+      - item.database is string
+      - item.user is string
+      - item.address is string
+      - item.method is string
+      - item.type | trim | length > 0
+      - item.database | trim | length > 0
+      - item.user | trim | length > 0
+      - item.address | trim | length > 0
+      - item.method | trim | length > 0
+      - item.type in postgres_hba_allowed_types
+    fail_msg: >-
+      Invalid pg_hba rule. Required keys: type, database, user, address, method.
+      Allowed types: {{ postgres_hba_allowed_types | join(', ') }}.
+  loop: "{{ postgres_hba_rules }}"
+  loop_control:
+    label: "{{ item | to_json }}"
+  when: item is mapping
+  tags: [postgres, postgres_validate]
+
+- name: Check TLS cert file exists when TLS enabled
+  ansible.builtin.stat:
+    path: "{{ postgres_tls_cert_path }}"
+  register: postgres_tls_cert_stat
+  when: postgres_tls_enabled | bool
+  tags: [postgres, postgres_validate]
+
+- name: Check TLS key file exists when TLS enabled
+  ansible.builtin.stat:
+    path: "{{ postgres_tls_key_path }}"
+  register: postgres_tls_key_stat
+  when: postgres_tls_enabled | bool
+  tags: [postgres, postgres_validate]
+
+- name: Validate TLS cert/key presence when TLS enabled
+  ansible.builtin.assert:
+    that:
+      - postgres_tls_cert_stat.stat.exists
+      - postgres_tls_key_stat.stat.exists
+    fail_msg: "TLS is enabled, but server.crt/server.key not found on target host."
+  when: postgres_tls_enabled | bool
+  tags: [postgres, postgres_validate]
+
+- name: Check TLS CA file exists when CA enabled
+  ansible.builtin.stat:
+    path: "{{ postgres_tls_ca_path }}"
+  register: postgres_tls_ca_stat
+  when:
+    - postgres_tls_enabled | bool
+    - postgres_tls_ca_enabled | bool
+  tags: [postgres, postgres_validate]
+
+- name: Validate TLS CA presence when CA enabled
+  ansible.builtin.assert:
+    that:
+      - postgres_tls_ca_stat.stat.exists
+    fail_msg: "TLS CA is enabled, but ca.crt not found on target host."
+  when:
+    - postgres_tls_enabled | bool
+    - postgres_tls_ca_enabled | bool
+  tags: [postgres, postgres_validate]
