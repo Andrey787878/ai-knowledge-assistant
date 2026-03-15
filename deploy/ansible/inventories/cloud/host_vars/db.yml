@@ -1,0 +1,22 @@
+---
+postgres_hba_rules:
+  - type: '{{ postgres_hba_remote_type }}'
+    database: all
+    user: all
+    address: 127.0.0.1/32
+    method: '{{ postgres_password_encryption }}'
+  - type: '{{ postgres_hba_remote_type }}'
+    database: all
+    user: all
+    address: ::1/128
+    method: '{{ postgres_password_encryption }}'
+  - type: '{{ postgres_hba_remote_type }}'
+    database: '{{ postgres_n8n_db }}'
+    user: '{{ postgres_n8n_user }}'
+    address: "{{ hostvars['n8n'].private_ip }}/32"
+    method: '{{ postgres_password_encryption }}'
+  - type: '{{ postgres_hba_remote_type }}'
+    database: '{{ postgres_wiki_db }}'
+    user: '{{ postgres_wiki_user }}'
+    address: "{{ hostvars['wiki'].private_ip }}/32"
+    method: '{{ postgres_password_encryption }}'
