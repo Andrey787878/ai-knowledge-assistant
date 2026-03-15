@@ -1,0 +1,9 @@
+# Managed by Ansible.
+# Keep this file strict: allow only explicit source CIDRs.
+
+# Unix socket access inside container.
+local   all             all                                     {{ postgres_local_auth_method }}
+
+{% for rule in postgres_hba_rules %}
+{{ rule.type | default(postgres_hba_remote_type) }}    {{ rule.database }}             {{ rule.user }}             {{ rule.address }}            {{ rule.method }}
+{% endfor %}

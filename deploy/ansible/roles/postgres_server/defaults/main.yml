@@ -1,0 +1,109 @@
+---
+# Container identity and image pinning
+postgres_container_name: postgres
+postgres_restart_policy: unless-stopped
+postgres_image_repository: postgres
+postgres_image_tag: '18.3-bookworm'
+postgres_image_digest: 'sha256:e83514f5fe85fab1692e05a510f3a10bc86a4ff428a333942239a72f9e0a5ce8'
+postgres_image: '{{ postgres_image_repository }}:{{ postgres_image_tag }}@{{ postgres_image_digest }}'
+
+# Platform selection from host facts
+postgres_platform_map:
+  x86_64: linux/amd64
+  aarch64: linux/arm64/v8
+postgres_image_platform: "{{ postgres_platform_map.get(ansible_architecture, '') }}"
+
+# Network
+postgres_bind_host: '{{ private_ip }}'
+postgres_port: 5432
+postgres_listen_addresses: '*'
+
+# Host filesystem layout
+postgres_project_dir: /opt/ai-agent/postgres
+postgres_compose_file_path: '{{ postgres_project_dir }}/docker-compose.yml'
+postgres_data_dir: '{{ postgres_project_dir }}/data'
+postgres_init_dir: '{{ postgres_project_dir }}/init'
+postgres_init_sql_host_path: '{{ postgres_init_dir }}/init.sql'
+postgres_config_dir: '{{ postgres_project_dir }}/config'
+postgres_env_file_path: '{{ postgres_config_dir }}/postgres.env'
+postgres_hba_config_path: '{{ postgres_config_dir }}/pg_hba.conf'
+
+# Container filesystem layout
+postgres_container_hba_file: /etc/postgresql/pg_hba.conf
+postgres_container_data_dir: /var/lib/postgresql/data
+postgres_container_init_dir: /docker-entrypoint-initdb.d
+postgres_container_init_sql_file: '{{ postgres_container_init_dir }}/10-init.sql'
+
+# Bootstrap credentials and app databases (secrets via ansible-vault)
+postgres_superuser: postgres
+postgres_superuser_password: ''
+postgres_default_db: postgres
+postgres_timezone: UTC
+postgres_n8n_db: n8n
+postgres_n8n_user: n8n
+postgres_n8n_password: ''
+postgres_wiki_db: wikijs
+postgres_wiki_user: wikijs
+postgres_wiki_password: ''
+
+# Authentication/security
+postgres_password_encryption: scram-sha-256
+postgres_local_auth_method: '{{ postgres_password_encryption }}'
+postgres_hba_remote_type: "{{ 'hostssl' if postgres_tls_enabled else 'host' }}"
+
+# TLS policy
+postgres_tls_enabled: true
+postgres_tls_min_protocol_version: 'TLSv1.2'
+postgres_tls_ciphers: 'HIGH:!aNULL:!MD5'
+postgres_tls_ca_enabled: false
+postgres_tls_manage_file_permissions: true
+
+# TLS files on host
+postgres_tls_dir: '{{ postgres_config_dir }}/tls'
+postgres_tls_cert_path: '{{ postgres_tls_dir }}/server.crt'
+postgres_tls_key_path: '{{ postgres_tls_dir }}/server.key'
+postgres_tls_ca_path: '{{ postgres_tls_dir }}/ca.crt'
+postgres_tls_cert_file_owner: '999'
+postgres_tls_cert_file_group: '999'
+postgres_tls_cert_file_mode: '0644'
+postgres_tls_key_file_owner: '999'
+postgres_tls_key_file_group: '999'
+postgres_tls_key_file_mode: '0600'
+postgres_tls_ca_file_owner: '999'
+postgres_tls_ca_file_group: '999'
+postgres_tls_ca_file_mode: '0644'
+
+# TLS files inside container
+postgres_container_tls_dir: /etc/postgresql/tls
+postgres_container_tls_cert_file: '{{ postgres_container_tls_dir }}/server.crt'
+postgres_container_tls_key_file: '{{ postgres_container_tls_dir }}/server.key'
+postgres_container_tls_ca_file: '{{ postgres_container_tls_dir }}/ca.crt'
+
+# Compose deploy behavior
+postgres_compose_wait: true
+postgres_compose_wait_timeout: 300
+postgres_reconcile_enabled: true
+
+# Healthcheck
+postgres_healthcheck_interval: 10s
+postgres_healthcheck_timeout: 5s
+postgres_healthcheck_retries: 10
+postgres_healthcheck_start_period: 10s
+postgres_verify_app_connections: true
+
+# pg_hba allow-list (override in host_vars/db.yml)
+postgres_hba_allowed_types:
+  - host
+  - hostssl
+
+postgres_hba_rules:
+  - type: '{{ postgres_hba_remote_type }}'
+    database: all
+    user: all
+    address: 127.0.0.1/32
+    method: '{{ postgres_password_encryption }}'
+  - type: '{{ postgres_hba_remote_type }}'
+    database: all
+    user: all
+    address: ::1/128
+    method: '{{ postgres_password_encryption }}'

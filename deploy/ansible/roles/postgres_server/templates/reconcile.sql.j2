@@ -1,0 +1,83 @@
+\set ON_ERROR_STOP on
+{% set postgres_n8n_password_sql = postgres_n8n_password | replace("'", "''") %}
+{% set postgres_wiki_password_sql = postgres_wiki_password | replace("'", "''") %}
+
+-- Reconcile n8n role (create if missing, enforce desired attributes/password otherwise).
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = '{{ postgres_n8n_user }}') THEN
+    EXECUTE format(
+      'CREATE ROLE %I WITH LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT',
+      '{{ postgres_n8n_user }}',
+      '{{ postgres_n8n_password_sql }}'
+    );
+  ELSE
+    EXECUTE format(
+      'ALTER ROLE %I WITH LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT',
+      '{{ postgres_n8n_user }}',
+      '{{ postgres_n8n_password_sql }}'
+    );
+  END IF;
+END
+$$;
+
+-- Reconcile Wiki.js role.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = '{{ postgres_wiki_user }}') THEN
+    EXECUTE format(
+      'CREATE ROLE %I WITH LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT',
+      '{{ postgres_wiki_user }}',
+      '{{ postgres_wiki_password_sql }}'
+    );
+  ELSE
+    EXECUTE format(
+      'ALTER ROLE %I WITH LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT',
+      '{{ postgres_wiki_user }}',
+      '{{ postgres_wiki_password_sql }}'
+    );
+  END IF;
+END
+$$;
+
+-- Create databases if absent and enforce owner.
+SELECT format(
+  'CREATE DATABASE %I OWNER %I',
+  '{{ postgres_n8n_db }}',
+  '{{ postgres_n8n_user }}'
+)
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM pg_catalog.pg_database
+  WHERE datname = '{{ postgres_n8n_db }}'
+)\gexec
+
+SELECT format(
+  'ALTER DATABASE %I OWNER TO %I',
+  '{{ postgres_n8n_db }}',
+  '{{ postgres_n8n_user }}'
+)\gexec
+
+SELECT format(
+  'CREATE DATABASE %I OWNER %I',
+  '{{ postgres_wiki_db }}',
+  '{{ postgres_wiki_user }}'
+)
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM pg_catalog.pg_database
+  WHERE datname = '{{ postgres_wiki_db }}'
+)\gexec
+
+SELECT format(
+  'ALTER DATABASE %I OWNER TO %I',
+  '{{ postgres_wiki_db }}',
+  '{{ postgres_wiki_user }}'
+)\gexec
+
+-- Reconcile minimum database grants.
+SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', '{{ postgres_n8n_db }}')\gexec
+SELECT format('GRANT CONNECT, TEMP ON DATABASE %I TO %I', '{{ postgres_n8n_db }}', '{{ postgres_n8n_user }}')\gexec
+
+SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', '{{ postgres_wiki_db }}')\gexec
+SELECT format('GRANT CONNECT, TEMP ON DATABASE %I TO %I', '{{ postgres_wiki_db }}', '{{ postgres_wiki_user }}')\gexec

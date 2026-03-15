@@ -1,0 +1,16 @@
+---
+- name: Deploy postgres stack with docker compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ postgres_project_dir }}"
+    state: present
+    wait: "{{ postgres_compose_wait }}"
+    wait_timeout: "{{ postgres_compose_wait_timeout }}"
+  register: postgres_compose_deploy_result
+  tags: [postgres, postgres_deploy]
+
+- name: Mark postgres deploy executed in current run
+  ansible.builtin.set_fact:
+    postgres_deploy_executed: true
+  changed_when: false
+  when: postgres_compose_deploy_result is not skipped
+  tags: [postgres, postgres_deploy]
