@@ -1,0 +1,110 @@
+---
+- name: Gather postgres container info
+  community.docker.docker_container_info:
+    name: "{{ postgres_container_name }}"
+  register: postgres_container_info
+  when: not ansible_check_mode
+  tags: [postgres, postgres_verify]
+
+- name: Assert postgres container is running
+  ansible.builtin.assert:
+    that:
+      - postgres_container_info.exists
+      - postgres_container_info.container.State.Running
+    fail_msg: "Postgres container is not running."
+  when: not ansible_check_mode
+  tags: [postgres, postgres_verify]
+
+- name: Wait for postgres TCP port
+  ansible.builtin.wait_for:
+    host: "{{ postgres_bind_host }}"
+    port: "{{ postgres_port }}"
+    timeout: 30
+    state: started
+  when: not ansible_check_mode
+  tags: [postgres, postgres_verify]
+
+- name: Verify postgres readiness with pg_isready
+  community.docker.docker_container_exec:
+    container: "{{ postgres_container_name }}"
+    argv:
+      - pg_isready
+      - -U
+      - "{{ postgres_superuser }}"
+      - -d
+      - "{{ postgres_default_db }}"
+  register: postgres_pg_isready
+  changed_when: false
+  when: not ansible_check_mode
+  tags: [postgres, postgres_verify]
+
+- name: Assert pg_isready reports accepting connections
+  ansible.builtin.assert:
+    that:
+      - postgres_pg_isready.rc == 0
+      - "'accepting connections' in postgres_pg_isready.stdout"
+    fail_msg: "pg_isready check failed for postgres container."
+  when: not ansible_check_mode
+  tags: [postgres, postgres_verify]
+
+- name: Verify n8n app user connection
+  community.docker.docker_container_exec:
+    container: "{{ postgres_container_name }}"
+    argv:
+      - psql
+      - -v
+      - ON_ERROR_STOP=1
+      - "host=127.0.0.1 port=5432 dbname={{ postgres_n8n_db }} user={{ postgres_n8n_user }} sslmode={{ 'require' if postgres_tls_enabled else 'disable' }}"
+      - -tAc
+      - SELECT 1
+    env:
+      PGPASSWORD: "{{ postgres_n8n_password | string }}"
+  register: postgres_n8n_connection_check
+  changed_when: false
+  no_log: true
+  when:
+    - postgres_verify_app_connections | bool
+    - not ansible_check_mode
+  tags: [postgres, postgres_verify]
+
+- name: Assert n8n app user connection works
+  ansible.builtin.assert:
+    that:
+      - postgres_n8n_connection_check.rc == 0
+      - postgres_n8n_connection_check.stdout | trim == '1'
+    fail_msg: "n8n user cannot connect to n8n database."
+  when:
+    - postgres_verify_app_connections | bool
+    - not ansible_check_mode
+  tags: [postgres, postgres_verify]
+
+- name: Verify wikijs app user connection
+  community.docker.docker_container_exec:
+    container: "{{ postgres_container_name }}"
+    argv:
+      - psql
+      - -v
+      - ON_ERROR_STOP=1
+      - "host=127.0.0.1 port=5432 dbname={{ postgres_wiki_db }} user={{ postgres_wiki_user }} sslmode={{ 'require' if postgres_tls_enabled else 'disable' }}"
+      - -tAc
+      - SELECT 1
+    env:
+      PGPASSWORD: "{{ postgres_wiki_password | string }}"
+  register: postgres_wiki_connection_check
+  changed_when: false
+  no_log: true
+  when:
+    - postgres_verify_app_connections | bool
+    - not ansible_check_mode
+  tags: [postgres, postgres_verify]
+
+- name: Assert wikijs app user connection works
+  ansible.builtin.assert:
+    that:
+      - postgres_wiki_connection_check.rc == 0
+      - postgres_wiki_connection_check.stdout | trim == '1'
+    fail_msg: "wikijs user cannot connect to wikijs database."
+  when:
+    - postgres_verify_app_connections | bool
+    - not ansible_check_mode
+  tags: [postgres, postgres_verify]
