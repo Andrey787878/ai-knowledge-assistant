@@ -1,0 +1,24 @@
+---
+- name: Run postgres validation tasks
+  ansible.builtin.import_tasks: validate.yml
+  tags: [postgres, postgres_validate]
+
+- name: Run postgres install/config tasks
+  ansible.builtin.import_tasks: install.yml
+  tags: [postgres, postgres_install]
+
+- name: Run postgres deploy tasks
+  ansible.builtin.import_tasks: deploy.yml
+  tags: [postgres, postgres_deploy]
+
+- name: Flush postgres handlers before verify
+  ansible.builtin.meta: flush_handlers
+  tags: [postgres, postgres_install, postgres_deploy, postgres_reconcile, postgres_verify]
+
+- name: Run postgres reconcile tasks
+  ansible.builtin.import_tasks: reconcile.yml
+  tags: [postgres, postgres_reconcile]
+
+- name: Run postgres verify tasks
+  ansible.builtin.import_tasks: verify.yml
+  tags: [postgres, postgres_verify]

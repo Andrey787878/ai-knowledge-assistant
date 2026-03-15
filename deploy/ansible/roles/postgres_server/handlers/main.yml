@@ -1,0 +1,10 @@
+---
+- name: Apply postgres stack changes
+  community.docker.docker_compose_v2:
+    project_src: "{{ postgres_project_dir }}"
+    state: present
+    wait: "{{ postgres_compose_wait }}"
+    wait_timeout: "{{ postgres_compose_wait_timeout }}"
+  listen: Apply postgres stack changes
+  when: not (postgres_deploy_executed | default(false) | bool)
+  tags: [postgres, postgres_handlers]
