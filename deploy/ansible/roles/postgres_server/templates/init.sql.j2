@@ -1,0 +1,61 @@
+\set ON_ERROR_STOP on
+
+-- This script is executed by docker-entrypoint-initdb.d only on first cluster init.
+-- It creates least-privileged app roles/databases for n8n and Wiki.js.
+{% set postgres_n8n_password_sql = postgres_n8n_password | replace("'", "''") %}
+{% set postgres_wiki_password_sql = postgres_wiki_password | replace("'", "''") %}
+
+-- n8n role
+SELECT format(
+  'CREATE ROLE %I WITH LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT',
+  '{{ postgres_n8n_user }}',
+  '{{ postgres_n8n_password_sql }}'
+)
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM pg_catalog.pg_roles
+  WHERE rolname = '{{ postgres_n8n_user }}'
+)\gexec
+
+-- Wiki.js role
+SELECT format(
+  'CREATE ROLE %I WITH LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT',
+  '{{ postgres_wiki_user }}',
+  '{{ postgres_wiki_password_sql }}'
+)
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM pg_catalog.pg_roles
+  WHERE rolname = '{{ postgres_wiki_user }}'
+)\gexec
+
+-- n8n database
+SELECT format(
+  'CREATE DATABASE %I OWNER %I',
+  '{{ postgres_n8n_db }}',
+  '{{ postgres_n8n_user }}'
+)
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM pg_catalog.pg_database
+  WHERE datname = '{{ postgres_n8n_db }}'
+)\gexec
+
+-- Wiki.js database
+SELECT format(
+  'CREATE DATABASE %I OWNER %I',
+  '{{ postgres_wiki_db }}',
+  '{{ postgres_wiki_user }}'
+)
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM pg_catalog.pg_database
+  WHERE datname = '{{ postgres_wiki_db }}'
+)\gexec
+
+-- Restrict default PUBLIC access and grant only needed access to app roles.
+SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', '{{ postgres_n8n_db }}')\gexec
+SELECT format('GRANT CONNECT, TEMP ON DATABASE %I TO %I', '{{ postgres_n8n_db }}', '{{ postgres_n8n_user }}')\gexec
+
+SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', '{{ postgres_wiki_db }}')\gexec
+SELECT format('GRANT CONNECT, TEMP ON DATABASE %I TO %I', '{{ postgres_wiki_db }}', '{{ postgres_wiki_user }}')\gexec
