@@ -1,0 +1,32 @@
+---
+- name: Reconcile app roles/databases/grants in postgres
+  community.docker.docker_container_exec:
+    container: "{{ postgres_container_name }}"
+    argv:
+      - psql
+      - -v
+      - ON_ERROR_STOP=1
+      - -U
+      - "{{ postgres_superuser }}"
+      - -d
+      - "{{ postgres_default_db }}"
+    stdin: "{{ lookup('ansible.builtin.template', 'reconcile.sql.j2') }}"
+    env:
+      PGPASSWORD: "{{ postgres_superuser_password | string }}"
+  register: postgres_reconcile_result
+  changed_when: false
+  no_log: true
+  when:
+    - postgres_reconcile_enabled | bool
+    - not ansible_check_mode
+  tags: [postgres, postgres_reconcile]
+
+- name: Assert reconcile execution succeeded
+  ansible.builtin.assert:
+    that:
+      - postgres_reconcile_result.rc == 0
+    fail_msg: "Postgres reconcile step failed."
+  when:
+    - postgres_reconcile_enabled | bool
+    - not ansible_check_mode
+  tags: [postgres, postgres_reconcile]
