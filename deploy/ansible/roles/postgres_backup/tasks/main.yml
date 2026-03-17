@@ -1,0 +1,12 @@
+---
+- name: Run postgres backup validation tasks
+  ansible.builtin.import_tasks: validate.yml
+  tags: [postgres_backup, postgres_backup_validate]
+
+- name: Run postgres backup setup tasks
+  ansible.builtin.import_tasks: setup.yml
+  tags: [postgres_backup, postgres_backup_setup]
+
+- name: Run postgres backup cron tasks
+  ansible.builtin.import_tasks: cron.yml
+  tags: [postgres_backup, postgres_backup_cron]

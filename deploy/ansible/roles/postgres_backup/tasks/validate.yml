@@ -1,0 +1,37 @@
+---
+- name: Validate postgres backup required variables
+  ansible.builtin.assert:
+    that:
+      - postgres_backup_root_dir | trim | length > 0
+      - postgres_backup_scripts_dir | trim | length > 0
+      - postgres_backup_current_dir | trim | length > 0
+      - postgres_backup_script_path | trim | length > 0
+      - postgres_restore_script_path | trim | length > 0
+      - postgres_backup_lock_file | trim | length > 0
+      - postgres_backup_container_name | trim | length > 0
+      - postgres_backup_env_file | trim | length > 0
+      - postgres_backup_databases is iterable
+      - postgres_backup_databases | length > 0
+      - postgres_backup_retention_days | int > 0
+    fail_msg: "postgres_backup validation failed: check paths/container/databases/retention variables."
+  tags: [postgres_backup, postgres_backup_validate]
+
+- name: Validate postgres backup database names
+  ansible.builtin.assert:
+    that:
+      - item is string
+      - item | trim | length > 0
+      - item is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
+    fail_msg: "Invalid database name in postgres_backup_databases: {{ item }}"
+  loop: "{{ postgres_backup_databases }}"
+  tags: [postgres_backup, postgres_backup_validate]
+
+- name: Validate cron schedule format when cron enabled
+  ansible.builtin.assert:
+    that:
+      - postgres_backup_cron_schedule is string
+      - postgres_backup_cron_schedule | trim | length > 0
+      - postgres_backup_cron_schedule.split(' ') | length == 5
+    fail_msg: "postgres_backup_cron_schedule must contain exactly 5 cron fields."
+  when: postgres_backup_cron_enabled | bool
+  tags: [postgres_backup, postgres_backup_validate]

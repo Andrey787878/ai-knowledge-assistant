@@ -1,0 +1,70 @@
+---
+- name: Run postgres backup
+  hosts: db_hosts
+  become: true
+  roles:
+    - postgres_backup
+  tasks:
+    - name: Execute postgres backup script
+      ansible.builtin.command: "{{ postgres_backup_script_path }}"
+      changed_when: true
+      tags: [postgres_backup]
+
+    - name: Read current backup symlink
+      ansible.builtin.stat:
+        path: "{{ postgres_backup_current_dir }}"
+      register: postgres_backup_current_stat
+      tags: [postgres_backup]
+
+    - name: Assert current backup symlink points to timestamp directory
+      ansible.builtin.assert:
+        that:
+          - postgres_backup_current_stat.stat.exists
+          - postgres_backup_current_stat.stat.islnk
+          - postgres_backup_current_stat.stat.lnk_source | trim | length > 0
+          - postgres_backup_current_stat.stat.lnk_source is match('^.*/[0-9]{8}-[0-9]{6}$')
+        fail_msg: "Backup post-check failed: current symlink is missing or invalid."
+      tags: [postgres_backup]
+
+    - name: Save latest backup directory from symlink
+      ansible.builtin.set_fact:
+        postgres_backup_latest_dir: "{{ postgres_backup_current_stat.stat.lnk_source }}"
+      changed_when: false
+      tags: [postgres_backup]
+
+    - name: Check SHA256SUMS file exists in latest backup
+      ansible.builtin.stat:
+        path: "{{ postgres_backup_latest_dir }}/SHA256SUMS"
+      register: postgres_backup_sha_sums_stat
+      tags: [postgres_backup]
+
+    - name: Assert SHA256SUMS file exists and is not empty
+      ansible.builtin.assert:
+        that:
+          - postgres_backup_sha_sums_stat.stat.exists
+          - postgres_backup_sha_sums_stat.stat.size | int > 0
+        fail_msg: "Backup post-check failed: SHA256SUMS is missing or empty."
+      tags: [postgres_backup]
+
+    - name: Find dump files in latest backup directory
+      ansible.builtin.find:
+        paths: "{{ postgres_backup_latest_dir }}"
+        patterns: "*.dump"
+        file_type: file
+      register: postgres_backup_dump_files
+      tags: [postgres_backup]
+
+    - name: Assert expected dump file count
+      ansible.builtin.assert:
+        that:
+          - postgres_backup_dump_files.matched | int == postgres_backup_databases | length
+        fail_msg: "Backup post-check failed: dump file count does not match postgres_backup_databases."
+      tags: [postgres_backup]
+
+    - name: Assert dump files are non-empty
+      ansible.builtin.assert:
+        that:
+          - (postgres_backup_dump_files.files | map(attribute='size') | min | int) > 0
+        fail_msg: "Backup post-check failed: one or more dump files are empty."
+      when: postgres_backup_dump_files.matched | int > 0
+      tags: [postgres_backup]

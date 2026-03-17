@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+CONTAINER="{{ postgres_backup_container_name }}"
+ENV_FILE="{{ postgres_backup_env_file }}"
+LOCK_FILE="{{ postgres_backup_lock_file }}"
+TMP_GLOBALS_FILE="/tmp/globals.sql"
+LOCK_ACQUIRED="false"
+
+declare -a TMP_DUMP_FILES=(
+{% for db_name in postgres_backup_databases %}
+  "/tmp/{{ db_name }}.dump"
+{% endfor %}
+)
+
+BACKUP_DIR="${1:-}"
+WITH_GLOBALS="${2:-false}"
+
+is_container_running() {
+  docker container ls --filter "name=^/${CONTAINER}$" --filter "status=running" -q | grep -q .
+}
+
+cleanup() {
+  local rc=$?
+
+  if is_container_running; then
+    docker exec "${CONTAINER}" rm -f "${TMP_GLOBALS_FILE}" >/dev/null 2>&1 || true
+    for tmp_dump in "${TMP_DUMP_FILES[@]}"; do
+      docker exec "${CONTAINER}" rm -f "${tmp_dump}" >/dev/null 2>&1 || true
+    done
+  fi
+
+  if [[ "${LOCK_ACQUIRED}" == "true" ]]; then
+    rm -f "${LOCK_FILE}" >/dev/null 2>&1 || true
+  fi
+
+  exit "${rc}"
+}
+
+trap cleanup EXIT INT TERM
+
+if [[ -z "${BACKUP_DIR}" ]]; then
+  echo "usage: $0 <backup_dir> [with_globals:true|false]" >&2
+  exit 1
+fi
+
+if [[ ! -d "${BACKUP_DIR}" ]]; then
+  echo "backup directory not found: ${BACKUP_DIR}" >&2
+  exit 1
+fi
+
+mkdir -p "$(dirname "${LOCK_FILE}")"
+
+if [[ -f "${LOCK_FILE}" ]]; then
+  LOCK_PID="$(cat "${LOCK_FILE}" 2>/dev/null || true)"
+  if [[ -n "${LOCK_PID}" && "${LOCK_PID}" =~ ^[0-9]+$ ]] && kill -0 "${LOCK_PID}" 2>/dev/null; then
+    echo "another postgres backup/restore process is running (pid: ${LOCK_PID})" >&2
+    exit 1
+  fi
+  rm -f "${LOCK_FILE}" >/dev/null 2>&1 || true
+fi
+
+if ! (set -o noclobber; echo "$$" > "${LOCK_FILE}") 2>/dev/null; then
+  echo "backup lock file exists: ${LOCK_FILE}" >&2
+  exit 1
+fi
+
+LOCK_ACQUIRED="true"
+
+if ! is_container_running; then
+  echo "postgres container is not running: ${CONTAINER}" >&2
+  exit 1
+fi
+
+if [[ ! -f "${ENV_FILE}" ]]; then
+  echo "env file not found: ${ENV_FILE}" >&2
+  exit 1
+fi
+
+if [[ ! -f "${BACKUP_DIR}/SHA256SUMS" ]]; then
+  echo "SHA256SUMS not found in ${BACKUP_DIR}" >&2
+  exit 1
+fi
+
+(
+  cd "${BACKUP_DIR}"
+  sha256sum -c SHA256SUMS
+)
+
+read_env_value() {
+  local key="$1"
+  awk -F= -v key="$key" '
+    $0 ~ "^[[:space:]]*" key "[[:space:]]*=" {
+      line=$0
+      sub(/^[[:space:]]*[^=]+[[:space:]]*=[[:space:]]*/, "", line)
+      gsub(/\r$/, "", line)
+      if ((line ~ /^".*"$/) || (line ~ /^'\''.*'\''$/)) {
+        line=substr(line, 2, length(line) - 2)
+      }
+      print line
+      exit
+    }
+  ' "${ENV_FILE}"
+}
+
+POSTGRES_USER="$(read_env_value POSTGRES_USER)"
+POSTGRES_PASSWORD="$(read_env_value POSTGRES_PASSWORD)"
+
+if [[ -z "${POSTGRES_USER:-}" || -z "${POSTGRES_PASSWORD:-}" ]]; then
+  echo "POSTGRES_USER/POSTGRES_PASSWORD are required in ${ENV_FILE}" >&2
+  exit 1
+fi
+
+# Avoid putting password into docker exec arguments.
+docker_exec_with_pgpassword() {
+  printf '%s\n' "${POSTGRES_PASSWORD}" | docker exec -i "${CONTAINER}" sh -eu -c '
+    IFS= read -r PGPASSWORD
+    export PGPASSWORD
+    exec "$@"
+  ' sh "$@"
+}
+
+if [[ "${WITH_GLOBALS}" == "true" ]]; then
+  if [[ ! -f "${BACKUP_DIR}/globals.sql" ]]; then
+    echo "globals.sql not found in ${BACKUP_DIR}" >&2
+    exit 1
+  fi
+  docker cp "${BACKUP_DIR}/globals.sql" "${CONTAINER}:${TMP_GLOBALS_FILE}"
+  docker_exec_with_pgpassword \
+    psql -v ON_ERROR_STOP=1 -U "${POSTGRES_USER}" -d postgres -f "${TMP_GLOBALS_FILE}"
+  docker exec "${CONTAINER}" rm -f "${TMP_GLOBALS_FILE}"
+fi
+
+{% for db_name in postgres_backup_databases %}
+if [[ ! -f "${BACKUP_DIR}/{{ db_name }}.dump" ]]; then
+  echo "dump not found: ${BACKUP_DIR}/{{ db_name }}.dump" >&2
+  exit 1
+fi
+docker cp "${BACKUP_DIR}/{{ db_name }}.dump" "${CONTAINER}:/tmp/{{ db_name }}.dump"
+docker_exec_with_pgpassword \
+  pg_restore --clean --if-exists -U "${POSTGRES_USER}" -d "{{ db_name }}" "/tmp/{{ db_name }}.dump"
+docker exec "${CONTAINER}" rm -f "/tmp/{{ db_name }}.dump"
+{% endfor %}
+
+echo "postgres restore completed from: ${BACKUP_DIR}"
