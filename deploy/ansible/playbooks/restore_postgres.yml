@@ -1,0 +1,34 @@
+---
+- name: Restore postgres from backup
+  hosts: db_hosts
+  become: true
+  serial: 1
+  roles:
+    - postgres_backup
+  pre_tasks:
+    - name: Operational precondition notice
+      ansible.builtin.debug:
+        msg: >-
+          Before restore, stop or switch DB writers (for example n8n/wikijs) to read-only mode
+          to avoid inconsistent state during recovery.
+
+    - name: Ensure restore confirmation is explicit
+      ansible.builtin.assert:
+        that:
+          - postgres_restore_confirm == "YES"
+        fail_msg: "Set -e postgres_restore_confirm=YES to allow restore."
+
+    - name: Ensure restore source directory is provided
+      ansible.builtin.assert:
+        that:
+          - postgres_restore_source_dir | trim | length > 0
+        fail_msg: "Set -e postgres_restore_source_dir=/path/to/backup."
+
+  tasks:
+    - name: Execute postgres restore script
+      ansible.builtin.command: >-
+        {{ postgres_restore_script_path }}
+        {{ postgres_restore_source_dir }}
+        {{ 'true' if postgres_restore_with_globals else 'false' }}
+      changed_when: true
+      tags: [postgres_backup]
