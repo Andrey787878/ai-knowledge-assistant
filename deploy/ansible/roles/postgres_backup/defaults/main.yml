@@ -1,0 +1,31 @@
+---
+# Directories
+postgres_backup_root_dir: /var/backups/ai-agent/postgres
+postgres_backup_scripts_dir: /opt/ai-agent/postgres/scripts
+postgres_backup_current_dir: '{{ postgres_backup_root_dir }}/current'
+
+# Script paths
+postgres_backup_script_path: '{{ postgres_backup_scripts_dir }}/backup-postgres.sh'
+postgres_restore_script_path: '{{ postgres_backup_scripts_dir }}/restore-postgres.sh'
+
+# Runtime parameters inherited from postgres_server
+postgres_backup_container_name: '{{ postgres_container_name }}'
+postgres_backup_env_file: '{{ postgres_env_file_path }}'
+postgres_backup_databases:
+  - '{{ postgres_n8n_db }}'
+  - '{{ postgres_wiki_db }}'
+
+# Backup behavior
+postgres_backup_include_globals: true
+postgres_backup_prune_enabled: false
+postgres_backup_retention_days: 7
+postgres_backup_lock_file: '{{ postgres_backup_root_dir }}/.backup.lock'
+
+# Optional scheduler
+postgres_backup_cron_enabled: false
+postgres_backup_cron_schedule: '30 2 * * *'
+
+# Restore safety
+postgres_restore_confirm: 'NO'
+postgres_restore_source_dir: ''
+postgres_restore_with_globals: false

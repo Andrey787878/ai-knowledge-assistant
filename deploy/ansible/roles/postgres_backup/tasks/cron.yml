@@ -1,0 +1,22 @@
+---
+- name: Configure postgres backup cron job
+  ansible.builtin.cron:
+    name: postgres backup
+    user: root
+    minute: "{{ postgres_backup_cron_schedule.split(' ')[0] }}"
+    hour: "{{ postgres_backup_cron_schedule.split(' ')[1] }}"
+    day: "{{ postgres_backup_cron_schedule.split(' ')[2] }}"
+    month: "{{ postgres_backup_cron_schedule.split(' ')[3] }}"
+    weekday: "{{ postgres_backup_cron_schedule.split(' ')[4] }}"
+    job: "{{ postgres_backup_script_path }} >> {{ postgres_backup_root_dir }}/backup.log 2>&1"
+    state: present
+  when: postgres_backup_cron_enabled | bool
+  tags: [postgres_backup, postgres_backup_cron]
+
+- name: Remove postgres backup cron job when disabled
+  ansible.builtin.cron:
+    name: postgres backup
+    user: root
+    state: absent
+  when: not (postgres_backup_cron_enabled | bool)
+  tags: [postgres_backup, postgres_backup_cron]

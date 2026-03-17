@@ -1,0 +1,70 @@
+---
+- name: Ensure postgres backup directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  loop:
+    - "{{ postgres_backup_root_dir }}"
+    - "{{ postgres_backup_scripts_dir }}"
+  tags: [postgres_backup, postgres_backup_setup]
+
+- name: Check current backup pointer path
+  ansible.builtin.stat:
+    path: "{{ postgres_backup_current_dir }}"
+  register: postgres_backup_current_path_stat
+  tags: [postgres_backup, postgres_backup_setup]
+
+- name: Find files in current backup directory when it is a directory
+  ansible.builtin.find:
+    paths: "{{ postgres_backup_current_dir }}"
+    file_type: any
+    hidden: true
+  register: postgres_backup_current_dir_items
+  when:
+    - postgres_backup_current_path_stat.stat.exists
+    - postgres_backup_current_path_stat.stat.isdir
+  tags: [postgres_backup, postgres_backup_setup]
+
+- name: Remove legacy empty current backup directory
+  ansible.builtin.file:
+    path: "{{ postgres_backup_current_dir }}"
+    state: absent
+  when:
+    - postgres_backup_current_path_stat.stat.exists
+    - postgres_backup_current_path_stat.stat.isdir
+    - postgres_backup_current_dir_items.matched | int == 0
+  tags: [postgres_backup, postgres_backup_setup]
+
+- name: Fail when current backup path is non-empty directory
+  ansible.builtin.assert:
+    that:
+      - not (
+          postgres_backup_current_path_stat.stat.exists
+          and postgres_backup_current_path_stat.stat.isdir
+          and (postgres_backup_current_dir_items.matched | default(0) | int > 0)
+        )
+    fail_msg: >-
+      {{ postgres_backup_current_dir }} is a non-empty directory, but backup flow expects it to be a symlink
+      to the latest backup. Move its contents and remove the directory before running this role.
+  tags: [postgres_backup, postgres_backup_setup]
+
+- name: Render postgres backup script
+  ansible.builtin.template:
+    src: backup-postgres.sh.j2
+    dest: "{{ postgres_backup_script_path }}"
+    owner: root
+    group: root
+    mode: "0750"
+  tags: [postgres_backup, postgres_backup_setup]
+
+- name: Render postgres restore script
+  ansible.builtin.template:
+    src: restore-postgres.sh.j2
+    dest: "{{ postgres_restore_script_path }}"
+    owner: root
+    group: root
+    mode: "0750"
+  tags: [postgres_backup, postgres_backup_setup]
