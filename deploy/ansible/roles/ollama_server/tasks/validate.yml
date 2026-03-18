@@ -1,0 +1,42 @@
+---
+- name: Validate required ollama variables
+  ansible.builtin.assert:
+    that:
+      - ollama_bind_host | trim | length > 0
+      - ollama_port | int > 0
+      - ollama_port | int < 65536
+      - ollama_image_repository | trim | length > 0
+      - ollama_image_tag | trim | length > 0
+      - ollama_image_digest | trim | length > 0
+      - ollama_image | trim | length > 0
+      - ollama_image_platform | trim | length > 0
+      - ollama_listen_host | trim | length > 0
+      - ollama_container_name | trim | length > 0
+      - ollama_project_dir | trim | length > 0
+      - ollama_config_dir | trim | length > 0
+      - ollama_data_dir | trim | length > 0
+      - ollama_compose_file_path | trim | length > 0
+      - ollama_env_file_path | trim | length > 0
+      - ollama_verify_api_url | trim | length > 0
+      - ollama_verify_generate_url | trim | length > 0
+      - ollama_model | trim | length > 0
+      - ollama_compose_wait_timeout | int > 0
+      - ollama_verify_generate_prompt | trim | length > 0
+      - ollama_verify_generate_timeout | int > 0
+      - ollama_healthcheck_interval | trim | length > 0
+      - ollama_healthcheck_timeout | trim | length > 0
+      - ollama_healthcheck_retries | int > 0
+      - ollama_healthcheck_start_period | trim | length > 0
+    fail_msg: "Ollama role validation failed: check architecture/network/image/path/healthcheck variables."
+  tags: [ollama, ollama_validate]
+
+- name: Validate ollama toggle variables are boolean
+  ansible.builtin.assert:
+    that:
+      - ollama_compose_wait is boolean
+      - ollama_verify_enabled is boolean
+      - ollama_verify_generate_enabled is boolean
+    fail_msg: >-
+      ollama_compose_wait, ollama_verify_enabled,
+      ollama_verify_generate_enabled must be boolean values.
+  tags: [ollama, ollama_validate]
