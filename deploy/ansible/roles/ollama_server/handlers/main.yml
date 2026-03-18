@@ -1,0 +1,10 @@
+---
+- name: Apply ollama stack changes
+  community.docker.docker_compose_v2:
+    project_src: '{{ ollama_project_dir }}'
+    state: present
+    wait: '{{ ollama_compose_wait }}'
+    wait_timeout: '{{ ollama_compose_wait_timeout }}'
+  listen: Apply ollama stack changes
+  when: not (ollama_deploy_executed | default(false) | bool)
+  tags: [ollama, ollama_handlers]

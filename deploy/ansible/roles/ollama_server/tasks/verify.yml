@@ -1,0 +1,98 @@
+---
+- name: Gather ollama container info
+  community.docker.docker_container_info:
+    name: "{{ ollama_container_name }}"
+  register: ollama_container_info
+  when: not ansible_check_mode
+  tags: [ollama, ollama_verify]
+
+- name: Assert ollama container is running
+  ansible.builtin.assert:
+    that:
+      - ollama_container_info.exists
+      - ollama_container_info.container.State.Running
+    fail_msg: "Ollama container is not running."
+  when: not ansible_check_mode
+  tags: [ollama, ollama_verify]
+
+- name: Wait for ollama TCP port
+  ansible.builtin.wait_for:
+    host: "{{ ollama_bind_host }}"
+    port: "{{ ollama_port }}"
+    timeout: 30
+    state: started
+  when: not ansible_check_mode
+  tags: [ollama, ollama_verify]
+
+- name: Query ollama tags API
+  ansible.builtin.uri:
+    url: "{{ ollama_verify_api_url }}"
+    method: GET
+    status_code: 200
+    return_content: true
+  register: ollama_tags_api
+  changed_when: false
+  retries: 10
+  delay: 3
+  until: ollama_tags_api.status == 200
+  when: not ansible_check_mode
+  tags: [ollama, ollama_verify]
+
+- name: Assert ollama tags API response shape
+  ansible.builtin.assert:
+    that:
+      - ollama_tags_api.status == 200
+      - ollama_tags_api.json is mapping
+      - "'models' in ollama_tags_api.json"
+    fail_msg: "Ollama API check failed: /api/tags did not return expected payload."
+  when: not ansible_check_mode
+  tags: [ollama, ollama_verify]
+
+- name: Build installed model list from verify API response
+  ansible.builtin.set_fact:
+    ollama_installed_models_verify: "{{ ollama_tags_api.json.models | default([]) | map(attribute='name') | list }}"
+  changed_when: false
+  when: not ansible_check_mode
+  tags: [ollama, ollama_verify]
+
+- name: Assert selected model is available in ollama
+  ansible.builtin.assert:
+    that:
+      - ollama_model in ollama_installed_models_verify
+    fail_msg: "Selected model is not available in ollama: {{ ollama_model }}"
+  when: not ansible_check_mode
+  tags: [ollama, ollama_verify, ollama_model]
+
+- name: Run ollama inference smoke test
+  ansible.builtin.uri:
+    url: "{{ ollama_verify_generate_url }}"
+    method: POST
+    body_format: json
+    body:
+      model: "{{ ollama_model }}"
+      prompt: "{{ ollama_verify_generate_prompt }}"
+      stream: false
+      options:
+        num_predict: 16
+    status_code: 200
+    return_content: true
+    timeout: "{{ ollama_verify_generate_timeout }}"
+  register: ollama_generate_api
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - ollama_verify_generate_enabled | bool
+  tags: [ollama, ollama_verify, ollama_inference]
+
+- name: Assert ollama inference response is non-empty
+  ansible.builtin.assert:
+    that:
+      - ollama_generate_api.status == 200
+      - ollama_generate_api.json is mapping
+      - "'response' in ollama_generate_api.json"
+      - ollama_generate_api.json.response | trim | length > 0
+    fail_msg: "Ollama inference check failed: /api/generate returned empty response."
+  when:
+    - not ansible_check_mode
+    - ollama_verify_generate_enabled | bool
+  tags: [ollama, ollama_verify, ollama_inference]

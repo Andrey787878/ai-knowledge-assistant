@@ -1,0 +1,16 @@
+---
+- name: Deploy ollama stack with docker compose
+  community.docker.docker_compose_v2:
+    project_src: '{{ ollama_project_dir }}'
+    state: present
+    wait: '{{ ollama_compose_wait }}'
+    wait_timeout: '{{ ollama_compose_wait_timeout }}'
+  register: ollama_compose_deploy_result
+  tags: [ollama, ollama_deploy]
+
+- name: Mark ollama deploy executed in current run
+  ansible.builtin.set_fact:
+    ollama_deploy_executed: true
+  changed_when: false
+  when: ollama_compose_deploy_result is not skipped
+  tags: [ollama, ollama_deploy]

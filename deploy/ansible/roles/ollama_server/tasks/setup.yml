@@ -1,0 +1,33 @@
+---
+- name: Ensure ollama directories exist
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop: >-
+    {{
+      [ollama_project_dir, ollama_config_dir, ollama_data_dir]
+    }}
+  tags: [ollama, ollama_setup]
+
+- name: Render ollama docker-compose file
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: '{{ ollama_compose_file_path }}'
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Apply ollama stack changes
+  tags: [ollama, ollama_setup]
+
+- name: Render ollama env file
+  ansible.builtin.template:
+    src: ollama.env.j2
+    dest: '{{ ollama_env_file_path }}'
+    owner: root
+    group: root
+    mode: '0600'
+  notify: Apply ollama stack changes
+  tags: [ollama, ollama_setup]
