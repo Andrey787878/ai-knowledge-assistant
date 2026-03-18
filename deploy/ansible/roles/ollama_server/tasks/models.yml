@@ -1,0 +1,71 @@
+---
+- name: Query ollama tags API before model pull
+  ansible.builtin.uri:
+    url: '{{ ollama_verify_api_url }}'
+    method: GET
+    status_code: 200
+    return_content: true
+  register: ollama_tags_before_pull
+  changed_when: false
+  retries: 10
+  delay: 3
+  until: ollama_tags_before_pull.status == 200
+  when: not ansible_check_mode
+  tags: [ollama, ollama_model]
+
+- name: Build installed model list before pull
+  ansible.builtin.set_fact:
+    ollama_installed_models_before_pull: "{{ ollama_tags_before_pull.json.models | default([]) | map(attribute='name') | list }}"
+  changed_when: false
+  when: not ansible_check_mode
+  tags: [ollama, ollama_model]
+
+- name: Detect whether selected model is already present
+  ansible.builtin.set_fact:
+    ollama_model_present_before_pull: "{{ ollama_model in ollama_installed_models_before_pull }}"
+  changed_when: false
+  when: not ansible_check_mode
+  tags: [ollama, ollama_model]
+
+- name: Pull selected ollama model when missing
+  community.docker.docker_container_exec:
+    container: '{{ ollama_container_name }}'
+    argv:
+      - ollama
+      - pull
+      - '{{ ollama_model }}'
+  register: ollama_model_pull_result
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - not ollama_model_present_before_pull
+  tags: [ollama, ollama_model]
+
+- name: Query ollama tags API after model pull
+  ansible.builtin.uri:
+    url: '{{ ollama_verify_api_url }}'
+    method: GET
+    status_code: 200
+    return_content: true
+  register: ollama_tags_after_pull
+  changed_when: false
+  retries: 20
+  delay: 3
+  until: ollama_tags_after_pull.status == 200
+  when: not ansible_check_mode
+  tags: [ollama, ollama_model]
+
+- name: Build installed model list after pull
+  ansible.builtin.set_fact:
+    ollama_installed_models_after_pull: "{{ ollama_tags_after_pull.json.models | default([]) | map(attribute='name') | list }}"
+  changed_when: false
+  when: not ansible_check_mode
+  tags: [ollama, ollama_model]
+
+- name: Assert selected model is present after pull
+  ansible.builtin.assert:
+    that:
+      - ollama_model in ollama_installed_models_after_pull
+    fail_msg: 'Selected model is missing after pull: {{ ollama_model }}'
+  when: not ansible_check_mode
+  tags: [ollama, ollama_model]
