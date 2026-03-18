@@ -1,0 +1,49 @@
+---
+# Container identity and image pinning
+ollama_container_name: ollama
+ollama_restart_policy: unless-stopped
+ollama_image_repository: ollama/ollama
+ollama_image_tag: '0.18.1'
+ollama_image_digest: 'sha256:5949ec041e62b28f92d5ff1d7c34080ec67efd73ad24a523e2ff558a24f33072'
+ollama_image: '{{ ollama_image_repository }}:{{ ollama_image_tag }}@{{ ollama_image_digest }}'
+
+# Platform selection from host facts
+ollama_platform_map:
+  x86_64: linux/amd64
+  aarch64: linux/arm64/v8
+ollama_image_platform: "{{ ollama_platform_map.get(ansible_architecture, '') }}"
+
+# Network
+ollama_bind_host: '{{ private_ip }}'
+ollama_port: 11434
+ollama_listen_host: '0.0.0.0'
+ollama_verify_api_url: 'http://{{ ollama_bind_host }}:{{ ollama_port }}/api/tags'
+ollama_verify_generate_url: 'http://{{ ollama_bind_host }}:{{ ollama_port }}/api/generate'
+
+# Host filesystem layout
+ollama_project_dir: /opt/ai-agent/ollama
+ollama_config_dir: '{{ ollama_project_dir }}/config'
+ollama_data_dir: '{{ ollama_project_dir }}/data'
+ollama_compose_file_path: '{{ ollama_project_dir }}/docker-compose.yml'
+ollama_env_file_path: '{{ ollama_config_dir }}/ollama.env'
+ollama_container_data_dir: /root/.ollama
+
+# Runtime env
+ollama_keep_alive: 5m
+
+# Models to ensure in Ollama
+ollama_model: qwen2.5:1.5b
+
+# Compose deploy behavior
+ollama_compose_wait: true
+ollama_compose_wait_timeout: 600
+ollama_verify_enabled: true
+ollama_verify_generate_enabled: true
+ollama_verify_generate_prompt: 'Respond with one short word: ok'
+ollama_verify_generate_timeout: 240
+
+# Healthcheck
+ollama_healthcheck_interval: 15s
+ollama_healthcheck_timeout: 5s
+ollama_healthcheck_retries: 10
+ollama_healthcheck_start_period: 20s

@@ -1,0 +1,24 @@
+services:
+  ollama:
+    image: "{{ ollama_image }}"
+{% if ollama_image_platform | length > 0 %}
+    platform: "{{ ollama_image_platform }}"
+{% endif %}
+    container_name: "{{ ollama_container_name }}"
+    restart: "{{ ollama_restart_policy }}"
+
+    env_file:
+      - "{{ ollama_env_file_path }}"
+
+    ports:
+      - "{{ ollama_bind_host }}:{{ ollama_port }}:11434"
+
+    volumes:
+      - "{{ ollama_data_dir }}:{{ ollama_container_data_dir }}"
+
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: "{{ ollama_healthcheck_interval }}"
+      timeout: "{{ ollama_healthcheck_timeout }}"
+      retries: {{ ollama_healthcheck_retries }}
+      start_period: "{{ ollama_healthcheck_start_period }}"

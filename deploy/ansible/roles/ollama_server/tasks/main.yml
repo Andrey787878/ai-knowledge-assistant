@@ -1,0 +1,25 @@
+---
+- name: Run ollama validation tasks
+  ansible.builtin.import_tasks: validate.yml
+  tags: [ollama, ollama_validate]
+
+- name: Run ollama setup tasks
+  ansible.builtin.import_tasks: setup.yml
+  tags: [ollama, ollama_setup]
+
+- name: Run ollama deploy tasks
+  ansible.builtin.import_tasks: deploy.yml
+  tags: [ollama, ollama_deploy]
+
+- name: Flush ollama handlers before verify
+  ansible.builtin.meta: flush_handlers
+  tags: [ollama, ollama_setup, ollama_deploy, ollama_model, ollama_verify]
+
+- name: Run ollama model tasks
+  ansible.builtin.import_tasks: models.yml
+  tags: [ollama, ollama_model]
+
+- name: Run ollama verify tasks
+  ansible.builtin.import_tasks: verify.yml
+  when: ollama_verify_enabled | bool
+  tags: [ollama, ollama_verify]
