@@ -1,0 +1,65 @@
+---
+# Container identity and image pinning
+wikijs_runtime_container_name: wikijs
+wikijs_runtime_restart_policy: unless-stopped
+wikijs_image_repository: requarks/wiki
+wikijs_image_tag: '2.5'
+wikijs_image_digest: 'sha256:e013da5e3b634fb6e09f469f2d63fe3a138d79087455bf1e9d804c7bd5109a09'
+wikijs_image: '{{ wikijs_image_repository }}:{{ wikijs_image_tag }}@{{ wikijs_image_digest }}'
+
+# Platform selection from host facts
+wikijs_image_platform_map:
+  x86_64: linux/amd64
+  aarch64: linux/arm64
+wikijs_image_platform: "{{ wikijs_image_platform_map.get(ansible_architecture, '') }}"
+
+# Runtime network settings
+wikijs_runtime_bind_host: '{{ private_ip }}'
+wikijs_runtime_host_port: 3000
+wikijs_runtime_container_port: 3000
+
+# Host filesystem layout
+wikijs_stack_project_dir: /opt/ai-agent/wikijs
+wikijs_stack_config_dir: '{{ wikijs_stack_project_dir }}/config'
+wikijs_stack_data_dir: '{{ wikijs_stack_project_dir }}/data'
+wikijs_stack_compose_file_path: '{{ wikijs_stack_project_dir }}/docker-compose.yml'
+wikijs_stack_env_file_path: '{{ wikijs_stack_config_dir }}/wikijs.env'
+
+# Container filesystem layout
+wikijs_runtime_container_data_dir: /wiki/data
+
+# Stack directory permissions on host
+wikijs_stack_project_dir_owner: root
+wikijs_stack_project_dir_group: root
+wikijs_stack_project_dir_mode: '0755'
+wikijs_stack_config_dir_owner: root
+wikijs_stack_config_dir_group: root
+wikijs_stack_config_dir_mode: '0755'
+wikijs_stack_data_dir_owner: '1000'
+wikijs_stack_data_dir_group: '1000'
+wikijs_stack_data_dir_mode: '0750'
+
+# Wiki.js database connection
+wikijs_postgres_type: postgres
+wikijs_postgres_host: ''
+wikijs_postgres_port: 5432
+wikijs_postgres_database: wikijs
+wikijs_postgres_user: wikijs
+wikijs_postgres_password: ''
+wikijs_postgres_ssl_enabled: false
+wikijs_postgres_ssl_ca: ''
+
+# Compose deploy behavior
+wikijs_stack_compose_wait: true
+wikijs_stack_compose_wait_timeout: 300
+
+# Runtime healthcheck
+wikijs_runtime_healthcheck_interval: 15s
+wikijs_runtime_healthcheck_timeout: 5s
+wikijs_runtime_healthcheck_retries: 20
+wikijs_runtime_healthcheck_start_period: 30s
+
+# Verify behavior
+wikijs_verify_enabled: true
+wikijs_verify_url: 'http://{{ wikijs_runtime_bind_host }}:{{ wikijs_runtime_host_port }}/'
+wikijs_verify_postgres_tcp_enabled: true
