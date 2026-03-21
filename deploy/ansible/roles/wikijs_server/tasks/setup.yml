@@ -1,0 +1,48 @@
+---
+- name: Ensure wikijs project/config directories exist
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - path: "{{ wikijs_stack_project_dir }}"
+      owner: "{{ wikijs_stack_project_dir_owner }}"
+      group: "{{ wikijs_stack_project_dir_group }}"
+      mode: "{{ wikijs_stack_project_dir_mode }}"
+    - path: "{{ wikijs_stack_config_dir }}"
+      owner: "{{ wikijs_stack_config_dir_owner }}"
+      group: "{{ wikijs_stack_config_dir_group }}"
+      mode: "{{ wikijs_stack_config_dir_mode }}"
+  tags: [wikijs, wikijs_setup]
+
+- name: Ensure wikijs data directory exists
+  ansible.builtin.file:
+    path: "{{ wikijs_stack_data_dir }}"
+    state: directory
+    owner: "{{ wikijs_stack_data_dir_owner }}"
+    group: "{{ wikijs_stack_data_dir_group }}"
+    mode: "{{ wikijs_stack_data_dir_mode }}"
+  tags: [wikijs, wikijs_setup]
+
+- name: Render wikijs docker-compose file
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ wikijs_stack_compose_file_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Apply wikijs stack changes
+  tags: [wikijs, wikijs_setup]
+
+- name: Render wikijs env file
+  ansible.builtin.template:
+    src: wikijs.env.j2
+    dest: "{{ wikijs_stack_env_file_path }}"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  notify: Apply wikijs stack changes
+  tags: [wikijs, wikijs_setup]

@@ -1,0 +1,21 @@
+---
+- name: Run wikijs validation tasks
+  ansible.builtin.import_tasks: validate.yml
+  tags: [wikijs, wikijs_validate]
+
+- name: Run wikijs setup tasks
+  ansible.builtin.import_tasks: setup.yml
+  tags: [wikijs, wikijs_setup]
+
+- name: Run wikijs deploy tasks
+  ansible.builtin.import_tasks: deploy.yml
+  tags: [wikijs, wikijs_deploy]
+
+- name: Flush wikijs handlers before verify
+  ansible.builtin.meta: flush_handlers
+  tags: [wikijs, wikijs_setup, wikijs_deploy, wikijs_verify]
+
+- name: Run wikijs verify tasks
+  ansible.builtin.import_tasks: verify.yml
+  when: wikijs_verify_enabled | bool
+  tags: [wikijs, wikijs_verify]

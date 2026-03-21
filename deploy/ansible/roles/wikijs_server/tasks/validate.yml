@@ -1,0 +1,59 @@
+---
+- name: Validate required wikijs variables
+  ansible.builtin.assert:
+    that:
+      - wikijs_runtime_container_name | trim | length > 0
+      - wikijs_runtime_restart_policy | trim | length > 0
+      - wikijs_image_repository | trim | length > 0
+      - wikijs_image_tag | trim | length > 0
+      - wikijs_image_digest | trim | length > 0
+      - wikijs_image | trim | length > 0
+      - wikijs_image_platform | trim | length > 0
+      - wikijs_runtime_bind_host | trim | length > 0
+      - wikijs_runtime_host_port | int > 0
+      - wikijs_runtime_host_port | int < 65536
+      - wikijs_runtime_container_port | int > 0
+      - wikijs_runtime_container_port | int < 65536
+      - wikijs_verify_url | trim | length > 0
+      - wikijs_verify_url is match('^https?://')
+      - wikijs_stack_project_dir | trim | length > 0
+      - wikijs_stack_config_dir | trim | length > 0
+      - wikijs_stack_data_dir | trim | length > 0
+      - wikijs_stack_compose_file_path | trim | length > 0
+      - wikijs_stack_env_file_path | trim | length > 0
+      - wikijs_runtime_container_data_dir | trim | length > 0
+      - wikijs_postgres_type == "postgres"
+      - wikijs_postgres_host | trim | length > 0
+      - wikijs_postgres_port | int > 0
+      - wikijs_postgres_port | int < 65536
+      - wikijs_postgres_database | trim | length > 0
+      - wikijs_postgres_user | trim | length > 0
+      - wikijs_postgres_password | trim | length > 0
+      - wikijs_stack_compose_wait_timeout | int > 0
+      - wikijs_runtime_healthcheck_interval | trim | length > 0
+      - wikijs_runtime_healthcheck_timeout | trim | length > 0
+      - wikijs_runtime_healthcheck_retries | int > 0
+      - wikijs_runtime_healthcheck_start_period | trim | length > 0
+      - wikijs_stack_project_dir_owner | string | trim | length > 0
+      - wikijs_stack_project_dir_group | string | trim | length > 0
+      - wikijs_stack_config_dir_owner | string | trim | length > 0
+      - wikijs_stack_config_dir_group | string | trim | length > 0
+      - wikijs_stack_data_dir_owner | string | trim | length > 0
+      - wikijs_stack_data_dir_group | string | trim | length > 0
+    fail_msg: >-
+      wikijs role validation failed: check image/network/path/database/
+      healthcheck variables.
+  tags: [wikijs, wikijs_validate]
+
+- name: Validate wikijs toggle variables are boolean
+  ansible.builtin.assert:
+    that:
+      - wikijs_postgres_ssl_enabled is boolean
+      - wikijs_stack_compose_wait is boolean
+      - wikijs_verify_enabled is boolean
+      - wikijs_verify_postgres_tcp_enabled is boolean
+    fail_msg: >-
+      wikijs_postgres_ssl_enabled, wikijs_stack_compose_wait,
+      wikijs_verify_enabled, wikijs_verify_postgres_tcp_enabled
+      must be boolean values.
+  tags: [wikijs, wikijs_validate]
