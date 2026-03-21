@@ -1,0 +1,16 @@
+---
+- name: Deploy wikijs stack with docker compose
+  community.docker.docker_compose_v2:
+    project_src: '{{ wikijs_stack_project_dir }}'
+    state: present
+    wait: '{{ wikijs_stack_compose_wait }}'
+    wait_timeout: '{{ wikijs_stack_compose_wait_timeout }}'
+  register: wikijs_compose_deploy_result
+  tags: [wikijs, wikijs_deploy]
+
+- name: Mark wikijs deploy executed in current run
+  ansible.builtin.set_fact:
+    wikijs_deploy_executed: true
+  changed_when: false
+  when: wikijs_compose_deploy_result is not skipped
+  tags: [wikijs, wikijs_deploy]
