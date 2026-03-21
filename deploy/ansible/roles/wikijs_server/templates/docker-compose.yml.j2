@@ -1,0 +1,24 @@
+services:
+  wikijs:
+    image: "{{ wikijs_image }}"
+{% if wikijs_image_platform | length > 0 %}
+    platform: "{{ wikijs_image_platform }}"
+{% endif %}
+    container_name: "{{ wikijs_runtime_container_name }}"
+    restart: "{{ wikijs_runtime_restart_policy }}"
+
+    env_file:
+      - "{{ wikijs_stack_env_file_path }}"
+
+    ports:
+      - "{{ wikijs_runtime_bind_host }}:{{ wikijs_runtime_host_port }}:{{ wikijs_runtime_container_port }}"
+
+    volumes:
+      - "{{ wikijs_stack_data_dir }}:{{ wikijs_runtime_container_data_dir }}"
+
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http=require('http');const req=http.get({host:'127.0.0.1',port:{{ wikijs_runtime_container_port }},path:'/'},(res)=>{process.exit(res.statusCode<500?0:1);});req.setTimeout(5000,()=>{req.destroy();process.exit(1);});req.on('error',()=>process.exit(1));"]
+      interval: "{{ wikijs_runtime_healthcheck_interval }}"
+      timeout: "{{ wikijs_runtime_healthcheck_timeout }}"
+      retries: {{ wikijs_runtime_healthcheck_retries }}
+      start_period: "{{ wikijs_runtime_healthcheck_start_period }}"
