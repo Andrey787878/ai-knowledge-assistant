@@ -1,0 +1,135 @@
+---
+- name: Gather redis container info
+  community.docker.docker_container_info:
+    name: "{{ n8n_redis_container_name }}"
+  register: n8n_redis_container_info
+  when: not ansible_check_mode
+  tags: [n8n, n8n_verify]
+
+- name: Gather n8n-web container info
+  community.docker.docker_container_info:
+    name: "{{ n8n_web_container_name }}"
+  register: n8n_web_container_info
+  when: not ansible_check_mode
+  tags: [n8n, n8n_verify]
+
+- name: Gather n8n-worker container info
+  community.docker.docker_container_info:
+    name: "{{ n8n_worker_container_name }}"
+  register: n8n_worker_container_info
+  when: not ansible_check_mode
+  tags: [n8n, n8n_verify]
+
+- name: Assert redis, n8n-web, n8n-worker containers are running
+  ansible.builtin.assert:
+    that:
+      - n8n_redis_container_info.exists
+      - n8n_redis_container_info.container.State.Running
+      - n8n_web_container_info.exists
+      - n8n_web_container_info.container.State.Running
+      - n8n_worker_container_info.exists
+      - n8n_worker_container_info.container.State.Running
+    fail_msg: "One or more n8n stack containers are not running."
+  when: not ansible_check_mode
+  tags: [n8n, n8n_verify]
+
+- name: Wait for n8n-web TCP port
+  ansible.builtin.wait_for:
+    host: "{{ n8n_web_bind_host }}"
+    port: "{{ n8n_web_port }}"
+    timeout: 30
+    state: started
+  when: not ansible_check_mode
+  tags: [n8n, n8n_verify]
+
+- name: Query n8n health endpoint
+  ansible.builtin.uri:
+    url: "http://{{ n8n_web_bind_host }}:{{ n8n_web_port }}{{ n8n_web_healthcheck_path }}"
+    method: GET
+    status_code: 200
+    return_content: true
+  register: n8n_healthz_check
+  changed_when: false
+  retries: 15
+  delay: 3
+  until: n8n_healthz_check.status == 200
+  when: not ansible_check_mode
+  tags: [n8n, n8n_verify]
+
+- name: Assert n8n health endpoint response is valid
+  ansible.builtin.assert:
+    that:
+      - n8n_healthz_check.status == 200
+    fail_msg: "n8n health check failed."
+  when: not ansible_check_mode
+  tags: [n8n, n8n_verify]
+
+- name: Verify n8n-web can reach postgres and redis over TCP
+  community.docker.docker_container_exec:
+    container: "{{ n8n_web_container_name }}"
+    argv:
+      - node
+      - -e
+      - >-
+        const net=require("net"); const checks=[["postgres", process.env.DB_POSTGRESDB_HOST, Number(process.env.DB_POSTGRESDB_PORT||5432)], ["redis", process.env.QUEUE_BULL_REDIS_HOST, Number(process.env.QUEUE_BULL_REDIS_PORT||6379)]]; let i=0; const fail=(m)=>{console.error(m); process.exit(1);}; const next=()=>{ if(i>=checks.length){process.exit(0);} const c=checks[i++]; const name=c[0], host=c[1], port=c[2]; if(!host||!port){fail(name+" target is empty");} const s=net.createConnection({host:host,port:port}); const t=setTimeout(()=>{s.destroy(); fail(name+" timeout "+host+":"+port);},5000); s.on("connect",()=>{clearTimeout(t); s.end(); next();}); s.on("error",(e)=>{clearTimeout(t); fail(name+" error "+host+":"+port+" "+e.message);}); }; next();
+  register: n8n_web_runtime_connectivity_check
+  changed_when: false
+  when: not ansible_check_mode
+  tags: [n8n, n8n_verify]
+
+- name: Assert n8n-web runtime connectivity checks passed
+  ansible.builtin.assert:
+    that:
+      - n8n_web_runtime_connectivity_check.rc == 0
+    fail_msg: "n8n-web cannot reach postgres and/or redis over TCP."
+  when: not ansible_check_mode
+  tags: [n8n, n8n_verify]
+
+- name: Build redis ping command args
+  ansible.builtin.set_fact:
+    n8n_redis_ping_argv:
+      - redis-cli
+      - -h
+      - 127.0.0.1
+      - -p
+      - "{{ n8n_redis_port | string }}"
+      - ping
+  changed_when: false
+  when:
+    - n8n_verify_redis_ping_enabled | bool
+    - not ansible_check_mode
+  tags: [n8n, n8n_verify]
+
+- name: Add redis auth args for ping command when password is set
+  ansible.builtin.set_fact:
+    n8n_redis_ping_argv: "{{ n8n_redis_ping_argv + ['-a', n8n_redis_password] }}"
+  changed_when: false
+  no_log: true
+  when:
+    - n8n_verify_redis_ping_enabled | bool
+    - not ansible_check_mode
+    - n8n_redis_password | trim | length > 0
+  tags: [n8n, n8n_verify]
+
+- name: Verify redis responds with PONG
+  community.docker.docker_container_exec:
+    container: "{{ n8n_redis_container_name }}"
+    argv: "{{ n8n_redis_ping_argv }}"
+  register: n8n_redis_ping_check
+  changed_when: false
+  no_log: true
+  when:
+    - n8n_verify_redis_ping_enabled | bool
+    - not ansible_check_mode
+  tags: [n8n, n8n_verify]
+
+- name: Assert redis ping returns PONG
+  ansible.builtin.assert:
+    that:
+      - n8n_redis_ping_check.rc == 0
+      - n8n_redis_ping_check.stdout | trim == "PONG"
+    fail_msg: "redis ping check failed for n8n stack."
+  when:
+    - n8n_verify_redis_ping_enabled | bool
+    - not ansible_check_mode
+  tags: [n8n, n8n_verify]
