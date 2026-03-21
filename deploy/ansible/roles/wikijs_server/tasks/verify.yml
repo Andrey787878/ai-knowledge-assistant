@@ -1,0 +1,72 @@
+---
+- name: Gather wikijs container info
+  community.docker.docker_container_info:
+    name: "{{ wikijs_runtime_container_name }}"
+  register: wikijs_container_info
+  when: not ansible_check_mode
+  tags: [wikijs, wikijs_verify]
+
+- name: Assert wikijs container is running
+  ansible.builtin.assert:
+    that:
+      - wikijs_container_info.exists
+      - wikijs_container_info.container.State.Running
+    fail_msg: "wikijs container is not running."
+  when: not ansible_check_mode
+  tags: [wikijs, wikijs_verify]
+
+- name: Wait for wikijs TCP port
+  ansible.builtin.wait_for:
+    host: "{{ wikijs_runtime_bind_host }}"
+    port: "{{ wikijs_runtime_host_port }}"
+    timeout: 30
+    state: started
+  when: not ansible_check_mode
+  tags: [wikijs, wikijs_verify]
+
+- name: Query wikijs HTTP endpoint
+  ansible.builtin.uri:
+    url: "{{ wikijs_verify_url }}"
+    method: GET
+    status_code: [200, 301, 302]
+    return_content: true
+  register: wikijs_http_check
+  changed_when: false
+  retries: 20
+  delay: 3
+  until: wikijs_http_check.status in [200, 301, 302]
+  when: not ansible_check_mode
+  tags: [wikijs, wikijs_verify]
+
+- name: Assert wikijs HTTP endpoint is healthy
+  ansible.builtin.assert:
+    that:
+      - wikijs_http_check.status in [200, 301, 302]
+    fail_msg: "wikijs HTTP check failed."
+  when: not ansible_check_mode
+  tags: [wikijs, wikijs_verify]
+
+- name: Verify wikijs container can reach postgres over TCP
+  community.docker.docker_container_exec:
+    container: "{{ wikijs_runtime_container_name }}"
+    argv:
+      - node
+      - -e
+      - >-
+        const net=require("net"); const host=process.env.DB_HOST; const port=Number(process.env.DB_PORT||5432); if(!host||!port){console.error("postgres target is empty"); process.exit(1);} const s=net.createConnection({host,port}); const t=setTimeout(()=>{s.destroy(); console.error("postgres timeout "+host+":"+port); process.exit(1);},5000); s.on("connect",()=>{clearTimeout(t); s.end(); process.exit(0);}); s.on("error",(e)=>{clearTimeout(t); console.error("postgres error "+host+":"+port+" "+e.message); process.exit(1);});
+  register: wikijs_postgres_tcp_check
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - wikijs_verify_postgres_tcp_enabled | bool
+  tags: [wikijs, wikijs_verify]
+
+- name: Assert wikijs postgres TCP check passed
+  ansible.builtin.assert:
+    that:
+      - wikijs_postgres_tcp_check.rc == 0
+    fail_msg: "wikijs cannot reach postgres over TCP."
+  when:
+    - not ansible_check_mode
+    - wikijs_verify_postgres_tcp_enabled | bool
+  tags: [wikijs, wikijs_verify]
