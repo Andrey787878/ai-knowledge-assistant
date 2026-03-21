@@ -1,0 +1,58 @@
+---
+- name: Ensure n8n stack project/config directories exist
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - path: "{{ n8n_stack_project_dir }}"
+      owner: "{{ n8n_stack_project_dir_owner }}"
+      group: "{{ n8n_stack_project_dir_group }}"
+      mode: "{{ n8n_stack_project_dir_mode }}"
+    - path: "{{ n8n_stack_config_dir }}"
+      owner: "{{ n8n_stack_config_dir_owner }}"
+      group: "{{ n8n_stack_config_dir_group }}"
+      mode: "{{ n8n_stack_config_dir_mode }}"
+  tags: [n8n, n8n_setup]
+
+- name: Ensure n8n stack runtime data directories exist
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - path: "{{ n8n_stack_data_dir }}"
+      owner: "{{ n8n_stack_data_dir_owner }}"
+      group: "{{ n8n_stack_data_dir_group }}"
+      mode: "{{ n8n_stack_data_dir_mode }}"
+    - path: "{{ n8n_stack_redis_data_dir }}"
+      owner: "{{ n8n_stack_redis_data_dir_owner }}"
+      group: "{{ n8n_stack_redis_data_dir_group }}"
+      mode: "{{ n8n_stack_redis_data_dir_mode }}"
+  tags: [n8n, n8n_setup]
+
+- name: Render n8n stack docker-compose file
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ n8n_stack_compose_file_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  no_log: true
+  notify: Apply n8n stack changes
+  tags: [n8n, n8n_setup]
+
+- name: Render n8n env file
+  ansible.builtin.template:
+    src: n8n.env.j2
+    dest: "{{ n8n_common_env_file_path }}"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  notify: Apply n8n stack changes
+  tags: [n8n, n8n_setup]
