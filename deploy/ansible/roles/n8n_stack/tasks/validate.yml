@@ -1,0 +1,91 @@
+---
+- name: Validate required n8n integration variables
+  ansible.builtin.assert:
+    that:
+      - n8n_postgres_host | trim | length > 0
+      - n8n_postgres_password | trim | length > 0
+      - n8n_common_encryption_key | trim | length > 0
+      - n8n_common_ollama_base_url | trim | length > 0
+    fail_msg: >-
+      n8n_postgres_host, n8n_postgres_password,
+      n8n_common_encryption_key, n8n_common_ollama_base_url
+      must be set (non-empty).
+  tags: [n8n, n8n_validate]
+
+- name: Validate required n8n stack path and identity variables
+  ansible.builtin.assert:
+    that:
+      - n8n_stack_project_dir | trim | length > 0
+      - n8n_stack_config_dir | trim | length > 0
+      - n8n_stack_data_dir | trim | length > 0
+      - n8n_stack_redis_data_dir | trim | length > 0
+      - n8n_stack_project_dir_owner | string | trim | length > 0
+      - n8n_stack_project_dir_group | string | trim | length > 0
+      - n8n_stack_config_dir_owner | string | trim | length > 0
+      - n8n_stack_config_dir_group | string | trim | length > 0
+      - n8n_stack_data_dir_owner | string | trim | length > 0
+      - n8n_stack_data_dir_group | string | trim | length > 0
+      - n8n_stack_redis_data_dir_owner | string | trim | length > 0
+      - n8n_stack_redis_data_dir_group | string | trim | length > 0
+      - n8n_stack_compose_file_path | trim | length > 0
+      - n8n_common_env_file_path | trim | length > 0
+      - n8n_common_image | trim | length > 0
+      - n8n_common_image_platform | trim | length > 0
+      - n8n_web_container_name | trim | length > 0
+      - n8n_worker_container_name | trim | length > 0
+      - n8n_redis_container_name | trim | length > 0
+      - n8n_redis_host | trim | length > 0
+      - n8n_web_bind_host | trim | length > 0
+      - n8n_public_host | trim | length > 0
+    fail_msg: >-
+      n8n_stack path/image/container/bind variables are invalid or empty.
+  tags: [n8n, n8n_validate]
+
+- name: Validate n8n ports and numeric ranges
+  ansible.builtin.assert:
+    that:
+      - n8n_web_port | int > 0
+      - n8n_web_port | int < 65536
+      - n8n_web_container_port | int > 0
+      - n8n_web_container_port | int < 65536
+      - n8n_public_port | int > 0
+      - n8n_public_port | int < 65536
+      - n8n_postgres_port | int > 0
+      - n8n_postgres_port | int < 65536
+      - n8n_redis_port | int > 0
+      - n8n_redis_port | int < 65536
+      - n8n_redis_db | int >= 0
+      - n8n_worker_concurrency | int > 0
+      - n8n_stack_compose_wait_timeout | int > 0
+      - n8n_common_healthcheck_retries | int > 0
+      - n8n_redis_healthcheck_retries | int > 0
+    fail_msg: >-
+      Invalid numeric values for ports/concurrency/timeouts/retries.
+  tags: [n8n, n8n_validate]
+
+- name: Validate boolean flags
+  ansible.builtin.assert:
+    that:
+      - n8n_stack_compose_wait is boolean
+      - n8n_verify_enabled is boolean
+      - n8n_verify_redis_ping_enabled is boolean
+      - n8n_common_telemetry_enabled is boolean
+    fail_msg: >-
+      n8n_stack_compose_wait, n8n_verify_enabled,
+      n8n_verify_redis_ping_enabled, n8n_common_telemetry_enabled
+      must be boolean.
+  tags: [n8n, n8n_validate]
+
+- name: Validate n8n runtime modes and URL-like settings
+  ansible.builtin.assert:
+    that:
+      - n8n_postgres_db_type == "postgresdb"
+      - n8n_common_executions_mode == "queue"
+      - n8n_public_protocol in ["http", "https"]
+      - n8n_common_editor_base_url is match('^https?://')
+      - n8n_common_webhook_url is match('^https?://')
+      - n8n_common_ollama_base_url is match('^https?://')
+    fail_msg: >-
+      n8n_stack expects postgres queue mode and valid http(s) URLs for
+      editor/webhook/ollama endpoints.
+  tags: [n8n, n8n_validate]

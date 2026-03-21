@@ -1,0 +1,16 @@
+---
+- name: Deploy n8n stack with docker compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ n8n_stack_project_dir }}"
+    state: present
+    wait: "{{ n8n_stack_compose_wait }}"
+    wait_timeout: "{{ n8n_stack_compose_wait_timeout }}"
+  register: n8n_compose_deploy_result
+  tags: [n8n, n8n_deploy]
+
+- name: Mark n8n deploy executed in current run
+  ansible.builtin.set_fact:
+    n8n_deploy_executed: true
+  changed_when: false
+  when: n8n_compose_deploy_result is not skipped
+  tags: [n8n, n8n_deploy]
