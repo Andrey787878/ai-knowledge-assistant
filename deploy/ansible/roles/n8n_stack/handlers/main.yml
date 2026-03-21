@@ -1,0 +1,10 @@
+---
+- name: Apply n8n stack changes
+  community.docker.docker_compose_v2:
+    project_src: "{{ n8n_stack_project_dir }}"
+    state: present
+    wait: "{{ n8n_stack_compose_wait }}"
+    wait_timeout: "{{ n8n_stack_compose_wait_timeout }}"
+  listen: Apply n8n stack changes
+  when: not (n8n_deploy_executed | default(false) | bool)
+  tags: [n8n, n8n_handlers]

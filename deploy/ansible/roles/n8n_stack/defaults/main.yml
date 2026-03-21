@@ -1,0 +1,110 @@
+---
+# stack filesystem layout
+n8n_stack_project_dir: /opt/ai-agent/n8n
+n8n_stack_config_dir: '{{ n8n_stack_project_dir }}/config'
+n8n_stack_data_dir: '{{ n8n_stack_project_dir }}/data'
+n8n_stack_redis_data_dir: '{{ n8n_stack_project_dir }}/redis'
+n8n_stack_compose_file_path: '{{ n8n_stack_project_dir }}/docker-compose.yml'
+n8n_stack_project_dir_owner: root
+n8n_stack_project_dir_group: root
+n8n_stack_project_dir_mode: '0755'
+n8n_stack_config_dir_owner: root
+n8n_stack_config_dir_group: root
+n8n_stack_config_dir_mode: '0755'
+# Runtime data dirs are intentionally configurable because container uid/gid can differ between image versions or custom builds
+n8n_stack_data_dir_owner: '1000'
+n8n_stack_data_dir_group: '1000'
+n8n_stack_data_dir_mode: '0750'
+n8n_stack_redis_data_dir_owner: '999'
+n8n_stack_redis_data_dir_group: '999'
+n8n_stack_redis_data_dir_mode: '0750'
+
+# n8n common runtime (shared by web and worker)
+n8n_common_image_repository: n8nio/n8n
+n8n_common_image_tag: stable
+n8n_common_image_digest: 'sha256:1e764de257f2b1eb6fc0e2477bd82cf8f5de9e68b82ac243b1a2db1551426723'
+n8n_common_image: '{{ n8n_common_image_repository }}:{{ n8n_common_image_tag }}@{{ n8n_common_image_digest }}'
+n8n_common_restart_policy: unless-stopped
+n8n_common_env_file_path: '{{ n8n_stack_config_dir }}/n8n.env'
+n8n_common_data_dir: '{{ n8n_stack_data_dir }}'
+n8n_common_container_data_dir: /home/node/.n8n
+n8n_common_healthcheck_interval: 15s
+n8n_common_healthcheck_timeout: 5s
+n8n_common_healthcheck_retries: 20
+n8n_common_healthcheck_start_period: 30s
+
+# n8n shared app config (used by web and worker)
+n8n_common_executions_mode: queue
+n8n_common_timezone: UTC
+n8n_common_telemetry_enabled: false
+n8n_common_editor_base_url: '{{ n8n_public_base_url }}'
+n8n_common_webhook_url: '{{ n8n_public_base_url }}'
+n8n_common_encryption_key: ''
+n8n_common_ollama_base_url: ''
+
+# n8n web delta
+n8n_web_container_name: n8n-web
+n8n_web_bind_host: '{{ private_ip }}'
+n8n_web_port: 5678
+n8n_web_container_port: 5678
+n8n_web_command: start
+n8n_web_healthcheck_path: /healthz
+
+# n8n worker delta
+n8n_worker_container_name: n8n-worker
+n8n_worker_command: worker
+n8n_worker_concurrency: 5
+
+# n8n public endpoint settings (for editor/webhook URLs)
+n8n_public_host: '{{ n8n_web_bind_host }}'
+n8n_public_port: '{{ n8n_web_port }}'
+n8n_public_protocol: http
+n8n_public_port_suffix: "{{ '' if (n8n_public_port | int in [80, 443]) else ':' ~ (n8n_public_port | string) }}"
+n8n_public_base_url: '{{ n8n_public_protocol }}://{{ n8n_public_host }}{{ n8n_public_port_suffix }}'
+
+# n8n platform mapping
+n8n_common_platform_map:
+  x86_64: linux/amd64
+  aarch64: linux/arm64/v8
+n8n_common_image_platform: "{{ n8n_common_platform_map.get(ansible_architecture, '') }}"
+
+# redis runtime
+n8n_redis_image_repository: redis
+n8n_redis_image_tag: '8.2.5-bookworm'
+n8n_redis_image_digest: 'sha256:9e38e6ea04a97f282e8f063c23f91ebb28e65b30be70d98fbf36e7001ac98824'
+n8n_redis_image: '{{ n8n_redis_image_repository }}:{{ n8n_redis_image_tag }}@{{ n8n_redis_image_digest }}'
+n8n_redis_container_name: redis
+n8n_redis_restart_policy: unless-stopped
+n8n_redis_appendonly: 'yes'
+
+n8n_redis_platform_map:
+  x86_64: linux/amd64
+  aarch64: linux/arm64/v8
+n8n_redis_image_platform: "{{ n8n_redis_platform_map.get(ansible_architecture, '') }}"
+
+n8n_redis_healthcheck_interval: 10s
+n8n_redis_healthcheck_timeout: 3s
+n8n_redis_healthcheck_retries: 20
+n8n_redis_healthcheck_start_period: 10s
+
+# redis queue connection for n8n
+n8n_redis_host: redis
+n8n_redis_port: 6379
+n8n_redis_password: ''
+n8n_redis_db: 0
+
+# postgres connection for n8n
+n8n_postgres_db_type: postgresdb
+n8n_postgres_host: ''
+n8n_postgres_port: 5432
+n8n_postgres_database: n8n
+n8n_postgres_user: n8n
+n8n_postgres_password: ''
+
+# compose deploy behavior
+n8n_stack_compose_wait: true
+n8n_stack_compose_wait_timeout: 600
+
+# verify behavior
+n8n_verify_enabled: true
+n8n_verify_redis_ping_enabled: true

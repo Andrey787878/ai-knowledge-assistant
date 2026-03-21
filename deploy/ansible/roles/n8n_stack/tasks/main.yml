@@ -1,0 +1,21 @@
+---
+- name: Run validation tasks
+  ansible.builtin.import_tasks: validate.yml
+  tags: [n8n, n8n_validate]
+
+- name: Run setup tasks
+  ansible.builtin.import_tasks: setup.yml
+  tags: [n8n, n8n_setup]
+
+- name: Run deploy tasks
+  ansible.builtin.import_tasks: deploy.yml
+  tags: [n8n, n8n_deploy]
+
+- name: Flush handlers before verify
+  ansible.builtin.meta: flush_handlers
+  tags: [n8n, n8n_flush, n8n_verify]
+
+- name: Run verify tasks
+  ansible.builtin.import_tasks: verify.yml
+  when: n8n_verify_enabled | bool
+  tags: [n8n, n8n_verify]
