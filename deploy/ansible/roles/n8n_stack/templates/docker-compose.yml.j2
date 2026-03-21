@@ -1,0 +1,74 @@
+services:
+  redis:
+    image: "{{ n8n_redis_image }}"
+{% if n8n_redis_image_platform | length > 0 %}
+    platform: "{{ n8n_redis_image_platform }}"
+{% endif %}
+    container_name: "{{ n8n_redis_container_name }}"
+    restart: "{{ n8n_redis_restart_policy }}"
+    command:
+      - redis-server
+      - --appendonly
+      - "{{ n8n_redis_appendonly }}"
+{% if n8n_redis_password | trim | length > 0 %}
+      - --requirepass
+      - "{{ n8n_redis_password }}"
+{% endif %}
+    volumes:
+      - "{{ n8n_stack_redis_data_dir }}:/data"
+    healthcheck:
+{% if n8n_redis_password | trim | length > 0 %}
+      test: ["CMD", "redis-cli", "-a", "{{ n8n_redis_password }}", "ping"]
+{% else %}
+      test: ["CMD", "redis-cli", "ping"]
+{% endif %}
+      interval: "{{ n8n_redis_healthcheck_interval }}"
+      timeout: "{{ n8n_redis_healthcheck_timeout }}"
+      retries: {{ n8n_redis_healthcheck_retries }}
+      start_period: "{{ n8n_redis_healthcheck_start_period }}"
+
+  n8n-web:
+    image: "{{ n8n_common_image }}"
+{% if n8n_common_image_platform | length > 0 %}
+    platform: "{{ n8n_common_image_platform }}"
+{% endif %}
+    container_name: "{{ n8n_web_container_name }}"
+    restart: "{{ n8n_common_restart_policy }}"
+    command: ["{{ n8n_web_command }}"]
+    env_file:
+      - "{{ n8n_common_env_file_path }}"
+    ports:
+      - "{{ n8n_web_bind_host }}:{{ n8n_web_port }}:{{ n8n_web_container_port }}"
+    volumes:
+      - "{{ n8n_common_data_dir }}:{{ n8n_common_container_data_dir }}"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http=require('http');const req=http.get({host:'127.0.0.1',port:{{ n8n_web_container_port }},path:'{{ n8n_web_healthcheck_path }}'},(res)=>{process.exit(res.statusCode===200?0:1);});req.setTimeout(5000,()=>{req.destroy();process.exit(1);});req.on('error',()=>process.exit(1));"]
+      interval: "{{ n8n_common_healthcheck_interval }}"
+      timeout: "{{ n8n_common_healthcheck_timeout }}"
+      retries: {{ n8n_common_healthcheck_retries }}
+      start_period: "{{ n8n_common_healthcheck_start_period }}"
+
+  n8n-worker:
+    image: "{{ n8n_common_image }}"
+{% if n8n_common_image_platform | length > 0 %}
+    platform: "{{ n8n_common_image_platform }}"
+{% endif %}
+    container_name: "{{ n8n_worker_container_name }}"
+    restart: "{{ n8n_common_restart_policy }}"
+    command: ["{{ n8n_worker_command }}", "--concurrency={{ n8n_worker_concurrency }}"]
+    env_file:
+      - "{{ n8n_common_env_file_path }}"
+    volumes:
+      - "{{ n8n_common_data_dir }}:{{ n8n_common_container_data_dir }}"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "const fs=require('fs');const cmd=fs.readFileSync('/proc/1/cmdline','utf8').split(String.fromCharCode(0)).join(' ');process.exit(cmd.includes('worker')?0:1);"]
+      interval: "{{ n8n_common_healthcheck_interval }}"
+      timeout: "{{ n8n_common_healthcheck_timeout }}"
+      retries: {{ n8n_common_healthcheck_retries }}
+      start_period: "{{ n8n_common_healthcheck_start_period }}"
