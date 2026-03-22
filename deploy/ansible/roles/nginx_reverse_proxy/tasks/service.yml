@@ -1,0 +1,7 @@
+---
+- name: Ensure nginx service state
+  ansible.builtin.service:
+    name: "{{ nginx_rp_service_name }}"
+    enabled: "{{ nginx_rp_service_enabled }}"
+    state: "{{ nginx_rp_service_state }}"
+  tags: [nginx_rp, nginx_rp_service]

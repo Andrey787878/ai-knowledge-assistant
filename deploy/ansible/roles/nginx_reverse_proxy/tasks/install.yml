@@ -1,0 +1,20 @@
+---
+- name: Update apt cache for Debian hosts
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+  tags: [nginx_rp, nginx_rp_install]
+
+- name: Update dnf cache for RedHat hosts
+  ansible.builtin.dnf:
+    update_cache: true
+  when: ansible_os_family == "RedHat"
+  tags: [nginx_rp, nginx_rp_install]
+
+- name: Install nginx package
+  ansible.builtin.package:
+    name: "{{ nginx_rp_package_name }}"
+    state: present
+  tags: [nginx_rp, nginx_rp_install]
+
