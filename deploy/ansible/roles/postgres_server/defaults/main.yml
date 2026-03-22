@@ -84,6 +84,12 @@ postgres_compose_wait: true
 postgres_compose_wait_timeout: 300
 postgres_reconcile_enabled: true
 
+# Agent memory schema (stored in n8n database)
+postgres_agent_memory_schema: agent
+postgres_agent_memory_table: agent_memory_messages
+postgres_agent_memory_session_created_index: "{{ postgres_agent_memory_table }}_session_created_idx"
+postgres_agent_memory_created_at_index: "{{ postgres_agent_memory_table }}_created_at_idx"
+
 # Healthcheck
 postgres_healthcheck_interval: 10s
 postgres_healthcheck_timeout: 5s
