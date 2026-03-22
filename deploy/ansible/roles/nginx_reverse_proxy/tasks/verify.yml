@@ -1,0 +1,72 @@
+---
+- name: Wait for HTTP port on local edge host
+  ansible.builtin.wait_for:
+    host: "{{ nginx_rp_verify_local_host }}"
+    port: "{{ nginx_rp_http_port }}"
+    timeout: 30
+    state: started
+  when: not ansible_check_mode
+  tags: [nginx_rp, nginx_rp_verify]
+
+- name: Wait for HTTPS port on local edge host
+  ansible.builtin.wait_for:
+    host: "{{ nginx_rp_verify_local_host }}"
+    port: "{{ nginx_rp_https_port }}"
+    timeout: 30
+    state: started
+  when: not ansible_check_mode
+  tags: [nginx_rp, nginx_rp_verify]
+
+- name: Verify HTTP to HTTPS redirect for wiki domain
+  ansible.builtin.uri:
+    url: "http://{{ nginx_rp_verify_local_host }}{{ '' if (nginx_rp_http_port | int == 80) else ':' ~ (nginx_rp_http_port | string) }}/"
+    method: GET
+    status_code: 301
+    follow_redirects: none
+    headers:
+      Host: "{{ nginx_rp_wiki_server_name }}"
+  register: nginx_rp_wiki_http_redirect_check
+  changed_when: false
+  when: not ansible_check_mode
+  tags: [nginx_rp, nginx_rp_verify]
+
+- name: Verify HTTPS wiki endpoint via proxy
+  ansible.builtin.uri:
+    url: "https://{{ nginx_rp_verify_local_host }}{{ '' if (nginx_rp_https_port | int == 443) else ':' ~ (nginx_rp_https_port | string) }}/"
+    method: GET
+    status_code: [200, 301, 302]
+    follow_redirects: none
+    headers:
+      Host: "{{ nginx_rp_wiki_server_name }}"
+    validate_certs: "{{ nginx_rp_verify_https_validate_certs }}"
+  register: nginx_rp_wiki_https_check
+  changed_when: false
+  when: not ansible_check_mode
+  tags: [nginx_rp, nginx_rp_verify]
+
+- name: Verify HTTP to HTTPS redirect for n8n domain
+  ansible.builtin.uri:
+    url: "http://{{ nginx_rp_verify_local_host }}{{ '' if (nginx_rp_http_port | int == 80) else ':' ~ (nginx_rp_http_port | string) }}/healthz"
+    method: GET
+    status_code: 301
+    follow_redirects: none
+    headers:
+      Host: "{{ nginx_rp_n8n_server_name }}"
+  register: nginx_rp_n8n_http_redirect_check
+  changed_when: false
+  when: not ansible_check_mode
+  tags: [nginx_rp, nginx_rp_verify]
+
+- name: Verify HTTPS n8n health endpoint via proxy
+  ansible.builtin.uri:
+    url: "https://{{ nginx_rp_verify_local_host }}{{ '' if (nginx_rp_https_port | int == 443) else ':' ~ (nginx_rp_https_port | string) }}/healthz"
+    method: GET
+    status_code: 200
+    headers:
+      Host: "{{ nginx_rp_n8n_server_name }}"
+    validate_certs: "{{ nginx_rp_verify_https_validate_certs }}"
+  register: nginx_rp_n8n_https_health_check
+  changed_when: false
+  when: not ansible_check_mode
+  tags: [nginx_rp, nginx_rp_verify]
+
