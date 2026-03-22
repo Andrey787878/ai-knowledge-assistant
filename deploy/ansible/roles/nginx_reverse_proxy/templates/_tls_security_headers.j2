@@ -1,0 +1,11 @@
+    ssl_certificate     {{ nginx_rp_tls_cert_path }};
+    ssl_certificate_key {{ nginx_rp_tls_key_path }};
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_session_timeout 1d;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_tickets off;
+
+    add_header Strict-Transport-Security "max-age={{ nginx_rp_hsts_max_age }}{% if nginx_rp_hsts_include_subdomains | bool %}; includeSubDomains{% endif %}" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
