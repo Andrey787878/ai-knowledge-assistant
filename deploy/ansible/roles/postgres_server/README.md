@@ -15,11 +15,13 @@
   - `init.sql`
 - Поднимает стек PostgreSQL через `community.docker.docker_compose_v2`.
 - Выполняет reconcile-шаг для app roles/databases/grants на каждом прогоне.
+- Создает/поддерживает таблицу памяти агента в БД `n8n`.
 - Выполняет verify-проверки:
   - контейнер запущен
   - TCP-порт доступен
   - `pg_isready` возвращает `accepting connections`
   - app-level подключение `n8n` -> `n8n` и `wikijs` -> `wikijs` (`SELECT 1`)
+  - наличие таблицы памяти агента и индексов в `n8n` БД
 
 Порядок выполнения в роли:
 `validate -> install -> deploy -> flush_handlers -> reconcile -> verify`.
@@ -56,6 +58,8 @@
 - `postgres_compose_wait`, `postgres_compose_wait_timeout` - ожидание старта compose.
 - `postgres_reconcile_enabled` - включить/выключить reconcile app roles/databases/grants.
 - `postgres_verify_app_connections` - включить/выключить app-level проверки подключений в `verify`.
+- `postgres_agent_memory_schema`, `postgres_agent_memory_table` - имя schema/table для памяти агента (по умолчанию schema `agent`).
+- `postgres_agent_memory_session_created_index`, `postgres_agent_memory_created_at_index` - имена индексов таблицы памяти.
 
 ## Использование
 
@@ -93,6 +97,9 @@ postgres_hba_rules:
 `init.sql` применяется только при первом init пустого `PGDATA` (поведение Docker Postgres entrypoint): первичный bootstrap.
 
 `reconcile.sql` выполняется после deploy на каждом прогоне (если `postgres_reconcile_enabled: true`) и поддерживает целевое состояние app roles/databases/grants.
+
+Reconcile также поддерживает отдельную schema `agent`, таблицу памяти агента (`session_id`, `role`, `message`, `metadata`, `created_at`) и нужные индексы в БД `n8n`.
+Для роли `n8n` дополнительно поддерживаются `GRANT USAGE` на schema памяти и `search_path = agent,public` в БД `n8n`.
 
 Дефолтный `postgres_hba_rules` разрешает только localhost. Доступ `n8n`/`wikijs` задается переопределением в `host_vars/db.yml`.
 

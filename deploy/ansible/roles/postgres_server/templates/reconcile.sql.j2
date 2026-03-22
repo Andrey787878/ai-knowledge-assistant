@@ -81,3 +81,24 @@ SELECT format('GRANT CONNECT, TEMP ON DATABASE %I TO %I', '{{ postgres_n8n_db }}
 
 SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', '{{ postgres_wiki_db }}')\gexec
 SELECT format('GRANT CONNECT, TEMP ON DATABASE %I TO %I', '{{ postgres_wiki_db }}', '{{ postgres_wiki_user }}')\gexec
+
+-- Agent memory schema is stored in n8n database.
+\connect {{ postgres_n8n_db }}
+{% include "agent_memory.sql.j2" %}
+
+-- Ensure n8n runtime can use agent schema explicitly.
+SELECT format(
+  'GRANT USAGE ON SCHEMA %I TO %I',
+  '{{ postgres_agent_memory_schema }}',
+  '{{ postgres_n8n_user }}'
+)\gexec
+
+-- Keep search_path deterministic for n8n role in n8n database.
+SELECT format(
+  'ALTER ROLE %I IN DATABASE %I SET search_path TO %I,public',
+  '{{ postgres_n8n_user }}',
+  '{{ postgres_n8n_db }}',
+  '{{ postgres_agent_memory_schema }}'
+)\gexec
+
+\connect {{ postgres_default_db }}

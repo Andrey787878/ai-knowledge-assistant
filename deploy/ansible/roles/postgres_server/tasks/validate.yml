@@ -20,6 +20,14 @@
       - postgres_wiki_db | trim | length > 0
       - postgres_wiki_db is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
       - postgres_wiki_password | trim | length > 0
+      - postgres_agent_memory_schema | trim | length > 0
+      - postgres_agent_memory_schema is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
+      - postgres_agent_memory_table | trim | length > 0
+      - postgres_agent_memory_table is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
+      - postgres_agent_memory_session_created_index | trim | length > 0
+      - postgres_agent_memory_session_created_index is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
+      - postgres_agent_memory_created_at_index | trim | length > 0
+      - postgres_agent_memory_created_at_index is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
       - postgres_hba_rules is iterable
       - postgres_hba_rules | length > 0
     fail_msg: "Postgres role validation failed: check architecture/credentials/network/HBA variables."

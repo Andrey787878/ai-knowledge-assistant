@@ -108,3 +108,57 @@
     - postgres_verify_app_connections | bool
     - not ansible_check_mode
   tags: [postgres, postgres_verify]
+
+- name: Verify agent memory table and indexes exist in n8n database
+  community.docker.docker_container_exec:
+    container: "{{ postgres_container_name }}"
+    argv:
+      - psql
+      - -v
+      - ON_ERROR_STOP=1
+      - -U
+      - "{{ postgres_superuser }}"
+      - -d
+      - "{{ postgres_n8n_db }}"
+      - -tAc
+      - >-
+        SELECT CASE
+        WHEN EXISTS (
+          SELECT 1
+          FROM pg_class c
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname='{{ postgres_agent_memory_schema }}'
+          AND c.relname='{{ postgres_agent_memory_table }}'
+          AND c.relkind='r'
+        )
+        AND EXISTS (
+          SELECT 1
+          FROM pg_indexes
+          WHERE schemaname='{{ postgres_agent_memory_schema }}'
+          AND tablename='{{ postgres_agent_memory_table }}'
+          AND indexname='{{ postgres_agent_memory_session_created_index }}'
+        )
+        AND EXISTS (
+          SELECT 1
+          FROM pg_indexes
+          WHERE schemaname='{{ postgres_agent_memory_schema }}'
+          AND tablename='{{ postgres_agent_memory_table }}'
+          AND indexname='{{ postgres_agent_memory_created_at_index }}'
+        )
+        THEN 1 ELSE 0 END;
+    env:
+      PGPASSWORD: "{{ postgres_superuser_password | string }}"
+  register: postgres_agent_memory_schema_check
+  changed_when: false
+  no_log: true
+  when: not ansible_check_mode
+  tags: [postgres, postgres_verify]
+
+- name: Assert agent memory schema verification passed
+  ansible.builtin.assert:
+    that:
+      - postgres_agent_memory_schema_check.rc == 0
+      - postgres_agent_memory_schema_check.stdout | trim == '1'
+    fail_msg: "Agent memory table/indexes are missing in n8n database."
+  when: not ansible_check_mode
+  tags: [postgres, postgres_verify]

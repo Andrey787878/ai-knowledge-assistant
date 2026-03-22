@@ -1,0 +1,45 @@
+-- Ensure schema exists (for non-public deployments).
+SELECT format(
+  'CREATE SCHEMA IF NOT EXISTS %I AUTHORIZATION %I',
+  '{{ postgres_agent_memory_schema }}',
+  '{{ postgres_n8n_user }}'
+)\gexec
+
+-- Agent memory table for n8n workflows.
+SELECT format($sql$
+CREATE TABLE IF NOT EXISTS %I.%I (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('user','assistant','system','tool')),
+  message TEXT NOT NULL,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+)
+$sql$,
+  '{{ postgres_agent_memory_schema }}',
+  '{{ postgres_agent_memory_table }}'
+)\gexec
+
+-- Keep ownership explicit to avoid drift.
+SELECT format(
+  'ALTER TABLE %I.%I OWNER TO %I',
+  '{{ postgres_agent_memory_schema }}',
+  '{{ postgres_agent_memory_table }}',
+  '{{ postgres_n8n_user }}'
+)\gexec
+
+-- Query pattern: fetch latest N messages by session_id.
+SELECT format(
+  'CREATE INDEX IF NOT EXISTS %I ON %I.%I (session_id, created_at DESC)',
+  '{{ postgres_agent_memory_session_created_index }}',
+  '{{ postgres_agent_memory_schema }}',
+  '{{ postgres_agent_memory_table }}'
+)\gexec
+
+-- Retention/cleanup pattern by timestamp.
+SELECT format(
+  'CREATE INDEX IF NOT EXISTS %I ON %I.%I (created_at)',
+  '{{ postgres_agent_memory_created_at_index }}',
+  '{{ postgres_agent_memory_schema }}',
+  '{{ postgres_agent_memory_table }}'
+)\gexec
