@@ -51,6 +51,7 @@ hosts.yml
 .ansible/
 zz-local.yml
 vault.yml
+vault-pass.txt
 
 # Terraform
 .terraform/
