@@ -1,0 +1,12 @@
+---
+- name: Run network firewall validation tasks
+  ansible.builtin.import_tasks: validate.yml
+  tags: [firewall, firewall_validate]
+
+- name: Run firewalld firewall tasks
+  ansible.builtin.import_tasks: firewalld.yml
+  tags: [firewall, firewall_apply]
+
+- name: Run network firewall verify tasks
+  ansible.builtin.import_tasks: verify.yml
+  tags: [firewall, firewall_verify]

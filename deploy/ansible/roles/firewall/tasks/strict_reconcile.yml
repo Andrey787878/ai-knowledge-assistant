@@ -1,0 +1,190 @@
+---
+- name: Gather package facts on Debian
+  ansible.builtin.package_facts:
+    manager: auto
+  when:
+    - ansible_os_family == "Debian"
+  tags: [firewall, firewall_strict_reconcile]
+
+- name: Disable UFW on Debian when installed
+  ansible.builtin.command: ufw --force disable
+  register: firewall_disable_ufw_result
+  changed_when: >-
+    'Firewall stopped' in (firewall_disable_ufw_result.stdout | default(''))
+    or
+    'disabled on system startup' in (firewall_disable_ufw_result.stdout | default(''))
+  when:
+    - ansible_os_family == "Debian"
+    - "'ufw' in (ansible_facts.packages | default({}))"
+  tags: [firewall, firewall_strict_reconcile]
+
+- name: Install firewalld packages
+  ansible.builtin.package:
+    name: "{{ firewall_firewalld_packages }}"
+    state: present
+  notify: Restart docker after firewall changes
+  tags: [firewall, firewall_strict_reconcile]
+
+- name: Ensure firewalld service is enabled and started
+  ansible.builtin.service:
+    name: firewalld
+    enabled: true
+    state: started
+  tags: [firewall, firewall_strict_reconcile]
+
+- name: Set firewalld zone target before strict reconcile
+  ansible.posix.firewalld:
+    zone: "{{ firewall_firewalld_zone }}"
+    target: "{{ firewall_firewalld_zone_target }}"
+    permanent: true
+    immediate: false
+    state: present
+  notify: Restart docker after firewall changes
+  tags: [firewall, firewall_strict_reconcile]
+
+- name: Query permanent zone ports before strict reconcile
+  ansible.builtin.command: >-
+    firewall-cmd --permanent --zone={{ firewall_firewalld_zone }} --list-ports
+  register: firewall_strict_zone_ports
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+  tags: [firewall, firewall_strict_reconcile]
+
+- name: Query permanent zone services before strict reconcile
+  ansible.builtin.command: >-
+    firewall-cmd --permanent --zone={{ firewall_firewalld_zone }} --list-services
+  register: firewall_strict_zone_services
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+  tags: [firewall, firewall_strict_reconcile]
+
+- name: Query permanent zone source bindings before strict reconcile
+  ansible.builtin.command: >-
+    firewall-cmd --permanent --zone={{ firewall_firewalld_zone }} --list-sources
+  register: firewall_strict_zone_sources
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+  tags: [firewall, firewall_strict_reconcile]
+
+- name: Query permanent zone rich rules before strict reconcile
+  ansible.builtin.command: >-
+    firewall-cmd --permanent --zone={{ firewall_firewalld_zone }} --list-rich-rules
+  register: firewall_strict_zone_rich_rules
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+  tags: [firewall, firewall_strict_reconcile]
+
+- name: Build strict reconcile current lists
+  ansible.builtin.set_fact:
+    firewall_strict_current_ports: >-
+      {{
+        firewall_strict_zone_ports.stdout.split()
+        if (firewall_strict_zone_ports is defined and firewall_strict_zone_ports.stdout is defined)
+        else []
+      }}
+    firewall_strict_current_services: >-
+      {{
+        firewall_strict_zone_services.stdout.split()
+        if (firewall_strict_zone_services is defined and firewall_strict_zone_services.stdout is defined)
+        else []
+      }}
+    firewall_strict_current_sources: >-
+      {{
+        firewall_strict_zone_sources.stdout.split()
+        if (firewall_strict_zone_sources is defined and firewall_strict_zone_sources.stdout is defined)
+        else []
+      }}
+    firewall_strict_current_rich_rules: >-
+      {{
+        firewall_strict_zone_rich_rules.stdout_lines
+        | default([])
+        | map('trim')
+        | reject('equalto', '')
+        | list
+      }}
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+  tags: [firewall, firewall_strict_reconcile]
+
+- name: Remove all permanent zone ports in strict reconcile mode
+  ansible.posix.firewalld:
+    zone: "{{ firewall_firewalld_zone }}"
+    port: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: disabled
+  notify: Restart docker after firewall changes
+  loop: "{{ firewall_strict_current_ports | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+  tags: [firewall, firewall_strict_reconcile]
+
+- name: Remove all permanent zone services in strict reconcile mode
+  ansible.posix.firewalld:
+    zone: "{{ firewall_firewalld_zone }}"
+    service: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: disabled
+  notify: Restart docker after firewall changes
+  loop: "{{ firewall_strict_current_services | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+  tags: [firewall, firewall_strict_reconcile]
+
+- name: Remove all permanent zone source bindings in strict reconcile mode
+  ansible.posix.firewalld:
+    zone: "{{ firewall_firewalld_zone }}"
+    source: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: disabled
+  notify: Restart docker after firewall changes
+  loop: "{{ firewall_strict_current_sources | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+  tags: [firewall, firewall_strict_reconcile]
+
+- name: Remove all permanent zone rich rules in strict reconcile mode
+  ansible.posix.firewalld:
+    zone: "{{ firewall_firewalld_zone }}"
+    rich_rule: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: disabled
+  notify: Restart docker after firewall changes
+  loop: "{{ firewall_strict_current_rich_rules | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+  tags: [firewall, firewall_strict_reconcile]
+
+- name: Ensure firewalld zone target after strict reconcile
+  ansible.posix.firewalld:
+    zone: "{{ firewall_firewalld_zone }}"
+    target: "{{ firewall_firewalld_zone_target }}"
+    permanent: true
+    immediate: false
+    state: present
+  notify: Restart docker after firewall changes
+  tags: [firewall, firewall_strict_reconcile]
