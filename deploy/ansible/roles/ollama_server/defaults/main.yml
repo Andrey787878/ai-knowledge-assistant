@@ -1,4 +1,8 @@
 ---
+ollama_supported_os_families:
+  - Debian
+  - RedHat
+
 # Container identity and image pinning
 ollama_container_name: ollama
 ollama_restart_policy: unless-stopped
@@ -13,7 +17,7 @@ ollama_platform_map:
   aarch64: linux/arm64/v8
 ollama_image_platform: "{{ ollama_platform_map.get(ansible_architecture, '') }}"
 
-# Network
+# Backend bind (private network)
 ollama_bind_host: '{{ private_ip }}'
 ollama_port: 11434
 ollama_listen_host: '0.0.0.0'
@@ -35,8 +39,11 @@ ollama_keep_alive: 5m
 ollama_model: qwen2.5:1.5b
 
 # Compose deploy behavior
-ollama_compose_wait: true
+ollama_compose_wait: false
 ollama_compose_wait_timeout: 600
+ollama_deploy_api_wait_retries: 80
+ollama_deploy_api_wait_delay: 3
+ollama_deploy_api_timeout: 10
 ollama_verify_enabled: true
 ollama_verify_generate_enabled: true
 ollama_verify_generate_prompt: 'Respond with one short word: ok'
