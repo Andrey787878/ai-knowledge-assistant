@@ -73,3 +73,6 @@ docker_engine_service_enabled: true
 docker_engine_service_state: started
 
 docker_engine_validate_installation: true
+
+# Debian apt/dpkg lock wait timeout (seconds).
+docker_engine_apt_lock_timeout: 600

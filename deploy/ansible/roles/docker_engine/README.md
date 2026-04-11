@@ -2,6 +2,23 @@
 
 Роль установки Docker Engine и Docker Compose plugin.
 
+## Структура роли
+
+```text
+.
+├── README.md
+├── defaults/main.yml
+├── handlers/main.yml
+└── tasks/
+    ├── main.yml
+    ├── validate.yml
+    ├── install_debian.yml
+    ├── install_redhat.yml
+    ├── service.yml
+    ├── configure.yml
+    └── verify.yml
+```
+
 ## Что делает
 
 - Проверяет поддерживаемую ОС, дистрибутив и архитектуру.
@@ -15,7 +32,7 @@
 
 ## Предусловия
 
-- Перед `docker_engine` должна быть выполнена роль `base`.
+- Перед `docker_engine` должна быть выполнена роль `common`.
 
 ## Граница ответственности
 
@@ -125,12 +142,17 @@ Verify-задачи выполняются только при `docker_engine_va
 
 ## Быстрая проверка
 
+SSH-вариант (опционально): для ручного дебага см. [раздел в основном runbook](../../README.md#manual-ssh).
+
+Команды ниже предполагают, что в текущей shell-сессии уже задан `ANSIBLE_VAULT_PASSWORD_FILE` (см. `deploy/ansible/README.md`, шаг 3).
+
 ```bash
-docker --version
-docker compose version
-docker info --format '{{.ServerVersion}}'
-systemctl is-enabled docker
-systemctl is-active docker
+cd deploy/ansible
+ansible -i inventories/cloud/hosts.yml docker_hosts -b -J -m shell -a "docker --version"
+ansible -i inventories/cloud/hosts.yml docker_hosts -b -J -m shell -a "docker compose version"
+ansible -i inventories/cloud/hosts.yml docker_hosts -b -J -m shell -a "docker info --format '{{.ServerVersion}}'"
+ansible -i inventories/cloud/hosts.yml docker_hosts -b -J -m shell -a "systemctl is-enabled docker"
+ansible -i inventories/cloud/hosts.yml docker_hosts -b -J -m shell -a "systemctl is-active docker"
 ```
 
 Автопроверки в роли выполняются только при `docker_engine_validate_installation: true`.
