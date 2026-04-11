@@ -46,7 +46,23 @@ wiki_data/
 n8n_data/
 
 # Ansible
-hosts.ini
-vault.yml
+hosts.yml
 *.retry
 .ansible/
+zz-local.yml
+vault.yml
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+terraform.tfvars
+backend.hcl
+*.tfplan
+tfplan
+tfdestroy

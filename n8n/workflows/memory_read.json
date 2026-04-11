@@ -1,0 +1,145 @@
+{
+  "id": "f5d4d6d6-8c5a-4b35-a1e9-0f8e4a6f2101",
+  "name": "memory_read",
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "nodes": [
+    {
+      "id": "WebhookRead",
+      "name": "webhook_memory_read",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        260,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-memory-read",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "ValidateReadInput",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\nconst sessionId = String(body.session_id ?? '').trim();\nif (!sessionId) {\n  throw new Error('session_id is required');\n}\nconst limitRaw = Number(body.limit ?? 12);\nconst limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(50, Math.trunc(limitRaw))) : 12;\nconst tokenExpected = $env.AGENT_WORKFLOW_TOKEN || '';\nconst tokenProvided = String(body.token ?? '');\nif (tokenExpected && tokenProvided !== tokenExpected) {\n  throw new Error('invalid token');\n}\nconst identRe = /^[A-Za-z_][A-Za-z0-9_]{0,62}$/;\nconst memorySchema = String($env.AGENT_MEMORY_SCHEMA || 'agent').trim();\nconst memoryTable = String($env.AGENT_MEMORY_TABLE || 'agent_memory_messages').trim();\nif (!identRe.test(memorySchema)) {\n  throw new Error('invalid AGENT_MEMORY_SCHEMA');\n}\nif (!identRe.test(memoryTable)) {\n  throw new Error('invalid AGENT_MEMORY_TABLE');\n}\nreturn [{\n  json: {\n    session_id: sessionId,\n    session_id_sql: sessionId.replace(/'/g, \"''\"),\n    memory_schema_sql: memorySchema,\n    memory_table_sql: memoryTable,\n    limit\n  }\n}];"
+      }
+    },
+    {
+      "id": "PostgresRead",
+      "name": "Postgres: Read Memory",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        780,
+        300
+      ],
+      "credentials": {
+        "postgres": {
+          "name": "Postgres n8n"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT role, message, metadata, created_at\nFROM {{$json.memory_schema_sql}}.{{$json.memory_table_sql}}\nWHERE session_id = '{{$json.session_id_sql}}'\nORDER BY created_at DESC\nLIMIT {{$json.limit}};"
+      }
+    },
+    {
+      "id": "ShapeReadResponse",
+      "name": "Build Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const sessionId = $node['Validate Input'].json.session_id;\nconst rows = items.map((i) => i.json).reverse();\nconst memoryText = rows.map((row) => `${row.role}: ${row.message}`).join('\\n');\nreturn [{\n  json: {\n    ok: true,\n    session_id: sessionId,\n    count: rows.length,\n    memory: rows,\n    memory_text: memoryText\n  }\n}];"
+      }
+    },
+    {
+      "id": "RespondRead",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        1280,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "webhook_memory_read": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Postgres: Read Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres: Read Memory": {
+      "main": [
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Response": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "versionId": "00000000-0000-0000-0000-000000000001",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [
+    {
+      "name": "agent"
+    },
+    {
+      "name": "memory"
+    }
+  ]
+}

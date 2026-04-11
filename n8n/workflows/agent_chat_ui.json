@@ -1,0 +1,116 @@
+{
+  "id": "7b5e9c1d-4eaa-4a83-bef9-09e1c5d6a901",
+  "name": "agent_chat_ui",
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "nodes": [
+    {
+      "id": "ChatTriggerAgent",
+      "name": "Chat Trigger",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        320
+      ],
+      "parameters": {
+        "options": {}
+      }
+    },
+    {
+      "id": "NormalizeChatInput",
+      "name": "Normalize Chat Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        320
+      ],
+      "parameters": {
+        "jsCode": "const incoming = String($json.chatInput ?? $json.message ?? $json.text ?? '').trim();\nif (!incoming) throw new Error('chatInput is required');\nconst sessionId = String($json.sessionId ?? $json.session_id ?? `chat-${Date.now()}`).trim();\nconst userId = String($json.userId ?? $json.user_id ?? 'n8n-chat-user').trim();\nconst traceId = `chat-${sessionId}-${Date.now()}`;\nreturn [{\n  json: {\n    session_id: sessionId,\n    user_id: userId,\n    question: incoming,\n    trace_id: traceId\n  }\n}];"
+      }
+    },
+    {
+      "id": "CallAgentQueryMain",
+      "name": "HTTP: agent_query_main",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        700,
+        320
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ (($env.INTERNAL_WEBHOOK_BASE_URL || 'http://127.0.0.1:5678').replace(/\\/?$/, '')) + '/webhook/' + ($env.N8N_AGENT_QUERY_WEBHOOK_PATH || 'agent-query') }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { session_id: $json.session_id, user_id: $json.user_id, question: $json.question, trace_id: $json.trace_id } }}",
+        "options": {
+          "timeout": 120000
+        }
+      }
+    },
+    {
+      "id": "BuildChatResponse",
+      "name": "Build Chat Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        320
+      ],
+      "parameters": {
+        "jsCode": "const answer = String($json.answer ?? '').trim() || 'Нет данных.';\nconst traceId = String($json.trace_id ?? '').trim();\nreturn [{\n  json: {\n    text: answer,\n    output: answer,\n    trace_id: traceId\n  }\n}];"
+      }
+    }
+  ],
+  "connections": {
+    "Chat Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Chat Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Chat Input": {
+      "main": [
+        [
+          {
+            "node": "HTTP: agent_query_main",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP: agent_query_main": {
+      "main": [
+        [
+          {
+            "node": "Build Chat Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [
+    {
+      "name": "agent"
+    },
+    {
+      "name": "chat"
+    }
+  ]
+}

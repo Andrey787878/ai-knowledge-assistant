@@ -1,0 +1,145 @@
+{
+  "id": "a1b7c2f4-3f20-4f57-9f4e-7f1b8d2f4c02",
+  "name": "memory_write",
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "nodes": [
+    {
+      "id": "WebhookWrite",
+      "name": "webhook_memory_write",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        260,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-memory-write",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "ValidateWriteInput",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\nconst sessionId = String(body.session_id ?? '').trim();\nconst role = String(body.role ?? '').trim();\nconst message = String(body.message ?? '').trim();\nconst metadata = (body.metadata && typeof body.metadata === 'object') ? body.metadata : {};\nif (!sessionId) throw new Error('session_id is required');\nif (!['user', 'assistant', 'system', 'tool'].includes(role)) throw new Error('invalid role');\nif (!message) throw new Error('message is required');\nconst tokenExpected = $env.AGENT_WORKFLOW_TOKEN || '';\nconst tokenProvided = String(body.token ?? '');\nif (tokenExpected && tokenProvided !== tokenExpected) throw new Error('invalid token');\nconst identRe = /^[A-Za-z_][A-Za-z0-9_]{0,62}$/;\nconst memorySchema = String($env.AGENT_MEMORY_SCHEMA || 'agent').trim();\nconst memoryTable = String($env.AGENT_MEMORY_TABLE || 'agent_memory_messages').trim();\nif (!identRe.test(memorySchema)) throw new Error('invalid AGENT_MEMORY_SCHEMA');\nif (!identRe.test(memoryTable)) throw new Error('invalid AGENT_MEMORY_TABLE');\nconst metadataJson = JSON.stringify(metadata);\nreturn [{\n  json: {\n    session_id: sessionId,\n    role,\n    message,\n    metadata,\n    session_id_sql: sessionId.replace(/'/g, \"''\"),\n    role_sql: role.replace(/'/g, \"''\"),\n    message_sql: message.replace(/'/g, \"''\"),\n    metadata_sql: metadataJson.replace(/'/g, \"''\"),\n    memory_schema_sql: memorySchema,\n    memory_table_sql: memoryTable\n  }\n}];"
+      }
+    },
+    {
+      "id": "PostgresWrite",
+      "name": "Postgres: Write Memory",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        780,
+        300
+      ],
+      "credentials": {
+        "postgres": {
+          "name": "Postgres n8n"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO {{$json.memory_schema_sql}}.{{$json.memory_table_sql}} (session_id, role, message, metadata)\nVALUES (\n  '{{$json.session_id_sql}}',\n  '{{$json.role_sql}}',\n  '{{$json.message_sql}}',\n  '{{$json.metadata_sql}}'::jsonb\n)\nRETURNING id, session_id, role, created_at;"
+      }
+    },
+    {
+      "id": "ShapeWriteResponse",
+      "name": "Build Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const row = items[0]?.json ?? {};\nreturn [{\n  json: {\n    ok: true,\n    inserted_id: row.id ?? null,\n    session_id: row.session_id ?? null,\n    role: row.role ?? null,\n    created_at: row.created_at ?? null\n  }\n}];"
+      }
+    },
+    {
+      "id": "RespondWrite",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        1280,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "webhook_memory_write": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Postgres: Write Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres: Write Memory": {
+      "main": [
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Response": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "versionId": "00000000-0000-0000-0000-000000000002",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [
+    {
+      "name": "agent"
+    },
+    {
+      "name": "memory"
+    }
+  ]
+}
