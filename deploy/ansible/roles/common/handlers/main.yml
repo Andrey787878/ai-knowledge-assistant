@@ -1,0 +1,11 @@
+---
+- name: Validate sshd configuration
+  ansible.builtin.command: "{{ common_sshd_binary_path }} -t"
+  changed_when: false
+  listen: Reload sshd with validation
+
+- name: Reload sshd service
+  ansible.builtin.service:
+    name: "{{ common_sshd_service_name }}"
+    state: reloaded
+  listen: Reload sshd with validation

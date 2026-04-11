@@ -1,0 +1,36 @@
+---
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: "{{ common_apt_cache_valid_time }}"
+    lock_timeout: "{{ common_apt_lock_timeout }}"
+    update_cache_retries: "{{ common_apt_update_cache_retries }}"
+    update_cache_retry_max_delay: "{{ common_apt_update_cache_retry_max_delay }}"
+  when: ansible_os_family == "Debian"
+  tags: [common, packages]
+
+- name: Update dnf cache
+  ansible.builtin.dnf:
+    update_cache: true
+  when: ansible_os_family == "RedHat"
+  tags: [common, packages]
+
+- name: Install common packages
+  ansible.builtin.package:
+    name: "{{ common_packages_common }}"
+    state: present
+  tags: [common, packages]
+
+- name: Install Debian-specific common packages
+  ansible.builtin.package:
+    name: "{{ common_packages_debian }}"
+    state: present
+  when: ansible_os_family == "Debian"
+  tags: [common, packages]
+
+- name: Install RedHat-specific common packages
+  ansible.builtin.package:
+    name: "{{ common_packages_redhat }}"
+    state: present
+  when: ansible_os_family == "RedHat"
+  tags: [common, packages]

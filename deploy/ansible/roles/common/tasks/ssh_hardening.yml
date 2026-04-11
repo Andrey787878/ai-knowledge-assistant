@@ -1,0 +1,30 @@
+---
+- name: Ensure sshd drop-in directory exists
+  ansible.builtin.file:
+    path: "{{ common_sshd_dropin_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  tags: [common, ssh_hardening]
+
+- name: Ensure sshd config includes drop-in directory
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^\s*Include\s+/etc/ssh/sshd_config\.d/\*\.conf\s*$'
+    line: 'Include /etc/ssh/sshd_config.d/*.conf'
+    insertbefore: BOF
+    state: present
+  when: common_sshd_manage_dropin_include | bool
+  notify: Reload sshd with validation
+  tags: [common, ssh_hardening]
+
+- name: Render sshd hardening drop-in
+  ansible.builtin.template:
+    src: 99-common-hardening.conf.j2
+    dest: "{{ common_sshd_dropin_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload sshd with validation
+  tags: [common, ssh_hardening]
