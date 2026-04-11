@@ -1,0 +1,166 @@
+{
+  "id": "2d9f4b6a-1e44-4a71-8d52-b1c6f7a9d404",
+  "name": "agent_smoke_e2e",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "nodes": [
+    {
+      "id": "ManualTriggerSmoke",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        320
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "BuildSmokeInput",
+      "name": "Build Smoke Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        320
+      ],
+      "parameters": {
+        "jsCode": "const now = new Date().toISOString();\nconst sessionId = `smoke-${Date.now()}`;\nreturn [{\n  json: {\n    session_id: sessionId,\n    question: 'Опиши текущую инфраструктуру кратко',\n    user_id: 'smoke-check',\n    token: $env.AGENT_WORKFLOW_TOKEN || '',\n    run_at: now\n  }\n}];"
+      }
+    },
+    {
+      "id": "CallAgentQuery",
+      "name": "HTTP: agent_query_main",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        700,
+        320
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ (($env.INTERNAL_WEBHOOK_BASE_URL || 'http://127.0.0.1:5678').replace(/\\/?$/, '')) + '/webhook/' + ($env.N8N_AGENT_QUERY_WEBHOOK_PATH || 'agent-query') }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { session_id: $json.session_id, user_id: $json.user_id, question: $json.question } }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "AssertAgentResponse",
+      "name": "Assert Agent Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        320
+      ],
+      "parameters": {
+        "jsCode": "const answer = String($json.answer ?? '').trim();\nif (!answer) throw new Error('agent_query_main returned empty answer');\nreturn [{\n  json: {\n    session_id: $json.session_id,\n    answer\n  }\n}];"
+      }
+    },
+    {
+      "id": "ReadMemoryAfter",
+      "name": "HTTP: memory_read",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1180,
+        320
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ (($env.INTERNAL_WEBHOOK_BASE_URL || 'http://127.0.0.1:5678').replace(/\\/?$/, '')) + '/webhook/' + ($env.N8N_MEMORY_READ_WEBHOOK_PATH || 'agent-memory-read') }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { session_id: $node['Assert Agent Response'].json.session_id, limit: 10, token: ($env.AGENT_WORKFLOW_TOKEN || '') } }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "AssertMemory",
+      "name": "Assert Memory",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1420,
+        320
+      ],
+      "parameters": {
+        "jsCode": "const count = Number($json.count ?? 0);\nif (count < 2) {\n  throw new Error(`memory_read count is ${count}, expected >= 2`);\n}\nreturn [{\n  json: {\n    ok: true,\n    session_id: $json.session_id,\n    memory_count: count\n  }\n}];"
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Build Smoke Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Smoke Input": {
+      "main": [
+        [
+          {
+            "node": "HTTP: agent_query_main",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP: agent_query_main": {
+      "main": [
+        [
+          {
+            "node": "Assert Agent Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assert Agent Response": {
+      "main": [
+        [
+          {
+            "node": "HTTP: memory_read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP: memory_read": {
+      "main": [
+        [
+          {
+            "node": "Assert Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "versionId": "00000000-0000-0000-0000-000000000004",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [
+    {
+      "name": "agent"
+    },
+    {
+      "name": "smoke"
+    }
+  ]
+}
