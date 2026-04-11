@@ -1,0 +1,43 @@
+---
+# PostgreSQL endpoint
+wikijs_postgres_host: "{{ hostvars['db'].private_ip }}"
+
+# Edge domains (HTTPS only)
+nginx_rp_n8n_server_name: n8n.poluyanov.net
+nginx_rp_wiki_server_name: wiki.poluyanov.net
+
+# Edge upstream routing
+nginx_rp_n8n_host: "{{ hostvars['n8n'].private_ip }}"
+nginx_rp_n8n_port: 5678
+nginx_rp_n8n_agent_query_public_path: agent-query
+nginx_rp_n8n_agent_query_upstream_webhook_path: "{{ hostvars[groups['n8n_hosts'][0]].n8n_workflow_agent_query_webhook_path | default('agent-query') }}"
+nginx_rp_wiki_host: 127.0.0.1
+nginx_rp_wiki_port: 3000
+wikijs_runtime_bind_host: 127.0.0.1
+
+# Edge TLS cert/key
+nginx_rp_tls_cert_path: /etc/letsencrypt/live/wiki.poluyanov.net/fullchain.pem
+nginx_rp_tls_key_path: /etc/letsencrypt/live/wiki.poluyanov.net/privkey.pem
+nginx_rp_verify_ca_cert_path: /etc/ssl/certs/ca-certificates.crt
+
+# Edge client allow-list (applies to nginx wiki/n8n locations)
+nginx_rp_allowed_client_cidrs: '{{ edge_allowed_client_cidrs }}'
+
+# Public edge certificate via Let's Encrypt (HTTP-01)
+edge_tls_acme_email: andrey@poluyanov.net
+edge_tls_acme_primary_domain: '{{ nginx_rp_wiki_server_name }}'
+edge_tls_acme_additional_domains:
+  - '{{ nginx_rp_n8n_server_name }}'
+edge_tls_acme_webroot_path: /var/www/letsencrypt
+edge_tls_acme_use_staging: false
+edge_tls_acme_force_renew: false
+
+firewall_ssh_sources: '{{ firewall_admin_ssh_sources }}'
+
+firewall_rules:
+  - port: 80
+    proto: tcp
+    source: 0.0.0.0/0
+  - port: 443
+    proto: tcp
+    sources: '{{ edge_allowed_client_cidrs }}'

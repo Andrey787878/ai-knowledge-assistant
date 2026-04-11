@@ -1,0 +1,52 @@
+---
+# Example inventory for the 4-VM Ansible stage.
+# Usage:
+# 1) Copy this file to hosts.yml
+# 2) Replace host IPs with real values
+# 3) Set SSH user/key via group_vars/all (or local override/vault) for your environment
+# 4) Keep hostnames (db/ollama/n8n/wiki) unchanged unless you also update host_vars references
+#
+# Variable meaning:
+# - ansible_host: address Ansible uses for SSH
+# - private_ip: internal address used by service configs and firewall rules
+# - ProxyJump for private hosts is resolved automatically from `wiki.ansible_host`
+
+---
+all:
+  children:
+    db_hosts:
+      hosts:
+        db:
+          ansible_host: 10.10.0.5
+          private_ip: 10.10.0.5
+
+    ollama_hosts:
+      hosts:
+        ollama:
+          ansible_host: 10.10.0.4
+          private_ip: 10.10.0.4
+
+    n8n_hosts:
+      hosts:
+        n8n:
+          ansible_host: 10.10.0.6
+          private_ip: 10.10.0.6
+
+    private_hosts:
+      children:
+        db_hosts: {}
+        ollama_hosts: {}
+        n8n_hosts: {}
+
+    wiki_hosts:
+      hosts:
+        wiki:
+          ansible_host: 91.224.87.240
+          private_ip: 10.10.0.7
+
+    docker_hosts:
+      children:
+        db_hosts: {}
+        ollama_hosts: {}
+        n8n_hosts: {}
+        wiki_hosts: {}

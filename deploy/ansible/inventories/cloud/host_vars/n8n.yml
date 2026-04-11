@@ -1,0 +1,24 @@
+---
+# PostgreSQL endpoint
+n8n_postgres_host: "{{ hostvars['db'].private_ip }}"
+
+# Public n8n endpoint (HTTPS behind edge proxy)
+n8n_public_host: n8n.poluyanov.net
+n8n_public_port: 443
+
+# Direct Ollama API on private network
+n8n_common_ollama_base_url: >-
+  http://{{ hostvars[groups['ollama_hosts'][0]].private_ip }}:{{ hostvars[groups['ollama_hosts'][0]].ollama_port | default(11434) }}
+
+# Effective production webhook paths registered by n8n for imported workflows.
+n8n_workflow_agent_query_webhook_path: "9c7e0a12-6d2f-4f9c-9ab1-cf2d6c8f5303/webhook_agent_query/agent-query"
+n8n_workflow_memory_read_webhook_path: "f5d4d6d6-8c5a-4b35-a1e9-0f8e4a6f2101/webhook_memory_read/agent-memory-read"
+n8n_workflow_memory_write_webhook_path: "a1b7c2f4-3f20-4f57-9f4e-7f1b8d2f4c02/webhook_memory_write/agent-memory-write"
+
+firewall_ssh_sources:
+  - "{{ hostvars['wiki'].private_ip }}/32"
+
+firewall_rules:
+  - port: 5678
+    proto: tcp
+    source: "{{ hostvars['wiki'].private_ip }}/32"
