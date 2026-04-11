@@ -1,0 +1,5 @@
+---
+- name: Reload edge nginx after certificate update
+  ansible.builtin.service:
+    name: "{{ edge_tls_acme_nginx_service_name }}"
+    state: reloaded

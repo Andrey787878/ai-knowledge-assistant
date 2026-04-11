@@ -1,0 +1,37 @@
+---
+# Contacts/domains
+edge_tls_acme_email: ''
+edge_tls_acme_primary_domain: "{{ nginx_rp_wiki_server_name | default('') }}"
+edge_tls_acme_additional_domains:
+  - "{{ nginx_rp_n8n_server_name | default('') }}"
+
+# HTTP-01 webroot flow
+edge_tls_acme_certbot_package: certbot
+edge_tls_acme_webroot_path: /var/www/letsencrypt
+
+# Issuance behavior
+edge_tls_acme_use_staging: false
+edge_tls_acme_force_renew: false
+
+# Derived certificate paths
+edge_tls_acme_live_dir: "/etc/letsencrypt/live/{{ edge_tls_acme_primary_domain }}"
+edge_tls_acme_cert_path: "{{ edge_tls_acme_live_dir }}/fullchain.pem"
+edge_tls_acme_key_path: "{{ edge_tls_acme_live_dir }}/privkey.pem"
+
+# Keep nginx role strict verification against public trust store when LE is used.
+edge_tls_acme_system_ca_bundle_path_map:
+  Debian: /etc/ssl/certs/ca-certificates.crt
+  RedHat: /etc/pki/tls/certs/ca-bundle.crt
+edge_tls_acme_system_ca_bundle_path: >-
+  {{ edge_tls_acme_system_ca_bundle_path_map.get(ansible_os_family, '/etc/ssl/certs/ca-certificates.crt') }}
+
+edge_tls_acme_sync_nginx_vars: true
+
+# Renew scheduler (explicitly managed by role)
+edge_tls_acme_manage_renew_timer: true
+edge_tls_acme_renew_timer_unit: certbot.timer
+
+# Renew hook
+edge_tls_acme_manage_renew_hook: true
+edge_tls_acme_renew_hook_path: /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
+edge_tls_acme_nginx_service_name: nginx
