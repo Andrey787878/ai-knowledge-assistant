@@ -1,0 +1,648 @@
+---
+- name: Smoke preflight
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Validate required inventory groups for smoke checks
+      ansible.builtin.assert:
+        that:
+          - groups['db_hosts'] | default([]) | length > 0
+          - groups['ollama_hosts'] | default([]) | length > 0
+          - groups['n8n_hosts'] | default([]) | length > 0
+          - groups['wiki_hosts'] | default([]) | length > 0
+        fail_msg: >-
+          smoke.yml requires db_hosts, ollama_hosts, n8n_hosts, wiki_hosts
+          groups in inventory.
+      tags: [smoke, smoke_preflight]
+
+    - name: Validate smoke scalar settings
+      ansible.builtin.assert:
+        that:
+          - (smoke_tls_min_valid_seconds | default(2592000) | int) > 0
+          - smoke_agent_e2e_enabled | default(true) is boolean
+          - smoke_http01_challenge_check_enabled | default(true) is boolean
+          - smoke_external_dns_check_enabled | default(true) is boolean
+          - smoke_agent_e2e_question | default('Опиши текущую инфраструктуру кратко.') | trim | length > 0
+        fail_msg: >-
+          Invalid smoke settings. Check smoke_tls_min_valid_seconds,
+          smoke_agent_e2e_enabled, smoke_http01_challenge_check_enabled,
+          smoke_external_dns_check_enabled,
+          smoke_agent_e2e_question.
+      tags: [smoke, smoke_preflight]
+
+- name: Smoke external DNS/public-route checks from control host
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Validate external DNS smoke variables
+      ansible.builtin.assert:
+        that:
+          - hostvars[groups['wiki_hosts'][0]].nginx_rp_wiki_server_name | default('') | trim | length > 0
+          - hostvars[groups['wiki_hosts'][0]].nginx_rp_n8n_server_name | default('') | trim | length > 0
+        fail_msg: >-
+          Missing edge server names for external DNS checks:
+          nginx_rp_wiki_server_name/nginx_rp_n8n_server_name.
+      when:
+        - smoke_external_dns_check_enabled | default(true) | bool
+      tags: [smoke, smoke_external]
+
+    - name: Verify public HTTPS health for wiki domain from control host
+      ansible.builtin.command: >-
+        curl --silent --show-error --fail --output /dev/null --write-out '%{http_code}'
+        'https://{{ hostvars[groups['wiki_hosts'][0]].nginx_rp_wiki_server_name }}{{ '' if ((hostvars[groups['wiki_hosts'][0]].nginx_rp_https_port | default(443)) | int == 443) else ':' ~ ((hostvars[groups['wiki_hosts'][0]].nginx_rp_https_port | default(443)) | string) }}/healthz'
+      register: smoke_external_wiki_https_status
+      changed_when: false
+      retries: 5
+      delay: 3
+      until: smoke_external_wiki_https_status.stdout | trim == "200"
+      when:
+        - smoke_external_dns_check_enabled | default(true) | bool
+        - not ansible_check_mode
+      tags: [smoke, smoke_external]
+
+    - name: Verify public HTTPS health for n8n domain from control host
+      ansible.builtin.command: >-
+        curl --silent --show-error --fail --output /dev/null --write-out '%{http_code}'
+        'https://{{ hostvars[groups['wiki_hosts'][0]].nginx_rp_n8n_server_name }}{{ '' if ((hostvars[groups['wiki_hosts'][0]].nginx_rp_https_port | default(443)) | int == 443) else ':' ~ ((hostvars[groups['wiki_hosts'][0]].nginx_rp_https_port | default(443)) | string) }}/healthz'
+      register: smoke_external_n8n_https_status
+      changed_when: false
+      retries: 5
+      delay: 3
+      until: smoke_external_n8n_https_status.stdout | trim == "200"
+      when:
+        - smoke_external_dns_check_enabled | default(true) | bool
+        - not ansible_check_mode
+      tags: [smoke, smoke_external]
+
+- name: Smoke cross-host connectivity from n8n host
+  hosts: n8n_hosts
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Validate n8n integration variables
+      ansible.builtin.assert:
+        that:
+          - n8n_common_ollama_base_url | default('') | trim | length > 0
+          - n8n_common_ollama_base_url is match('^https?://')
+          - hostvars[groups['db_hosts'][0]].private_ip | default('') | trim | length > 0
+          - hostvars[groups['ollama_hosts'][0]].private_ip | default('') | trim | length > 0
+        fail_msg: >-
+          Invalid n8n/DB/Ollama variables for smoke checks.
+      tags: [smoke, smoke_internal]
+
+    - name: Verify n8n -> postgres TCP is reachable
+      ansible.builtin.wait_for:
+        host: "{{ hostvars[groups['db_hosts'][0]].private_ip }}"
+        port: "{{ hostvars[groups['db_hosts'][0]].postgres_port | default(5432) }}"
+        connect_timeout: 3
+        timeout: 15
+        state: started
+      when: not ansible_check_mode
+      tags: [smoke, smoke_internal]
+
+    - name: Verify n8n -> ollama API is reachable
+      ansible.builtin.command: >-
+        curl --silent --show-error --fail --output /dev/null --write-out '%{http_code}'
+        '{{ n8n_common_ollama_base_url }}/api/tags'
+      register: smoke_n8n_ollama_http_status
+      changed_when: false
+      retries: 10
+      delay: 3
+      until: smoke_n8n_ollama_http_status.stdout | trim == "200"
+      when: not ansible_check_mode
+      tags: [smoke, smoke_internal]
+
+    - name: Assert n8n -> ollama API returns 200
+      ansible.builtin.assert:
+        that:
+          - smoke_n8n_ollama_http_status.stdout | trim == "200"
+        fail_msg: "n8n -> ollama /api/tags check failed."
+      when: not ansible_check_mode
+      tags: [smoke, smoke_internal]
+
+    - name: Validate n8n workflow env variables in n8n-web container
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ n8n_web_container_name | default('n8n-web') }}"
+          - sh
+          - -lc
+          - >-
+            test -n "$OLLAMA_BASE_URL"
+            && test -n "$OLLAMA_MODEL"
+            && env | grep -q '^AGENT_WORKFLOW_TOKEN='
+      register: smoke_n8n_workflow_env_check
+      changed_when: false
+      when: not ansible_check_mode
+      tags: [smoke, smoke_internal]
+
+    - name: Assert n8n workflow env variables are present
+      ansible.builtin.assert:
+        that:
+          - smoke_n8n_workflow_env_check.rc == 0
+        fail_msg: "n8n-web env is missing OLLAMA_BASE_URL/OLLAMA_MODEL/AGENT_WORKFLOW_TOKEN."
+      when: not ansible_check_mode
+      tags: [smoke, smoke_internal]
+
+    - name: Validate n8n workflow env variables in n8n-worker container
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ n8n_worker_container_name | default('n8n-worker') }}"
+          - sh
+          - -lc
+          - >-
+            test -n "$OLLAMA_BASE_URL"
+            && test -n "$OLLAMA_MODEL"
+            && env | grep -q '^AGENT_WORKFLOW_TOKEN='
+      register: smoke_n8n_worker_workflow_env_check
+      changed_when: false
+      when: not ansible_check_mode
+      tags: [smoke, smoke_internal]
+
+    - name: Assert n8n-worker workflow env variables are present
+      ansible.builtin.assert:
+        that:
+          - smoke_n8n_worker_workflow_env_check.rc == 0
+        fail_msg: "n8n-worker env is missing OLLAMA_BASE_URL/OLLAMA_MODEL/AGENT_WORKFLOW_TOKEN."
+      when: not ansible_check_mode
+      tags: [smoke, smoke_internal]
+
+- name: Smoke edge HTTPS behavior and cert lifecycle
+  hosts: wiki_hosts
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Validate edge smoke variables
+      ansible.builtin.assert:
+        that:
+          - nginx_rp_verify_ca_cert_path | default('') | trim | length > 0
+          - nginx_rp_wiki_server_name | default('') | trim | length > 0
+          - nginx_rp_n8n_server_name | default('') | trim | length > 0
+        fail_msg: "Missing edge smoke variables."
+      tags: [smoke, smoke_edge]
+
+    - name: Check edge CA bundle file exists
+      ansible.builtin.stat:
+        path: "{{ nginx_rp_verify_ca_cert_path }}"
+      register: smoke_edge_ca_bundle_stat
+      when: not ansible_check_mode
+      tags: [smoke, smoke_edge]
+
+    - name: Assert edge CA bundle exists
+      ansible.builtin.assert:
+        that:
+          - smoke_edge_ca_bundle_stat.stat.exists
+        fail_msg: "Missing CA bundle file for edge checks: {{ nginx_rp_verify_ca_cert_path }}."
+      when: not ansible_check_mode
+      tags: [smoke, smoke_edge]
+
+    - name: Verify HTTP-01 challenge path for edge domains
+      when:
+        - smoke_http01_challenge_check_enabled | default(true) | bool
+        - not ansible_check_mode
+      tags: [smoke, smoke_edge]
+      block:
+        - name: Build HTTP-01 challenge probe identifiers and domains
+          ansible.builtin.set_fact:
+            smoke_http01_challenge_id: "smoke-{{ lookup('ansible.builtin.pipe', 'date +%s') }}"
+            smoke_http01_challenge_body: "smoke-http01-ok"
+            smoke_http01_challenge_domains: >-
+              {{ [nginx_rp_wiki_server_name, nginx_rp_n8n_server_name] | unique }}
+          changed_when: false
+
+        - name: Ensure HTTP-01 challenge directory exists
+          ansible.builtin.file:
+            path: "{{ (edge_tls_acme_webroot_path | default('/var/www/letsencrypt')) ~ '/.well-known/acme-challenge' }}"
+            state: directory
+            owner: root
+            group: root
+            mode: "0755"
+
+        - name: Write HTTP-01 challenge probe file
+          ansible.builtin.copy:
+            dest: "{{ (edge_tls_acme_webroot_path | default('/var/www/letsencrypt')) ~ '/.well-known/acme-challenge/' ~ smoke_http01_challenge_id }}"
+            content: "{{ smoke_http01_challenge_body }}\n"
+            owner: root
+            group: root
+            mode: "0644"
+
+        - name: Verify HTTP-01 challenge path is served without HTTPS redirect for each edge domain
+          ansible.builtin.uri:
+            url: >-
+              http://127.0.0.1{{ '' if ((nginx_rp_http_port | default(80)) | int == 80)
+              else ':' ~ ((nginx_rp_http_port | default(80)) | string) }}/.well-known/acme-challenge/{{ smoke_http01_challenge_id }}
+            method: GET
+            status_code: 200
+            follow_redirects: none
+            return_content: true
+            headers:
+              Host: "{{ item }}"
+          register: smoke_http01_challenge_probe_results
+          changed_when: false
+          loop: "{{ smoke_http01_challenge_domains }}"
+          loop_control:
+            label: "{{ item }}"
+
+        - name: Assert HTTP-01 challenge path response is correct for each edge domain
+          ansible.builtin.assert:
+            that:
+              - item.status | int == 200
+              - item.content | trim == smoke_http01_challenge_body
+            fail_msg: >-
+              HTTP-01 challenge probe failed for {{ item.item | default('unknown-domain') }}.
+              Ensure /.well-known/acme-challenge/* is served from
+              edge_tls_acme_webroot_path without redirect.
+          loop: "{{ smoke_http01_challenge_probe_results.results }}"
+          loop_control:
+            label: "{{ item.item | default('unknown-domain') }}"
+      always:
+        - name: Remove HTTP-01 challenge probe file
+          ansible.builtin.file:
+            path: "{{ (edge_tls_acme_webroot_path | default('/var/www/letsencrypt')) ~ '/.well-known/acme-challenge/' ~ smoke_http01_challenge_id }}"
+            state: absent
+
+    - name: Verify HTTP redirects to HTTPS for wiki domain
+      ansible.builtin.uri:
+        url: "http://127.0.0.1{{ '' if ((nginx_rp_http_port | default(80)) | int == 80) else ':' ~ ((nginx_rp_http_port | default(80)) | string) }}/healthz"
+        method: GET
+        status_code: 301
+        follow_redirects: none
+        headers:
+          Host: "{{ nginx_rp_wiki_server_name }}"
+      register: smoke_wiki_http_redirect_check
+      changed_when: false
+      when: not ansible_check_mode
+      tags: [smoke, smoke_edge]
+
+    - name: Assert wiki redirect location uses HTTPS
+      ansible.builtin.assert:
+        that:
+          - smoke_wiki_http_redirect_check.location is defined
+          - smoke_wiki_http_redirect_check.location is match('^https://')
+        fail_msg: "Wiki HTTP redirect is missing or does not point to HTTPS."
+      when: not ansible_check_mode
+      tags: [smoke, smoke_edge]
+
+    - name: Verify HTTPS health for wiki domain
+      ansible.builtin.command: >-
+        curl --silent --show-error --fail --output /dev/null --write-out '%{http_code}'
+        --cacert '{{ nginx_rp_verify_ca_cert_path }}'
+        --resolve '{{ nginx_rp_wiki_server_name }}:{{ nginx_rp_https_port | default(443) }}:127.0.0.1'
+        'https://{{ nginx_rp_wiki_server_name }}{{ '' if ((nginx_rp_https_port | default(443)) | int == 443) else ':' ~ ((nginx_rp_https_port | default(443)) | string) }}/healthz'
+      register: smoke_wiki_https_health_status
+      changed_when: false
+      when: not ansible_check_mode
+      tags: [smoke, smoke_edge]
+
+    - name: Assert HTTPS health for wiki domain returns 200
+      ansible.builtin.assert:
+        that:
+          - smoke_wiki_https_health_status.stdout | trim == "200"
+        fail_msg: "wiki HTTPS /healthz check failed."
+      when: not ansible_check_mode
+      tags: [smoke, smoke_edge]
+
+    - name: Verify HTTP redirects to HTTPS for n8n domain
+      ansible.builtin.uri:
+        url: "http://127.0.0.1{{ '' if ((nginx_rp_http_port | default(80)) | int == 80) else ':' ~ ((nginx_rp_http_port | default(80)) | string) }}/healthz"
+        method: GET
+        status_code: 301
+        follow_redirects: none
+        headers:
+          Host: "{{ nginx_rp_n8n_server_name }}"
+      register: smoke_n8n_http_redirect_check
+      changed_when: false
+      when: not ansible_check_mode
+      tags: [smoke, smoke_edge]
+
+    - name: Assert n8n redirect location uses HTTPS
+      ansible.builtin.assert:
+        that:
+          - smoke_n8n_http_redirect_check.location is defined
+          - smoke_n8n_http_redirect_check.location is match('^https://')
+        fail_msg: "n8n HTTP redirect is missing or does not point to HTTPS."
+      when: not ansible_check_mode
+      tags: [smoke, smoke_edge]
+
+    - name: Verify HTTPS health for n8n domain via edge
+      ansible.builtin.command: >-
+        curl --silent --show-error --fail --output /dev/null --write-out '%{http_code}'
+        --cacert '{{ nginx_rp_verify_ca_cert_path }}'
+        --resolve '{{ nginx_rp_n8n_server_name }}:{{ nginx_rp_https_port | default(443) }}:127.0.0.1'
+        'https://{{ nginx_rp_n8n_server_name }}{{ '' if ((nginx_rp_https_port | default(443)) | int == 443) else ':' ~ ((nginx_rp_https_port | default(443)) | string) }}/healthz'
+      register: smoke_n8n_https_health_status
+      changed_when: false
+      when: not ansible_check_mode
+      tags: [smoke, smoke_edge]
+
+    - name: Assert HTTPS health for n8n domain returns 200
+      ansible.builtin.assert:
+        that:
+          - smoke_n8n_https_health_status.stdout | trim == "200"
+        fail_msg: "n8n HTTPS /healthz check failed."
+      when: not ansible_check_mode
+      tags: [smoke, smoke_edge]
+
+    - name: Verify edge TLS certificate validity window
+      ansible.builtin.command:
+        argv:
+          - openssl
+          - x509
+          - -checkend
+          - "{{ (smoke_tls_min_valid_seconds | default(2592000) | int) | string }}"
+          - -noout
+          - -in
+          - "{{ nginx_rp_tls_cert_path }}"
+      register: smoke_edge_tls_checkend
+      changed_when: false
+      when: not ansible_check_mode
+      tags: [smoke, smoke_edge]
+
+    - name: Assert edge TLS certificate has enough validity left
+      ansible.builtin.assert:
+        that:
+          - smoke_edge_tls_checkend.rc == 0
+        fail_msg: >-
+          Edge TLS certificate expires too soon
+          (< {{ smoke_tls_min_valid_seconds | default(2592000) | int }} seconds).
+      when: not ansible_check_mode
+      tags: [smoke, smoke_edge]
+
+    - name: Check certbot renew timer enabled state
+      ansible.builtin.command: "systemctl is-enabled {{ edge_tls_acme_renew_timer_unit | default('certbot.timer') }}"
+      register: smoke_edge_certbot_timer_enabled
+      changed_when: false
+      when:
+        - not ansible_check_mode
+        - edge_tls_acme_manage_renew_timer | default(true) | bool
+      tags: [smoke, smoke_edge]
+
+    - name: Check certbot renew timer active state
+      ansible.builtin.command: "systemctl is-active {{ edge_tls_acme_renew_timer_unit | default('certbot.timer') }}"
+      register: smoke_edge_certbot_timer_active
+      changed_when: false
+      when:
+        - not ansible_check_mode
+        - edge_tls_acme_manage_renew_timer | default(true) | bool
+      tags: [smoke, smoke_edge]
+
+    - name: Assert certbot renew timer is enabled and active
+      ansible.builtin.assert:
+        that:
+          - smoke_edge_certbot_timer_enabled.stdout | trim == 'enabled'
+          - smoke_edge_certbot_timer_active.stdout | trim == 'active'
+        fail_msg: "certbot renew timer is not enabled/active."
+      when:
+        - not ansible_check_mode
+        - edge_tls_acme_manage_renew_timer | default(true) | bool
+      tags: [smoke, smoke_edge]
+
+- name: Smoke deny-by-default network checks from DB host
+  hosts: db_hosts
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Probe direct plain n8n port from db host (expected blocked)
+      ansible.builtin.wait_for:
+        host: "{{ hostvars[groups['n8n_hosts'][0]].private_ip }}"
+        port: "{{ hostvars[groups['n8n_hosts'][0]].n8n_web_port | default(5678) }}"
+        connect_timeout: 2
+        timeout: 4
+        state: started
+      register: smoke_db_to_n8n_plain_probe
+      ignore_errors: true
+      when: not ansible_check_mode
+      tags: [smoke, smoke_network]
+
+    - name: Assert direct plain n8n port is not reachable from db host
+      ansible.builtin.assert:
+        that:
+          - smoke_db_to_n8n_plain_probe is failed
+        fail_msg: >-
+          Plain path db -> n8n:5678 is reachable.
+          Edge-only access policy violated.
+      when: not ansible_check_mode
+      tags: [smoke, smoke_network]
+
+    - name: Probe direct ollama port from db host (expected blocked)
+      ansible.builtin.wait_for:
+        host: "{{ hostvars[groups['ollama_hosts'][0]].private_ip }}"
+        port: "{{ hostvars[groups['ollama_hosts'][0]].ollama_port | default(11434) }}"
+        connect_timeout: 2
+        timeout: 4
+        state: started
+      register: smoke_db_to_ollama_plain_probe
+      ignore_errors: true
+      when: not ansible_check_mode
+      tags: [smoke, smoke_network]
+
+    - name: Assert direct plain ollama port is not reachable from db host
+      ansible.builtin.assert:
+        that:
+          - smoke_db_to_ollama_plain_probe is failed
+        fail_msg: >-
+          Plain path db -> ollama:11434 is reachable.
+          Firewall policy violation.
+      when: not ansible_check_mode
+      tags: [smoke, smoke_network]
+
+    - name: Assert postgres_hba_rules are host-only
+      ansible.builtin.assert:
+        that:
+          - (postgres_hba_rules | default([]) | map(attribute='type') | list | difference(['host']) | length) == 0
+        fail_msg: "postgres_hba_rules contain non-host entries."
+      tags: [smoke, smoke_network]
+
+- name: Smoke agent e2e flow via edge n8n webhook
+  hosts: wiki_hosts
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Check that production webhook agent-query is registered on n8n-web
+      ansible.builtin.command: >-
+        curl --silent --show-error --output /dev/null --write-out '%{http_code}'
+        --header 'Content-Type: application/json'
+        --data '{{ {"session_id": "smoke-precheck", "user_id": "smoke-precheck", "question": "ping"} | to_json }}'
+        'http://{{ hostvars[groups['n8n_hosts'][0]].private_ip }}:{{ hostvars[groups['n8n_hosts'][0]].n8n_web_port | default(5678) }}/webhook/{{ hostvars[groups['n8n_hosts'][0]].n8n_workflow_agent_query_webhook_path | default("9c7e0a12-6d2f-4f9c-9ab1-cf2d6c8f5303/webhook_agent_query/agent-query") }}'
+      register: smoke_agent_webhook_registration_status
+      changed_when: false
+      retries: 10
+      delay: 3
+      until: smoke_agent_webhook_registration_status.stdout | trim != "404"
+      delegate_to: "{{ groups['n8n_hosts'][0] }}"
+      when:
+        - smoke_agent_e2e_enabled | default(true) | bool
+        - not ansible_check_mode
+      tags: [smoke, smoke_e2e]
+
+    - name: Assert production webhook agent-query is registered before edge call
+      ansible.builtin.assert:
+        that:
+          - smoke_agent_webhook_registration_status.stdout | trim != "404"
+        fail_msg: >-
+          n8n production webhook /webhook/{{ hostvars[groups['n8n_hosts'][0]].n8n_workflow_agent_query_webhook_path | default("9c7e0a12-6d2f-4f9c-9ab1-cf2d6c8f5303/webhook_agent_query/agent-query") }} returns 404 (not registered/inactive).
+          Re-run n8n workflow reconcile/import and ensure agent_query_main is active.
+      when:
+        - smoke_agent_e2e_enabled | default(true) | bool
+        - not ansible_check_mode
+      tags: [smoke, smoke_e2e]
+
+    - name: Generate e2e session id
+      ansible.builtin.set_fact:
+        smoke_agent_e2e_session_id: "smoke-{{ lookup('ansible.builtin.pipe', 'date +%s') }}"
+      changed_when: false
+      when:
+        - smoke_agent_e2e_enabled | default(true) | bool
+        - not ansible_check_mode
+      tags: [smoke, smoke_e2e]
+
+    - name: Call agent-query webhook through edge HTTPS
+      ansible.builtin.command: >-
+        curl --silent --show-error
+        --cacert '{{ nginx_rp_verify_ca_cert_path }}'
+        --resolve '{{ nginx_rp_n8n_server_name }}:{{ nginx_rp_https_port | default(443) }}:127.0.0.1'
+        --header 'Content-Type: application/json'
+        --write-out '\n%{http_code}'
+        --data '{{ {"session_id": smoke_agent_e2e_session_id, "user_id": "smoke-e2e", "question": (smoke_agent_e2e_question | default("Опиши текущую инфраструктуру кратко."))} | to_json }}'
+        'https://{{ nginx_rp_n8n_server_name }}{{ '' if ((nginx_rp_https_port | default(443)) | int == 443) else ':' ~ ((nginx_rp_https_port | default(443)) | string) }}/webhook/{{ nginx_rp_n8n_agent_query_public_path | default("agent-query") }}'
+      register: smoke_agent_e2e_raw
+      changed_when: false
+      when:
+        - smoke_agent_e2e_enabled | default(true) | bool
+        - not ansible_check_mode
+      tags: [smoke, smoke_e2e]
+
+    - name: Extract agent e2e HTTP code and response body
+      ansible.builtin.set_fact:
+        smoke_agent_e2e_http_code: "{{ (smoke_agent_e2e_raw.stdout_lines | last | default('000')) | trim }}"
+        smoke_agent_e2e_response_body: "{{ (smoke_agent_e2e_raw.stdout_lines[0:-1] | join('\n')) | trim }}"
+      changed_when: false
+      when:
+        - smoke_agent_e2e_enabled | default(true) | bool
+        - not ansible_check_mode
+      tags: [smoke, smoke_e2e]
+
+    - name: Assert agent e2e HTTP response is 200 with non-empty body
+      ansible.builtin.assert:
+        that:
+          - smoke_agent_e2e_http_code == "200"
+          - smoke_agent_e2e_response_body | length > 0
+        fail_msg: >-
+          agent-query webhook call failed: status={{ smoke_agent_e2e_http_code | default('n/a') }},
+          body='{{ smoke_agent_e2e_response_body | default('') }}'
+      when:
+        - smoke_agent_e2e_enabled | default(true) | bool
+        - not ansible_check_mode
+      tags: [smoke, smoke_e2e]
+
+    - name: Parse agent e2e response JSON
+      ansible.builtin.set_fact:
+        smoke_agent_e2e_response_json: >-
+          {{
+            smoke_agent_e2e_response_body
+            if (smoke_agent_e2e_response_body is mapping)
+            else (smoke_agent_e2e_response_body | from_json)
+          }}
+      changed_when: false
+      when:
+        - smoke_agent_e2e_enabled | default(true) | bool
+        - not ansible_check_mode
+      tags: [smoke, smoke_e2e]
+
+    - name: Assert agent e2e webhook response is valid
+      ansible.builtin.assert:
+        that:
+          - smoke_agent_e2e_response_json is mapping
+          - smoke_agent_e2e_response_json.ok | default(false) | bool
+          - smoke_agent_e2e_response_json.answer | default('') | trim | length > 0
+        fail_msg: "agent-query webhook returned invalid/empty response."
+      when:
+        - smoke_agent_e2e_enabled | default(true) | bool
+        - not ansible_check_mode
+      tags: [smoke, smoke_e2e]
+
+- name: Verify agent e2e memory persisted in PostgreSQL
+  hosts: db_hosts
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Resolve PostgreSQL smoke defaults
+      ansible.builtin.set_fact:
+        smoke_postgres_container_name: "{{ postgres_container_name | default('postgres') }}"
+        smoke_postgres_n8n_db: "{{ postgres_n8n_db | default('n8n') }}"
+        smoke_postgres_agent_memory_schema: "{{ postgres_agent_memory_schema | default('agent') }}"
+        smoke_postgres_agent_memory_table: "{{ postgres_agent_memory_table | default('agent_memory_messages') }}"
+      changed_when: false
+      when:
+        - smoke_agent_e2e_enabled | default(true) | bool
+        - not ansible_check_mode
+      tags: [smoke, smoke_e2e]
+
+    - name: Resolve e2e session id from wiki hostvars
+      ansible.builtin.set_fact:
+        smoke_agent_e2e_session_id_value: >-
+          {{ hostvars[groups['wiki_hosts'][0]].smoke_agent_e2e_session_id | default('') | trim }}
+      changed_when: false
+      when:
+        - smoke_agent_e2e_enabled | default(true) | bool
+        - not ansible_check_mode
+      tags: [smoke, smoke_e2e]
+
+    - name: Assert e2e session id is available for DB check
+      ansible.builtin.assert:
+        that:
+          - smoke_agent_e2e_session_id_value | default('') | length > 0
+          - smoke_postgres_container_name | trim | length > 0
+          - smoke_postgres_n8n_db | trim | length > 0
+          - smoke_postgres_agent_memory_schema is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
+          - smoke_postgres_agent_memory_table is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
+        fail_msg: >-
+          Missing smoke_agent_e2e_session_id from wiki play hostvars.
+          Run full smoke.yml (including agent e2e webhook call) in one execution.
+      when:
+        - smoke_agent_e2e_enabled | default(true) | bool
+        - not ansible_check_mode
+      tags: [smoke, smoke_e2e]
+
+    - name: Count persisted memory rows for e2e session
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ smoke_postgres_container_name }}"
+          - sh
+          - -lc
+          - >-
+            PGPASSWORD="$POSTGRES_PASSWORD"
+            psql -v ON_ERROR_STOP=1
+            -U "$POSTGRES_USER"
+            -d "{{ smoke_postgres_n8n_db }}"
+            -tAc
+            "SELECT count(*) FROM {{ smoke_postgres_agent_memory_schema }}.{{ smoke_postgres_agent_memory_table }}
+            WHERE session_id='{{ smoke_agent_e2e_session_id_value | replace("'", "''") }}';"
+      register: smoke_agent_e2e_memory_count
+      changed_when: false
+      failed_when: false
+      when:
+        - smoke_agent_e2e_enabled | default(true) | bool
+        - not ansible_check_mode
+      tags: [smoke, smoke_e2e]
+
+    - name: Assert memory rows persisted for e2e session
+      ansible.builtin.assert:
+        that:
+          - smoke_agent_e2e_memory_count.rc == 0
+          - (smoke_agent_e2e_memory_count.stdout | trim | int) >= 2
+        fail_msg: >-
+          e2e memory persistence check failed for session
+          {{ smoke_agent_e2e_session_id_value | default('n/a') }}.
+          rc={{ smoke_agent_e2e_memory_count.rc | default('n/a') }},
+          stdout='{{ smoke_agent_e2e_memory_count.stdout | default('') | trim }}',
+          stderr='{{ smoke_agent_e2e_memory_count.stderr | default('') | trim }}'
+      when:
+        - smoke_agent_e2e_enabled | default(true) | bool
+        - not ansible_check_mode
+      tags: [smoke, smoke_e2e]
