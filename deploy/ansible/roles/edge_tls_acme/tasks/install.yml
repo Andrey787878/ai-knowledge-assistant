@@ -1,0 +1,27 @@
+---
+- name: Update apt cache for Debian hosts
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+  tags: [edge_tls_acme, edge_tls_acme_install]
+
+- name: Update dnf cache for RedHat hosts
+  ansible.builtin.dnf:
+    update_cache: true
+  when: ansible_os_family == "RedHat"
+  tags: [edge_tls_acme, edge_tls_acme_install]
+
+- name: Install certbot package
+  ansible.builtin.package:
+    name: "{{ edge_tls_acme_certbot_package }}"
+    state: present
+  tags: [edge_tls_acme, edge_tls_acme_install]
+
+- name: Ensure certbot renew timer is enabled and started
+  ansible.builtin.service:
+    name: "{{ edge_tls_acme_renew_timer_unit }}"
+    enabled: true
+    state: started
+  when: edge_tls_acme_manage_renew_timer | bool
+  tags: [edge_tls_acme, edge_tls_acme_install]

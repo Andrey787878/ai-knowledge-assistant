@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+set -eu
+
+if command -v systemctl >/dev/null 2>&1; then
+  if systemctl is-active --quiet {{ edge_tls_acme_nginx_service_name }}; then
+    systemctl reload {{ edge_tls_acme_nginx_service_name }}
+  fi
+fi

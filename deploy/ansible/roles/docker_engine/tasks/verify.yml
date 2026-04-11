@@ -60,8 +60,8 @@
 - name: Verify docker service disabled state
   ansible.builtin.assert:
     that:
-      - docker_service_enabled.stdout | trim != "enabled"
-    fail_msg: "Docker service must not be enabled but current state is {{ docker_service_enabled.stdout | trim }}"
+      - docker_service_enabled.stdout | trim not in ["enabled", "enabled-runtime"]
+    fail_msg: "Docker service must not be enabled (enabled/enabled-runtime) but current state is {{ docker_service_enabled.stdout | trim }}"
   when:
     - not ansible_check_mode
     - not (docker_engine_service_enabled | bool)

@@ -1,0 +1,37 @@
+---
+- name: Include validation tasks
+  ansible.builtin.import_tasks: validate.yml
+  tags: [common, validation]
+
+- name: Include package tasks
+  ansible.builtin.import_tasks: packages.yml
+  tags: [common, packages]
+
+- name: Include filesystem tasks
+  ansible.builtin.import_tasks: filesystem.yml
+  tags: [common, filesystem]
+
+- name: Include automation user tasks
+  ansible.builtin.import_tasks: automation_user.yml
+  when: common_manage_automation_user | bool
+  tags: [common, automation_user]
+
+- name: Include SSH hardening tasks
+  ansible.builtin.import_tasks: ssh_hardening.yml
+  when: common_manage_ssh_hardening | bool
+  tags: [common, ssh_hardening]
+
+- name: Include timezone tasks
+  ansible.builtin.import_tasks: timezone.yml
+  when: common_manage_timezone | bool
+  tags: [common, timezone]
+
+- name: Flush common handlers before verification
+  ansible.builtin.meta: flush_handlers
+  when: not ansible_check_mode
+  tags: [common, verify]
+
+- name: Include verification tasks
+  ansible.builtin.import_tasks: verify.yml
+  when: not ansible_check_mode
+  tags: [common, verify]

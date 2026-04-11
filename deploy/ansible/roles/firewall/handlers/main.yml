@@ -1,0 +1,17 @@
+---
+- name: Gather service facts for docker restart decision
+  ansible.builtin.service_facts:
+  listen: Restart docker after firewall changes
+  when:
+    - firewall_restart_docker_on_changes | bool
+    - not ansible_check_mode
+
+- name: Restart docker service after firewall changes
+  ansible.builtin.service:
+    name: docker
+    state: restarted
+  listen: Restart docker after firewall changes
+  when:
+    - firewall_restart_docker_on_changes | bool
+    - not ansible_check_mode
+    - "'docker.service' in (ansible_facts.services | default({}))"

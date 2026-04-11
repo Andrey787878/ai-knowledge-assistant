@@ -1,0 +1,21 @@
+---
+- name: Ensure automation user exists
+  ansible.builtin.user:
+    name: "{{ common_automation_user_name }}"
+    shell: "{{ common_automation_user_shell }}"
+    create_home: "{{ common_automation_user_create_home | bool }}"
+    groups: "{{ common_automation_user_groups | join(',') }}"
+    append: "{{ common_automation_user_append_groups | bool }}"
+    state: present
+  tags: [common, automation_user]
+
+- name: Install automation user sudoers policy
+  ansible.builtin.template:
+    src: 90-automation-user.sudoers.j2
+    dest: "{{ common_automation_user_sudo_file }}"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: "{{ common_visudo_binary_path }} -cf %s"
+  when: common_automation_user_manage_sudo | bool
+  tags: [common, automation_user]

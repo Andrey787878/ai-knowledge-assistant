@@ -39,8 +39,21 @@ n8n_common_timezone: UTC
 n8n_common_telemetry_enabled: false
 n8n_common_editor_base_url: '{{ n8n_public_base_url }}'
 n8n_common_webhook_url: '{{ n8n_public_base_url }}'
+n8n_common_internal_webhook_base_url: 'http://{{ n8n_web_container_name }}:{{ n8n_web_container_port }}'
 n8n_common_encryption_key: ''
 n8n_common_ollama_base_url: ''
+n8n_common_ollama_model: qwen2.5:1.5b
+n8n_common_agent_workflow_token: ''
+n8n_common_agent_system_prompt: >-
+  Ты внутренний инфраструктурный ассистент.
+  Отвечай только на основе переданного контекста и памяти сессии.
+  Если данных недостаточно, ответь ровно: Нет данных.
+n8n_common_agent_min_memory_chars: 40
+n8n_common_agent_allow_general_kb: false
+n8n_common_agent_debug: false
+n8n_common_agent_memory_schema: agent
+n8n_common_agent_memory_table: agent_memory_messages
+n8n_common_block_env_access_in_node: false
 
 # n8n web delta
 n8n_web_container_name: n8n-web
@@ -58,9 +71,8 @@ n8n_worker_concurrency: 5
 # n8n public endpoint settings (for editor/webhook URLs)
 n8n_public_host: '{{ n8n_web_bind_host }}'
 n8n_public_port: '{{ n8n_web_port }}'
-n8n_public_protocol: http
 n8n_public_port_suffix: "{{ '' if (n8n_public_port | int in [80, 443]) else ':' ~ (n8n_public_port | string) }}"
-n8n_public_base_url: '{{ n8n_public_protocol }}://{{ n8n_public_host }}{{ n8n_public_port_suffix }}'
+n8n_public_base_url: 'https://{{ n8n_public_host }}{{ n8n_public_port_suffix }}'
 
 # n8n platform mapping
 n8n_common_platform_map:
@@ -102,8 +114,48 @@ n8n_postgres_user: n8n
 n8n_postgres_password: ''
 
 # compose deploy behavior
-n8n_stack_compose_wait: true
+n8n_stack_compose_wait: false
 n8n_stack_compose_wait_timeout: 600
+n8n_deploy_http_wait_retries: 40
+n8n_deploy_http_wait_delay: 3
+n8n_deploy_http_wait_timeout: 10
+
+# workflow bootstrap (workflow-as-code)
+n8n_workflows_bootstrap_enabled: true
+n8n_workflows_force_import: false
+n8n_workflows_activate_after_import: true
+n8n_workflows_no_log: true
+n8n_workflows_postgres_credential_bootstrap_enabled: true
+n8n_workflows_postgres_credential_force_reconcile: false
+n8n_workflows_postgres_credential_id: "e8fbc146-8e7e-4f81-8d2e-8a322524ec31"
+n8n_workflows_postgres_credential_name: "Postgres n8n"
+n8n_workflows_postgres_credential_type: postgres
+n8n_workflows_postgres_credential_ssl_mode: disable
+n8n_workflows_postgres_credential_allow_unauthorized_certs: false
+n8n_workflows_postgres_credential_pool_size: 10
+n8n_workflows_postgres_credential_source_file: "{{ n8n_workflows_target_dir }}/credential-postgres-n8n.json"
+n8n_workflows_postgres_credential_container_file: "{{ n8n_workflows_container_dir }}/credential-postgres-n8n.json"
+n8n_workflows_postgres_credential_source_owner: "{{ n8n_stack_data_dir_owner }}"
+n8n_workflows_postgres_credential_source_group: "{{ n8n_stack_data_dir_group }}"
+n8n_workflows_postgres_credential_source_mode: "0640"
+n8n_workflows_files:
+  - memory_read.json
+  - memory_write.json
+  - agent_query_main.json
+  - agent_chat_ui.json
+  - agent_smoke_e2e.json
+# n8n stores production webhook paths with workflow-id/node-name prefix.
+# Keep these defaults aligned with workflow IDs/names in n8n/workflows/*.json.
+n8n_workflow_agent_query_webhook_path: "9c7e0a12-6d2f-4f9c-9ab1-cf2d6c8f5303/webhook_agent_query/agent-query"
+n8n_workflow_memory_read_webhook_path: "f5d4d6d6-8c5a-4b35-a1e9-0f8e4a6f2101/webhook_memory_read/agent-memory-read"
+n8n_workflow_memory_write_webhook_path: "a1b7c2f4-3f20-4f57-9f4e-7f1b8d2f4c02/webhook_memory_write/agent-memory-write"
+n8n_workflows_source_dir: "{{ playbook_dir }}/../../../n8n/workflows"
+n8n_workflows_target_dir: "{{ n8n_stack_project_dir }}/workflows"
+n8n_workflows_target_dir_owner: root
+n8n_workflows_target_dir_group: root
+n8n_workflows_target_dir_mode: "0755"
+n8n_workflows_container_dir: /opt/ai-agent/workflows
+n8n_workflows_state_file: "{{ n8n_stack_project_dir }}/.workflows-imported"
 
 # verify behavior
 n8n_verify_enabled: true

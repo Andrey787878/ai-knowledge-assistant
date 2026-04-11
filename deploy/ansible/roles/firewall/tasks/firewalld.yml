@@ -1,0 +1,168 @@
+---
+- name: Gather package facts on Debian
+  ansible.builtin.package_facts:
+    manager: auto
+  when:
+    - ansible_os_family == "Debian"
+  tags: [firewall, firewall_apply]
+
+- name: Disable UFW on Debian when installed
+  ansible.builtin.command: ufw --force disable
+  register: firewall_disable_ufw_result
+  changed_when: >-
+    'Firewall stopped' in (firewall_disable_ufw_result.stdout | default(''))
+    or
+    'disabled on system startup' in (firewall_disable_ufw_result.stdout | default(''))
+  when:
+    - ansible_os_family == "Debian"
+    - "'ufw' in (ansible_facts.packages | default({}))"
+  tags: [firewall, firewall_apply]
+
+- name: Install firewalld packages on Debian
+  ansible.builtin.apt:
+    name: "{{ firewall_firewalld_packages }}"
+    state: present
+    lock_timeout: "{{ firewall_apt_lock_timeout }}"
+  when: ansible_os_family == "Debian"
+  notify: Restart docker after firewall changes
+  tags: [firewall, firewall_apply]
+
+- name: Install firewalld packages on RedHat
+  ansible.builtin.package:
+    name: "{{ firewall_firewalld_packages }}"
+    state: present
+  when: ansible_os_family == "RedHat"
+  notify: Restart docker after firewall changes
+  tags: [firewall, firewall_apply]
+
+- name: Ensure firewalld service is enabled and started
+  ansible.builtin.service:
+    name: firewalld
+    enabled: true
+    state: started
+  tags: [firewall, firewall_apply]
+
+- name: Set firewalld zone target
+  ansible.posix.firewalld:
+    zone: "{{ firewall_firewalld_zone }}"
+    target: "{{ firewall_firewalld_zone_target }}"
+    permanent: true
+    immediate: false
+    state: present
+  notify: Restart docker after firewall changes
+  tags: [firewall, firewall_apply]
+
+- name: Bind configured interfaces to firewalld zone
+  ansible.posix.firewalld:
+    zone: "{{ firewall_firewalld_zone }}"
+    interface: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  notify: Restart docker after firewall changes
+  loop: "{{ firewall_effective_interfaces }}"
+  loop_control:
+    label: "{{ item }}"
+  when:
+    - (firewall_effective_interfaces | length) > 0
+  tags: [firewall, firewall_apply]
+
+- name: Remove default broad zone services
+  ansible.posix.firewalld:
+    zone: "{{ firewall_firewalld_zone }}"
+    service: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: disabled
+  notify: Restart docker after firewall changes
+  loop: "{{ firewall_firewalld_remove_default_services }}"
+  loop_control:
+    label: "{{ item }}"
+  when:
+    - (firewall_firewalld_remove_default_services | length) > 0
+  tags: [firewall, firewall_apply]
+
+
+- name: Allow SSH from configured source list
+  ansible.posix.firewalld:
+    zone: "{{ firewall_firewalld_zone }}"
+    rich_rule: >-
+      rule family="ipv4"
+      source address="{{ item }}"
+      port port="{{ firewall_ssh_port }}" protocol="tcp"
+      accept
+    permanent: true
+    immediate: true
+    state: enabled
+  notify: Restart docker after firewall changes
+  loop: "{{ firewall_ssh_sources }}"
+  when:
+    - firewall_manage_ssh | bool
+    - (firewall_ssh_sources | length) > 0
+  loop_control:
+    label: "{{ item }}"
+  tags: [firewall, firewall_apply]
+
+- name: Allow firewall rules with source restriction
+  ansible.posix.firewalld:
+    zone: "{{ firewall_firewalld_zone }}"
+    rich_rule: >-
+      rule family="ipv4"
+      source address="{{ item.source }}"
+      port port="{{ item.port }}" protocol="{{ item.proto | default('tcp') }}"
+      accept
+    permanent: true
+    immediate: true
+    state: enabled
+  notify: Restart docker after firewall changes
+  loop: "{{ firewall_rules | selectattr('source', 'defined') | list }}"
+  loop_control:
+    label: "{{ item.port }}/{{ item.proto | default('tcp') }} from {{ item.source }}"
+  tags: [firewall, firewall_apply]
+
+- name: Allow firewall rules with source list restriction
+  ansible.posix.firewalld:
+    zone: "{{ firewall_firewalld_zone }}"
+    rich_rule: >-
+      rule family="ipv4"
+      source address="{{ item.1 }}"
+      port port="{{ item.0.port }}" protocol="{{ item.0.proto | default('tcp') }}"
+      accept
+    permanent: true
+    immediate: true
+    state: enabled
+  notify: Restart docker after firewall changes
+  loop: "{{ query('subelements', firewall_rules | selectattr('sources', 'defined') | list, 'sources') }}"
+  loop_control:
+    label: "{{ item.0.port }}/{{ item.0.proto | default('tcp') }} from {{ item.1 }}"
+  tags: [firewall, firewall_apply]
+
+
+- name: Gather service facts for docker iptables health check
+  ansible.builtin.service_facts:
+  when:
+    - firewall_restart_docker_on_changes | bool
+    - not ansible_check_mode
+  tags: [firewall, firewall_apply]
+
+- name: Check docker forward chain presence
+  ansible.builtin.command: iptables -t filter -S DOCKER-FORWARD
+  register: firewall_docker_forward_chain
+  changed_when: false
+  failed_when: false
+  when:
+    - firewall_restart_docker_on_changes | bool
+    - not ansible_check_mode
+    - "'docker.service' in (ansible_facts.services | default({}))"
+  tags: [firewall, firewall_apply]
+
+- name: Restart docker when DOCKER-FORWARD chain is missing
+  ansible.builtin.service:
+    name: docker
+    state: restarted
+  when:
+    - firewall_restart_docker_on_changes | bool
+    - not ansible_check_mode
+    - "'docker.service' in (ansible_facts.services | default({}))"
+    - (firewall_docker_forward_chain.rc | default(0)) != 0
+  tags: [firewall, firewall_apply]

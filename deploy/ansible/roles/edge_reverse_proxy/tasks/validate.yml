@@ -1,0 +1,118 @@
+---
+- name: Validate supported OS family
+  ansible.builtin.assert:
+    that:
+      - ansible_os_family in nginx_rp_supported_os_families
+    fail_msg: "Unsupported OS family for edge_reverse_proxy role: {{ ansible_os_family }}"
+  tags: [nginx_rp, nginx_rp_validate]
+
+- name: Validate required nginx reverse proxy variables
+  ansible.builtin.assert:
+    that:
+      - nginx_rp_package_name | trim | length > 0
+      - nginx_rp_service_name | trim | length > 0
+      - nginx_rp_service_enabled is boolean
+      - nginx_rp_service_state in ['started', 'stopped', 'restarted', 'reloaded']
+      - nginx_rp_conf_dir | trim | length > 0
+      - nginx_rp_n8n_conf_path | trim | length > 0
+      - nginx_rp_wiki_conf_path | trim | length > 0
+      - nginx_rp_http_port | int > 0
+      - nginx_rp_http_port | int < 65536
+      - nginx_rp_https_port | int > 0
+      - nginx_rp_https_port | int < 65536
+      - nginx_rp_acme_challenge_webroot_path | trim | length > 1
+      - nginx_rp_enable_https_server is boolean
+      - nginx_rp_require_tls_artifacts is boolean
+      - nginx_rp_allowed_client_cidrs is iterable
+      - (nginx_rp_allowed_client_cidrs | length) > 0
+      - nginx_rp_wiki_host | trim | length > 0
+      - nginx_rp_wiki_port | int > 0
+      - nginx_rp_wiki_port | int < 65536
+      - nginx_rp_wiki_server_name | trim | length > 0
+      - nginx_rp_n8n_host | trim | length > 0
+      - nginx_rp_n8n_port | int > 0
+      - nginx_rp_n8n_port | int < 65536
+      - nginx_rp_n8n_server_name | trim | length > 0
+      - nginx_rp_n8n_agent_query_public_path | trim | length > 0
+      - nginx_rp_n8n_agent_query_upstream_webhook_path | trim | length > 0
+      - nginx_rp_tls_cert_path | trim | length > 0
+      - nginx_rp_tls_key_path | trim | length > 0
+      - nginx_rp_client_max_body_size | trim | length > 0
+      - nginx_rp_proxy_connect_timeout | trim | length > 0
+      - nginx_rp_proxy_send_timeout | trim | length > 0
+      - nginx_rp_proxy_read_timeout | trim | length > 0
+      - nginx_rp_n8n_proxy_connect_timeout | trim | length > 0
+      - nginx_rp_n8n_proxy_send_timeout | trim | length > 0
+      - nginx_rp_n8n_proxy_read_timeout | trim | length > 0
+      - nginx_rp_hsts_max_age | int > 0
+      - nginx_rp_hsts_include_subdomains is boolean
+      - nginx_rp_remove_default_site is boolean
+      - nginx_rp_default_conf_paths is iterable
+      - nginx_rp_legacy_conf_paths is iterable
+      - nginx_rp_verify_enabled is boolean
+      - nginx_rp_verify_local_host | trim | length > 0
+      - nginx_rp_verify_ca_cert_path | trim | length > 0
+    fail_msg: "edge_reverse_proxy role validation failed: check variables in defaults/host_vars."
+  tags: [nginx_rp, nginx_rp_validate]
+
+- name: Validate each allowed client CIDR item
+  ansible.builtin.assert:
+    that:
+      - item | trim | length > 0
+    fail_msg: "Invalid nginx_rp_allowed_client_cidrs item: {{ item }}"
+  loop: "{{ nginx_rp_allowed_client_cidrs }}"
+  loop_control:
+    label: "{{ item }}"
+  tags: [nginx_rp, nginx_rp_validate]
+
+- name: Validate verify precondition for service state
+  ansible.builtin.assert:
+    that:
+      - nginx_rp_service_state in ['started', 'restarted', 'reloaded']
+    fail_msg: "nginx_rp_verify_enabled requires nginx_rp_service_state to be started/restarted/reloaded."
+  when: nginx_rp_verify_enabled | bool
+  tags: [nginx_rp, nginx_rp_validate]
+
+- name: Check TLS certificate file exists
+  ansible.builtin.stat:
+    path: "{{ nginx_rp_tls_cert_path }}"
+  register: nginx_rp_tls_cert_stat
+  when: nginx_rp_require_tls_artifacts | bool
+  tags: [nginx_rp, nginx_rp_validate]
+
+- name: Check TLS private key file exists
+  ansible.builtin.stat:
+    path: "{{ nginx_rp_tls_key_path }}"
+  register: nginx_rp_tls_key_stat
+  when: nginx_rp_require_tls_artifacts | bool
+  tags: [nginx_rp, nginx_rp_validate]
+
+- name: Assert TLS cert and key are present
+  ansible.builtin.assert:
+    that:
+      - nginx_rp_tls_cert_stat.stat.exists
+      - nginx_rp_tls_key_stat.stat.exists
+    fail_msg: "TLS certificate or key file is missing on target host."
+  when: nginx_rp_require_tls_artifacts | bool
+  tags: [nginx_rp, nginx_rp_validate]
+
+- name: Check verify CA certificate file exists when strict TLS verification is enabled
+  ansible.builtin.stat:
+    path: "{{ nginx_rp_verify_ca_cert_path }}"
+  register: nginx_rp_verify_ca_cert_stat
+  when:
+    - nginx_rp_verify_enabled | bool
+    - nginx_rp_enable_https_server | bool
+  tags: [nginx_rp, nginx_rp_validate]
+
+- name: Assert verify CA certificate exists when strict TLS verification is enabled
+  ansible.builtin.assert:
+    that:
+      - nginx_rp_verify_ca_cert_stat.stat.exists
+    fail_msg: >-
+      Strict TLS verify is enabled, but verify CA cert file is missing:
+      {{ nginx_rp_verify_ca_cert_path }}
+  when:
+    - nginx_rp_verify_enabled | bool
+    - nginx_rp_enable_https_server | bool
+  tags: [nginx_rp, nginx_rp_validate]

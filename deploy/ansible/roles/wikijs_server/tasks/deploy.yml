@@ -8,6 +8,16 @@
   register: wikijs_compose_deploy_result
   tags: [wikijs, wikijs_deploy]
 
+- name: Wait for wikijs TCP endpoint after deploy
+  ansible.builtin.wait_for:
+    host: "{{ wikijs_runtime_bind_host }}"
+    port: "{{ wikijs_runtime_host_port }}"
+    state: started
+    timeout: "{{ (wikijs_deploy_http_wait_retries | int) * (wikijs_deploy_http_wait_delay | int) }}"
+    connect_timeout: "{{ wikijs_deploy_http_wait_timeout | int }}"
+  when: not ansible_check_mode
+  tags: [wikijs, wikijs_deploy]
+
 - name: Mark wikijs deploy executed in current run
   ansible.builtin.set_fact:
     wikijs_deploy_executed: true

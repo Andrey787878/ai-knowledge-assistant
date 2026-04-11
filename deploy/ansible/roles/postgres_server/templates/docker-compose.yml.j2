@@ -18,22 +18,6 @@ services:
       - "hba_file={{ postgres_container_hba_file }}"
       - -c
       - "password_encryption={{ postgres_password_encryption }}"
-      - -c
-      - "ssl={{ 'on' if postgres_tls_enabled else 'off' }}"
-{% if postgres_tls_enabled %}
-      - -c
-      - "ssl_cert_file={{ postgres_container_tls_cert_file }}"
-      - -c
-      - "ssl_key_file={{ postgres_container_tls_key_file }}"
-      - -c
-      - "ssl_min_protocol_version={{ postgres_tls_min_protocol_version }}"
-      - -c
-      - "ssl_ciphers={{ postgres_tls_ciphers }}"
-{% if postgres_tls_ca_enabled %}
-      - -c
-      - "ssl_ca_file={{ postgres_container_tls_ca_file }}"
-{% endif %}
-{% endif %}
 
     ports:
       - "{{ postgres_bind_host }}:{{ postgres_port }}:5432"
@@ -42,13 +26,6 @@ services:
       - "{{ postgres_data_dir }}:{{ postgres_container_data_dir }}"
       - "{{ postgres_init_sql_host_path }}:{{ postgres_container_init_sql_file }}:ro"
       - "{{ postgres_hba_config_path }}:{{ postgres_container_hba_file }}:ro"
-{% if postgres_tls_enabled %}
-      - "{{ postgres_tls_cert_path }}:{{ postgres_container_tls_cert_file }}:ro"
-      - "{{ postgres_tls_key_path }}:{{ postgres_container_tls_key_file }}:ro"
-{% if postgres_tls_ca_enabled %}
-      - "{{ postgres_tls_ca_path }}:{{ postgres_container_tls_ca_file }}:ro"
-{% endif %}
-{% endif %}
 
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U {{ postgres_superuser }} -d {{ postgres_default_db }}"]

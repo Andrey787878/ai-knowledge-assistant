@@ -1,0 +1,9 @@
+---
+# Local-only overrides (copy to zz-local.yml and set real CIDR values).
+# zz-local.yml is gitignored and loaded after main.yml.
+
+firewall_admin_ssh_sources:
+  - 198.51.100.10/32
+
+edge_allowed_client_cidrs:
+  - 198.51.100.0/24

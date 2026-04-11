@@ -1,0 +1,63 @@
+---
+common_supported_os_families:
+  - Debian
+  - RedHat
+
+common_packages_common:
+  - ca-certificates
+  - curl
+  - tzdata
+
+common_packages_debian:
+  - gnupg
+
+common_packages_redhat:
+  - gnupg2
+
+# Apt cache update hardening (helps on fresh Ubuntu VMs with apt/dpkg locks)
+common_apt_cache_valid_time: 3600
+common_apt_lock_timeout: 300
+common_apt_update_cache_retries: 5
+common_apt_update_cache_retry_max_delay: 30
+
+common_directories:
+  - /opt/ai-agent
+
+common_manage_timezone: true
+common_timezone: UTC
+
+# Automation user baseline
+common_manage_automation_user: true
+common_automation_user_name: "{{ ansible_user | default('ubuntu') }}"
+common_automation_user_shell: /bin/bash
+common_automation_user_create_home: true
+common_automation_user_groups_map:
+  Debian: sudo
+  RedHat: wheel
+common_automation_user_extra_groups: []
+common_automation_user_groups: >-
+  {{ [common_automation_user_groups_map.get(ansible_os_family, 'sudo')] + common_automation_user_extra_groups }}
+common_automation_user_append_groups: true
+
+common_automation_user_manage_sudo: true
+common_automation_user_sudo_nopasswd: true
+common_automation_user_sudo_commands: ALL
+common_automation_user_sudo_file: "/etc/sudoers.d/90-{{ common_automation_user_name }}"
+common_visudo_binary_path: /usr/sbin/visudo
+
+# SSH baseline hardening
+common_manage_ssh_hardening: true
+common_sshd_manage_dropin_include: true
+common_sshd_dropin_dir: /etc/ssh/sshd_config.d
+common_sshd_dropin_file: '{{ common_sshd_dropin_dir }}/99-common-hardening.conf'
+common_sshd_pubkey_authentication: 'yes'
+common_sshd_password_authentication: 'no'
+common_sshd_permit_root_login: 'no'
+common_sshd_kbd_interactive_authentication: 'no'
+common_ssh_hardening_allow_root_ansible_user: false
+common_sshd_binary_path: /usr/sbin/sshd
+common_sshd_verify_addr: 127.0.0.1
+common_sshd_service_name_map:
+  Debian: ssh
+  RedHat: sshd
+common_sshd_service_name: "{{ common_sshd_service_name_map.get(ansible_os_family, '') }}"

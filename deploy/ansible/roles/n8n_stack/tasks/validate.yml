@@ -6,10 +6,18 @@
       - n8n_postgres_password | trim | length > 0
       - n8n_common_encryption_key | trim | length > 0
       - n8n_common_ollama_base_url | trim | length > 0
+      - n8n_common_ollama_model | trim | length > 0
+      - n8n_common_agent_workflow_token is string
+      - n8n_common_agent_system_prompt | trim | length > 0
+      - n8n_common_agent_min_memory_chars | int >= 0
+      - n8n_common_agent_memory_schema is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
+      - n8n_common_agent_memory_table is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
+      - n8n_common_internal_webhook_base_url | trim | length > 0
+      - n8n_common_internal_webhook_base_url is match('^http://')
     fail_msg: >-
       n8n_postgres_host, n8n_postgres_password,
-      n8n_common_encryption_key, n8n_common_ollama_base_url
-      must be set (non-empty).
+      n8n_common_encryption_key, n8n_common_ollama_base_url,
+      n8n_common_ollama_model must be set (non-empty).
   tags: [n8n, n8n_validate]
 
 - name: Validate required n8n stack path and identity variables
@@ -57,6 +65,9 @@
       - n8n_redis_db | int >= 0
       - n8n_worker_concurrency | int > 0
       - n8n_stack_compose_wait_timeout | int > 0
+      - n8n_deploy_http_wait_retries | int > 0
+      - n8n_deploy_http_wait_delay | int > 0
+      - n8n_deploy_http_wait_timeout | int > 0
       - n8n_common_healthcheck_retries | int > 0
       - n8n_redis_healthcheck_retries | int > 0
     fail_msg: >-
@@ -67,13 +78,65 @@
   ansible.builtin.assert:
     that:
       - n8n_stack_compose_wait is boolean
+      - n8n_workflows_bootstrap_enabled is boolean
+      - n8n_workflows_force_import is boolean
+      - n8n_workflows_activate_after_import is boolean
+      - n8n_workflows_no_log is boolean
+      - n8n_workflows_postgres_credential_bootstrap_enabled is boolean
+      - n8n_workflows_postgres_credential_force_reconcile is boolean
       - n8n_verify_enabled is boolean
       - n8n_verify_redis_ping_enabled is boolean
       - n8n_common_telemetry_enabled is boolean
+      - n8n_common_agent_allow_general_kb is boolean
+      - n8n_common_agent_debug is boolean
+      - n8n_common_block_env_access_in_node is boolean
     fail_msg: >-
-      n8n_stack_compose_wait, n8n_verify_enabled,
-      n8n_verify_redis_ping_enabled, n8n_common_telemetry_enabled
+      n8n_stack_compose_wait, n8n_workflows_bootstrap_enabled,
+      n8n_workflows_force_import, n8n_workflows_activate_after_import, n8n_workflows_no_log,
+      n8n_workflows_postgres_credential_bootstrap_enabled, n8n_workflows_postgres_credential_force_reconcile,
+      n8n_verify_enabled,
+      n8n_verify_redis_ping_enabled, n8n_common_telemetry_enabled,
+      n8n_common_agent_allow_general_kb,
+      n8n_common_agent_debug, n8n_common_block_env_access_in_node
       must be boolean.
+  tags: [n8n, n8n_validate]
+
+- name: Validate workflow bootstrap settings
+  ansible.builtin.assert:
+    that:
+      - n8n_workflows_files is iterable
+      - n8n_workflows_files | length > 0
+      - n8n_workflows_source_dir | trim | length > 0
+      - n8n_workflows_target_dir | trim | length > 0
+      - n8n_workflows_target_dir_owner | string | trim | length > 0
+      - n8n_workflows_target_dir_group | string | trim | length > 0
+      - n8n_workflows_target_dir_mode | trim | length > 0
+      - n8n_workflows_container_dir | trim | length > 0
+      - n8n_workflows_state_file | trim | length > 0
+      - n8n_workflows_postgres_credential_name | trim | length > 0
+      - n8n_workflows_postgres_credential_type | trim | length > 0
+      - n8n_workflows_postgres_credential_id | trim | length > 0
+      - n8n_workflows_postgres_credential_ssl_mode in ['disable', 'allow', 'require']
+      - n8n_workflows_postgres_credential_pool_size | int > 0
+      - n8n_workflows_postgres_credential_source_file | trim | length > 0
+      - n8n_workflows_postgres_credential_container_file | trim | length > 0
+      - n8n_workflows_postgres_credential_source_owner | string | trim | length > 0
+      - n8n_workflows_postgres_credential_source_group | string | trim | length > 0
+      - n8n_workflows_postgres_credential_source_mode | trim | length > 0
+    fail_msg: >-
+      n8n workflow bootstrap settings are invalid.
+      Check n8n_workflows_* variables.
+  tags: [n8n, n8n_validate]
+
+- name: Validate each workflow file name
+  ansible.builtin.assert:
+    that:
+      - item | trim | length > 0
+      - item is match('^[A-Za-z0-9._-]+\\.json$')
+    fail_msg: "Invalid workflow filename in n8n_workflows_files: {{ item }}"
+  loop: "{{ n8n_workflows_files }}"
+  loop_control:
+    label: "{{ item }}"
   tags: [n8n, n8n_validate]
 
 - name: Validate n8n runtime modes and URL-like settings
@@ -81,11 +144,10 @@
     that:
       - n8n_postgres_db_type == "postgresdb"
       - n8n_common_executions_mode == "queue"
-      - n8n_public_protocol in ["http", "https"]
-      - n8n_common_editor_base_url is match('^https?://')
-      - n8n_common_webhook_url is match('^https?://')
-      - n8n_common_ollama_base_url is match('^https?://')
+      - n8n_common_editor_base_url is match('^https://')
+      - n8n_common_webhook_url is match('^https://')
+      - n8n_common_ollama_base_url is match('^http://')
     fail_msg: >-
-      n8n_stack expects postgres queue mode and valid http(s) URLs for
-      editor/webhook/ollama endpoints.
+      n8n_stack expects postgres queue mode,
+      https URLs for editor/webhook and http URL for internal ollama endpoint.
   tags: [n8n, n8n_validate]

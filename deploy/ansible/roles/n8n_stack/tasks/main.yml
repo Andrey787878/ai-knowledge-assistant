@@ -15,6 +15,10 @@
   ansible.builtin.meta: flush_handlers
   tags: [n8n, n8n_flush, n8n_verify]
 
+- name: Run workflows bootstrap/import tasks
+  ansible.builtin.import_tasks: workflows.yml
+  tags: [n8n, n8n_workflows]
+
 - name: Run verify tasks
   ansible.builtin.import_tasks: verify.yml
   when: n8n_verify_enabled | bool

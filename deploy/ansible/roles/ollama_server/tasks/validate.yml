@@ -1,4 +1,11 @@
 ---
+- name: Validate supported OS family
+  ansible.builtin.assert:
+    that:
+      - ansible_os_family in ollama_supported_os_families
+    fail_msg: "Unsupported OS family for ollama_server role: {{ ansible_os_family }}"
+  tags: [ollama, ollama_validate]
+
 - name: Validate required ollama variables
   ansible.builtin.assert:
     that:
@@ -19,8 +26,13 @@
       - ollama_env_file_path | trim | length > 0
       - ollama_verify_api_url | trim | length > 0
       - ollama_verify_generate_url | trim | length > 0
+      - ollama_verify_api_url is match('^http://')
+      - ollama_verify_generate_url is match('^http://')
       - ollama_model | trim | length > 0
       - ollama_compose_wait_timeout | int > 0
+      - ollama_deploy_api_wait_retries | int > 0
+      - ollama_deploy_api_wait_delay | int > 0
+      - ollama_deploy_api_timeout | int > 0
       - ollama_verify_generate_prompt | trim | length > 0
       - ollama_verify_generate_timeout | int > 0
       - ollama_healthcheck_interval | trim | length > 0

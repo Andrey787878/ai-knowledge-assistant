@@ -1,4 +1,152 @@
 ---
+- name: Detect postgres reconcile drift in default database
+  community.docker.docker_container_exec:
+    container: "{{ postgres_container_name }}"
+    argv:
+      - psql
+      - -v
+      - ON_ERROR_STOP=1
+      - -U
+      - "{{ postgres_superuser }}"
+      - -d
+      - "{{ postgres_default_db }}"
+      - -tAc
+      - >-
+        SELECT CASE
+        WHEN
+          NOT EXISTS (
+            SELECT 1 FROM pg_catalog.pg_roles WHERE rolname='{{ postgres_n8n_user }}'
+          )
+          OR NOT EXISTS (
+            SELECT 1 FROM pg_catalog.pg_roles WHERE rolname='{{ postgres_wiki_user }}'
+          )
+          OR NOT EXISTS (
+            SELECT 1 FROM pg_catalog.pg_database WHERE datname='{{ postgres_n8n_db }}'
+          )
+          OR NOT EXISTS (
+            SELECT 1 FROM pg_catalog.pg_database WHERE datname='{{ postgres_wiki_db }}'
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM pg_catalog.pg_database d
+            JOIN pg_catalog.pg_roles r ON r.oid = d.datdba
+            WHERE d.datname='{{ postgres_n8n_db }}'
+            AND r.rolname <> '{{ postgres_n8n_user }}'
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM pg_catalog.pg_database d
+            JOIN pg_catalog.pg_roles r ON r.oid = d.datdba
+            WHERE d.datname='{{ postgres_wiki_db }}'
+            AND r.rolname <> '{{ postgres_wiki_user }}'
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM pg_catalog.pg_database dat
+            JOIN pg_catalog.pg_roles rol ON rol.oid = dat.datdba
+            WHERE dat.datname='{{ postgres_n8n_db }}'
+            AND rol.rolname='{{ postgres_n8n_user }}'
+            AND pg_catalog.has_database_privilege('{{ postgres_n8n_user }}', dat.datname, 'CONNECT') = false
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM pg_catalog.pg_database dat
+            JOIN pg_catalog.pg_roles rol ON rol.oid = dat.datdba
+            WHERE dat.datname='{{ postgres_wiki_db }}'
+            AND rol.rolname='{{ postgres_wiki_user }}'
+            AND pg_catalog.has_database_privilege('{{ postgres_wiki_user }}', dat.datname, 'CONNECT') = false
+          )
+        THEN 1 ELSE 0 END;
+    env:
+      PGPASSWORD: "{{ postgres_superuser_password | string }}"
+  register: postgres_reconcile_default_drift
+  changed_when: false
+  no_log: true
+  when:
+    - postgres_reconcile_enabled | bool
+    - not ansible_check_mode
+  tags: [postgres, postgres_reconcile]
+
+- name: Detect postgres reconcile drift in n8n database (agent schema/table/indexes)
+  community.docker.docker_container_exec:
+    container: "{{ postgres_container_name }}"
+    argv:
+      - psql
+      - -v
+      - ON_ERROR_STOP=1
+      - -U
+      - "{{ postgres_superuser }}"
+      - -d
+      - "{{ postgres_n8n_db }}"
+      - -tAc
+      - >-
+        SELECT CASE
+        WHEN
+          NOT EXISTS (
+            SELECT 1 FROM pg_namespace
+            WHERE nspname='{{ postgres_agent_memory_schema }}'
+          )
+          OR NOT EXISTS (
+            SELECT 1
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname='{{ postgres_agent_memory_schema }}'
+            AND c.relname='{{ postgres_agent_memory_table }}'
+            AND c.relkind='r'
+          )
+          OR NOT EXISTS (
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname='{{ postgres_agent_memory_schema }}'
+            AND tablename='{{ postgres_agent_memory_table }}'
+            AND indexname='{{ postgres_agent_memory_session_created_index }}'
+          )
+          OR NOT EXISTS (
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname='{{ postgres_agent_memory_schema }}'
+            AND tablename='{{ postgres_agent_memory_table }}'
+            AND indexname='{{ postgres_agent_memory_created_at_index }}'
+          )
+          OR pg_catalog.has_schema_privilege('{{ postgres_n8n_user }}', '{{ postgres_agent_memory_schema }}', 'USAGE') = false
+          OR NOT EXISTS (
+            SELECT 1
+            FROM pg_db_role_setting s
+            JOIN pg_database d ON d.oid = s.setdatabase
+            JOIN pg_roles r ON r.oid = s.setrole
+            WHERE d.datname='{{ postgres_n8n_db }}'
+              AND r.rolname='{{ postgres_n8n_user }}'
+              AND EXISTS (
+                SELECT 1
+                FROM unnest(s.setconfig) cfg
+                WHERE cfg = 'search_path={{ postgres_agent_memory_schema }},public'
+              )
+          )
+        THEN 1 ELSE 0 END;
+    env:
+      PGPASSWORD: "{{ postgres_superuser_password | string }}"
+  register: postgres_reconcile_n8n_drift
+  changed_when: false
+  no_log: true
+  when:
+    - postgres_reconcile_enabled | bool
+    - not ansible_check_mode
+  tags: [postgres, postgres_reconcile]
+
+- name: Build postgres reconcile drift flag
+  ansible.builtin.set_fact:
+    postgres_reconcile_has_drift: >-
+      {{
+        (postgres_reconcile_default_drift.stdout | default('0') | trim == '1')
+        or
+        (postgres_reconcile_n8n_drift.stdout | default('0') | trim == '1')
+      }}
+  changed_when: false
+  when:
+    - postgres_reconcile_enabled | bool
+    - not ansible_check_mode
+  tags: [postgres, postgres_reconcile]
+
 - name: Reconcile app roles/databases/grants in postgres
   community.docker.docker_container_exec:
     container: "{{ postgres_container_name }}"
@@ -14,7 +162,7 @@
     env:
       PGPASSWORD: "{{ postgres_superuser_password | string }}"
   register: postgres_reconcile_result
-  changed_when: false
+  changed_when: postgres_reconcile_has_drift | default(false) | bool
   no_log: true
   when:
     - postgres_reconcile_enabled | bool

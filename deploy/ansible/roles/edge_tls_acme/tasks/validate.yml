@@ -1,0 +1,47 @@
+---
+- name: Validate edge Let's Encrypt core variables
+  ansible.builtin.assert:
+    that:
+      - edge_tls_acme_use_staging is boolean
+      - edge_tls_acme_force_renew is boolean
+      - edge_tls_acme_sync_nginx_vars is boolean
+      - edge_tls_acme_manage_renew_timer is boolean
+      - edge_tls_acme_renew_timer_unit | trim | length > 0
+      - edge_tls_acme_manage_renew_hook is boolean
+      - edge_tls_acme_email | trim | length > 0
+      - edge_tls_acme_primary_domain | trim | length > 0
+      - edge_tls_acme_additional_domains is iterable
+      - edge_tls_acme_certbot_package | trim | length > 0
+      - edge_tls_acme_webroot_path | trim | length > 1
+      - edge_tls_acme_renew_hook_path | trim | length > 0
+      - edge_tls_acme_nginx_service_name | trim | length > 0
+      - edge_tls_acme_system_ca_bundle_path | trim | length > 0
+      - edge_tls_acme_email is match('^[^@\s]+@[^@\s]+\.[^@\s]+$')
+    fail_msg: >-
+      edge_tls_acme validation failed: check email/domain/webroot and
+      renewal-related variables.
+  tags: [edge_tls_acme, edge_tls_acme_validate]
+
+- name: Build requested edge domain list
+  ansible.builtin.set_fact:
+    edge_tls_acme_requested_domains: >-
+      {{
+        ([edge_tls_acme_primary_domain] + (edge_tls_acme_additional_domains | list))
+        | map('trim')
+        | reject('equalto', '')
+        | unique
+        | list
+      }}
+  changed_when: false
+  tags: [edge_tls_acme, edge_tls_acme_validate]
+
+- name: Assert requested edge domain list is valid
+  ansible.builtin.assert:
+    that:
+      - edge_tls_acme_requested_domains | length > 0
+      - edge_tls_acme_requested_domains | select('match', '^.+\..+$') | list | length == edge_tls_acme_requested_domains | length
+      - edge_tls_acme_requested_domains | select('search', 'example\.com$') | list | length == 0
+    fail_msg: >-
+      edge_tls_acme_requested_domains is empty or still contains placeholder
+      domains like *.example.com.
+  tags: [edge_tls_acme, edge_tls_acme_validate]

@@ -1,0 +1,159 @@
+---
+- name: Read effective sshd configuration
+  ansible.builtin.command:
+    argv:
+      - "{{ common_sshd_binary_path }}"
+      - -T
+      - -C
+      - "user={{ ansible_user }},host={{ inventory_hostname }},addr={{ common_sshd_verify_addr }}"
+  register: common_verify_sshd_t
+  changed_when: false
+  when: common_manage_ssh_hardening | bool
+  tags: [common, verify]
+
+- name: Build expected SSH verify regex values
+  ansible.builtin.set_fact:
+    common_verify_expected_pubkey_authentication_regex: >-
+      {{ '(yes|true|on|1)' if (common_sshd_pubkey_authentication | bool) else '(no|false|off|0)' }}
+    common_verify_expected_password_authentication_regex: >-
+      {{ '(yes|true|on|1)' if (common_sshd_password_authentication | bool) else '(no|false|off|0)' }}
+    common_verify_expected_kbd_interactive_authentication_regex: >-
+      {{ '(yes|true|on|1)' if (common_sshd_kbd_interactive_authentication | bool) else '(no|false|off|0)' }}
+  changed_when: false
+  when: common_manage_ssh_hardening | bool
+  tags: [common, verify]
+
+- name: Assert core SSH hardening values
+  ansible.builtin.assert:
+    that:
+      - (common_verify_sshd_t.stdout | lower) is search('(?m)^pubkeyauthentication\s+(' ~ common_verify_expected_pubkey_authentication_regex ~ ')\s*$')
+      - (common_verify_sshd_t.stdout | lower) is search('(?m)^passwordauthentication\s+(' ~ common_verify_expected_password_authentication_regex ~ ')\s*$')
+      - (common_verify_sshd_t.stdout | lower) is search('(?m)^kbdinteractiveauthentication\s+(' ~ common_verify_expected_kbd_interactive_authentication_regex ~ ')\s*$')
+    fail_msg: >-
+      Effective sshd configuration does not match expected core SSH hardening values.
+      expected(pubkey/password/kbd)=
+      {{ common_verify_expected_pubkey_authentication_regex }}/{{ common_verify_expected_password_authentication_regex }}/{{ common_verify_expected_kbd_interactive_authentication_regex }}.
+      sshd -T sample:
+      {{ (common_verify_sshd_t.stdout | default('') | trim)[:400] }}
+  when: common_manage_ssh_hardening | bool
+  tags: [common, verify]
+
+- name: Assert PermitRootLogin when desired is no/false/off/0
+  ansible.builtin.assert:
+    that:
+      - (common_verify_sshd_t.stdout | lower) is search('(?m)^permitrootlogin\s+no\s*$')
+    fail_msg: >-
+      Effective sshd PermitRootLogin must be 'no'.
+      configured={{ common_sshd_permit_root_login }}
+      sshd -T sample: {{ (common_verify_sshd_t.stdout | default('') | trim)[:400] }}
+  when:
+    - common_manage_ssh_hardening | bool
+    - (common_sshd_permit_root_login | string | lower) in ['no', 'false', 'off', '0']
+  tags: [common, verify]
+
+- name: Assert PermitRootLogin when desired is yes/true/on/1
+  ansible.builtin.assert:
+    that:
+      - (common_verify_sshd_t.stdout | lower) is search('(?m)^permitrootlogin\s+yes\s*$')
+    fail_msg: >-
+      Effective sshd PermitRootLogin must be 'yes'.
+      configured={{ common_sshd_permit_root_login }}
+      sshd -T sample: {{ (common_verify_sshd_t.stdout | default('') | trim)[:400] }}
+  when:
+    - common_manage_ssh_hardening | bool
+    - (common_sshd_permit_root_login | string | lower) in ['yes', 'true', 'on', '1']
+  tags: [common, verify]
+
+- name: Assert PermitRootLogin when desired is prohibit-password
+  ansible.builtin.assert:
+    that:
+      - (common_verify_sshd_t.stdout | lower) is search('(?m)^permitrootlogin\s+(prohibit-password|without-password)\s*$')
+    fail_msg: >-
+      Effective sshd PermitRootLogin must be 'prohibit-password' (or legacy 'without-password').
+      configured={{ common_sshd_permit_root_login }}
+      sshd -T sample: {{ (common_verify_sshd_t.stdout | default('') | trim)[:400] }}
+  when:
+    - common_manage_ssh_hardening | bool
+    - (common_sshd_permit_root_login | string | lower) == 'prohibit-password'
+  tags: [common, verify]
+
+- name: Assert PermitRootLogin when desired is forced-commands-only
+  ansible.builtin.assert:
+    that:
+      - (common_verify_sshd_t.stdout | lower) is search('(?m)^permitrootlogin\s+forced-commands-only\s*$')
+    fail_msg: >-
+      Effective sshd PermitRootLogin must be 'forced-commands-only'.
+      configured={{ common_sshd_permit_root_login }}
+      sshd -T sample: {{ (common_verify_sshd_t.stdout | default('') | trim)[:400] }}
+  when:
+    - common_manage_ssh_hardening | bool
+    - (common_sshd_permit_root_login | string | lower) == 'forced-commands-only'
+  tags: [common, verify]
+
+- name: Verify automation sudoers file syntax
+  ansible.builtin.command: "{{ common_visudo_binary_path }} -cf {{ common_automation_user_sudo_file }}"
+  register: common_verify_visudo_check
+  changed_when: false
+  when:
+    - common_manage_automation_user | bool
+    - common_automation_user_manage_sudo | bool
+  tags: [common, verify]
+
+- name: Stat automation sudoers file
+  ansible.builtin.stat:
+    path: "{{ common_automation_user_sudo_file }}"
+  register: common_verify_sudoers_stat
+  when:
+    - common_manage_automation_user | bool
+    - common_automation_user_manage_sudo | bool
+  tags: [common, verify]
+
+- name: Assert automation sudoers file ownership and mode
+  ansible.builtin.assert:
+    that:
+      - common_verify_sudoers_stat.stat.exists
+      - common_verify_sudoers_stat.stat.pw_name == 'root'
+      - common_verify_sudoers_stat.stat.gr_name == 'root'
+      - common_verify_sudoers_stat.stat.mode == '0440'
+    fail_msg: >-
+      Automation sudoers file {{ common_automation_user_sudo_file }} must exist
+      with root:root ownership and mode 0440.
+  when:
+    - common_manage_automation_user | bool
+    - common_automation_user_manage_sudo | bool
+  tags: [common, verify]
+
+- name: Read automation sudoers file content
+  ansible.builtin.slurp:
+    path: "{{ common_automation_user_sudo_file }}"
+  register: common_verify_sudoers_content
+  when:
+    - common_manage_automation_user | bool
+    - common_automation_user_manage_sudo | bool
+  tags: [common, verify]
+
+- name: Build expected automation sudoers rule line
+  ansible.builtin.set_fact:
+    common_verify_expected_sudoers_rule: >-
+      {{
+        common_automation_user_name ~ ' ALL=(ALL) '
+        ~ ('NOPASSWD:' if (common_automation_user_sudo_nopasswd | bool) else '')
+        ~ common_automation_user_sudo_commands
+      }}
+  changed_when: false
+  when:
+    - common_manage_automation_user | bool
+    - common_automation_user_manage_sudo | bool
+  tags: [common, verify]
+
+- name: Assert automation sudoers file contains expected rule
+  ansible.builtin.assert:
+    that:
+      - common_verify_expected_sudoers_rule in (common_verify_sudoers_content.content | b64decode)
+    fail_msg: >-
+      Automation sudoers file does not contain expected rule:
+      {{ common_verify_expected_sudoers_rule }}
+  when:
+    - common_manage_automation_user | bool
+    - common_automation_user_manage_sudo | bool
+  tags: [common, verify]

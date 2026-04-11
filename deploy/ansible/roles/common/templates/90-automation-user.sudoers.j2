@@ -1,0 +1,2 @@
+# Managed by Ansible (role: common)
+{{ common_automation_user_name }} ALL=(ALL) {% if common_automation_user_sudo_nopasswd | bool %}NOPASSWD:{% endif %}{{ common_automation_user_sudo_commands }}

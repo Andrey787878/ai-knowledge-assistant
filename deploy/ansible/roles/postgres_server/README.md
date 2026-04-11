@@ -1,12 +1,35 @@
 # postgres_server
 
-Роль для развёртывания PostgreSQL через Docker Compose с TLS и строгими `pg_hba` правилами.
+Роль для развертывания PostgreSQL через Docker Compose со строгими `pg_hba` правилами.
+
+## Структура роли
+
+```text
+.
+├── README.md
+├── defaults/main.yml
+├── handlers/main.yml
+├── tasks/
+│   ├── main.yml
+│   ├── validate.yml
+│   ├── install.yml
+│   ├── deploy.yml
+│   ├── reconcile.yml
+│   └── verify.yml
+└── templates/
+    ├── docker-compose.yml.j2
+    ├── postgres.env.j2
+    ├── pg_hba.conf.j2
+    ├── init.sql.j2
+    ├── reconcile.sql.j2
+    └── agent_memory.sql.j2
+```
 
 ## Что делает
 
 - Валидирует обязательные переменные и секреты.
-- Валидирует наличие TLS-файлов, если TLS включен.
 - Валидирует структуру каждого правила `postgres_hba_rules` (обязательные поля и допустимые `type`).
+- Валидирует `postgres_hba_rules[].address` как корректный IPv4/IPv6 CIDR.
 - Создает директории проекта PostgreSQL.
 - Рендерит:
   - `docker-compose.yml`
@@ -14,7 +37,9 @@
   - `pg_hba.conf`
   - `init.sql`
 - Поднимает стек PostgreSQL через `community.docker.docker_compose_v2`.
+- После deploy выполняет явный readiness-check через `pg_isready`.
 - Выполняет reconcile-шаг для app roles/databases/grants на каждом прогоне.
+- Отмечает `reconcile` как `changed`, когда обнаружен и исправлен drift.
 - Создает/поддерживает таблицу памяти агента в БД `n8n`.
 - Выполняет verify-проверки:
   - контейнер запущен
@@ -28,10 +53,9 @@
 
 ## Предусловия
 
-- Перед `postgres_server` должны быть выполнены роли `base` и `docker_engine`.
+- Перед `postgres_server` должны быть выполнены роли `common` и `docker_engine`.
 - Docker и Docker Compose plugin должны быть доступны на целевом хосте.
 - Секреты БД должны быть заданы (рекомендуется через `ansible-vault`).
-- При `postgres_tls_enabled: true` на хосте должны существовать TLS-файлы `server.crt` и `server.key` (и `ca.crt`, если включен `postgres_tls_ca_enabled`).
 
 ## Граница ответственности
 
@@ -53,8 +77,6 @@
 - `postgres_wiki_db`, `postgres_wiki_user`, `postgres_wiki_password` - app-доступ для Wiki.js.
 - `postgres_hba_rules` - whitelist правил доступа.
 - `postgres_hba_allowed_types` - допустимые значения `type` для правил `pg_hba`.
-- `postgres_tls_enabled`, `postgres_tls_*` - TLS-конфигурация.
-- `postgres_tls_manage_file_permissions`, `postgres_tls_*_owner/group/mode` - управление owner/group/mode TLS-файлов на хосте.
 - `postgres_compose_wait`, `postgres_compose_wait_timeout` - ожидание старта compose.
 - `postgres_reconcile_enabled` - включить/выключить reconcile app roles/databases/grants.
 - `postgres_verify_app_connections` - включить/выключить app-level проверки подключений в `verify`.
@@ -78,12 +100,12 @@ postgres_wiki_password: '{{ vault_postgres_wiki_password }}'
 postgres_superuser_password: '{{ vault_postgres_superuser_password }}'
 
 postgres_hba_rules:
-  - type: hostssl
+  - type: host
     database: n8n
     user: n8n
     address: "{{ hostvars['n8n'].private_ip }}/32"
     method: scram-sha-256
-  - type: hostssl
+  - type: host
     database: wikijs
     user: wikijs
     address: "{{ hostvars['wiki'].private_ip }}/32"
@@ -92,23 +114,31 @@ postgres_hba_rules:
 
 ## Поведение
 
-Роль работает по принципу `fail-fast`: при невалидных переменных или отсутствующих TLS-файлах завершается ошибкой.
+Роль работает по принципу `fail-fast`: при невалидных переменных завершается ошибкой.
 
 `init.sql` применяется только при первом init пустого `PGDATA` (поведение Docker Postgres entrypoint): первичный bootstrap.
 
 `reconcile.sql` выполняется после deploy на каждом прогоне (если `postgres_reconcile_enabled: true`) и поддерживает целевое состояние app roles/databases/grants.
+Перед `reconcile` выполняется drift-check, поэтому шаг помечается `changed` только при реальном выравнивании состояния.
 
 Reconcile также поддерживает отдельную schema `agent`, таблицу памяти агента (`session_id`, `role`, `message`, `metadata`, `created_at`) и нужные индексы в БД `n8n`.
 Для роли `n8n` дополнительно поддерживаются `GRANT USAGE` на schema памяти и `search_path = agent,public` в БД `n8n`.
 
-Дефолтный `postgres_hba_rules` разрешает только localhost. Доступ `n8n`/`wikijs` задается переопределением в `host_vars/db.yml`.
+`postgres_server` работает по private-network модели: доступ `n8n`/`wikijs` задается явными CIDR в `postgres_hba_rules` через `host_vars/db.yml`.
+Значения `address` в `postgres_hba_rules` должны быть валидным CIDR (например, `10.10.0.12/32` или `2001:db8::1/128`).
 
 Изменения `docker-compose.yml`, `postgres.env` и `pg_hba.conf` вызывают handler `Apply postgres stack changes`.
+Verify-задачи выполняются в обычном режиме запуска и пропускаются в `--check`.
 
 ## Быстрая проверка
 
+SSH-вариант (опционально): для ручного дебага см. [раздел в основном runbook](../../README.md#manual-ssh).
+
+Команды ниже предполагают, что в текущей shell-сессии уже задан `ANSIBLE_VAULT_PASSWORD_FILE` (см. `deploy/ansible/README.md`, шаг 3).
+
 ```bash
-docker ps --filter "name=postgres"
-docker exec postgres pg_isready -U postgres -d postgres
-ss -ltnp | grep 5432
+cd deploy/ansible
+ansible -i inventories/cloud/hosts.yml db_hosts -b -J -m shell -a "docker ps --filter 'name=postgres'"
+ansible -i inventories/cloud/hosts.yml db_hosts -b -J -m shell -a "docker exec postgres pg_isready -U postgres -d postgres"
+ansible -i inventories/cloud/hosts.yml db_hosts -b -J -m shell -a "ss -ltnp | grep 5432"
 ```

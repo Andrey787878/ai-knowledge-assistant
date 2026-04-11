@@ -8,6 +8,21 @@
   register: ollama_compose_deploy_result
   tags: [ollama, ollama_deploy]
 
+- name: Wait for ollama tags API after deploy
+  ansible.builtin.uri:
+    url: '{{ ollama_verify_api_url }}'
+    method: GET
+    status_code: 200
+    return_content: false
+    timeout: "{{ ollama_deploy_api_timeout | int }}"
+  register: ollama_api_after_deploy
+  changed_when: false
+  retries: "{{ ollama_deploy_api_wait_retries | int }}"
+  delay: "{{ ollama_deploy_api_wait_delay | int }}"
+  until: ollama_api_after_deploy.status == 200
+  when: not ansible_check_mode
+  tags: [ollama, ollama_deploy]
+
 - name: Mark ollama deploy executed in current run
   ansible.builtin.set_fact:
     ollama_deploy_executed: true

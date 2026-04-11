@@ -1,25 +1,44 @@
 # ollama_server
 
-Роль для развёртывания и проверки сервиса Ollama через Docker Compose.
+Роль для развертывания и проверки сервиса `Ollama` через `Docker Compose`.
+
+## Структура роли
+
+```text
+.
+├── README.md
+├── defaults/main.yml
+├── handlers/main.yml
+├── tasks/
+│   ├── main.yml
+│   ├── validate.yml
+│   ├── setup.yml
+│   ├── deploy.yml
+│   ├── models.yml
+│   └── verify.yml
+└── templates/
+    ├── docker-compose.yml.j2
+    └── ollama.env.j2
+```
 
 ## Что делает
 
 - Валидирует обязательные переменные роли.
-- Создаёт рабочие директории (`project`, `config`, `data`).
+- Создает рабочие директории (`project`, `config`, `data`).
 - Рендерит `docker-compose.yml` и `ollama.env`.
 - Разворачивает/обновляет стек через `community.docker.docker_compose_v2`.
 - Подтягивает одну выбранную модель в Ollama (`ollama_model`).
 - Выполняет verify:
   - контейнер запущен;
-  - TCP порт доступен;
-  - API `GET /api/tags` отвечает `200`.
+  - локальный backend-порт доступен;
+  - API `GET /api/tags` по локальному HTTP отвечает `200`.
   - `POST /api/generate` возвращает непустой ответ (smoke inference).
 
 ## Предусловия
 
-- Перед `ollama_server` должны быть выполнены роли `base`, `docker_engine`.
+- Перед `ollama_server` должны быть выполнены роли `common`, `docker_engine`.
 - Хост должен входить в группу `ollama_hosts`.
-- На хосте должен быть задан `private_ip` (используется в `ollama_bind_host`).
+- Доступ к Ollama из других VM обеспечивается по private IP и firewall allow-list.
 
 ## Граница ответственности
 
@@ -66,8 +85,13 @@
 
 ## Быстрая проверка
 
+SSH-вариант (опционально): для ручного дебага см. [раздел в основном runbook](../../README.md#manual-ssh).
+
+Команды ниже предполагают, что в текущей shell-сессии уже задан `ANSIBLE_VAULT_PASSWORD_FILE` (см. `deploy/ansible/README.md`, шаг 3).
+
 ```bash
-docker ps --filter "name=ollama"
-curl -fsS http://<OLLAMA_PRIVATE_IP>:11434/api/tags
-docker exec ollama ollama list
+cd deploy/ansible
+ansible -i inventories/cloud/hosts.yml ollama_hosts -b -J -m shell -a "docker ps --filter 'name=ollama'"
+ansible -i inventories/cloud/hosts.yml ollama_hosts -b -J -m shell -a "curl -fsS http://<OLLAMA_PRIVATE_IP>:11434/api/tags"
+ansible -i inventories/cloud/hosts.yml ollama_hosts -b -J -m shell -a "docker exec ollama ollama list"
 ```

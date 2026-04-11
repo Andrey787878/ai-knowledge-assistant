@@ -1,0 +1,53 @@
+---
+firewall_supported_os_families:
+  - Debian
+  - RedHat
+
+# Inbound SSH baseline
+firewall_manage_ssh: true
+firewall_ssh_port: 22
+firewall_ssh_sources: []
+
+# Additional inbound allow-list (host-specific)
+# Example item:
+#   - port: 443
+#     proto: tcp
+#     source: 10.10.0.12/32
+firewall_rules: []
+
+# Unified backend (firewalld on Debian and RedHat)
+firewall_firewalld_packages_map:
+  Debian:
+    - firewalld
+    - python3-firewall
+  RedHat:
+    - firewalld
+firewall_firewalld_packages: "{{ firewall_firewalld_packages_map[ansible_os_family] }}"
+firewall_firewalld_zone: public
+firewall_firewalld_zone_target: DROP
+firewall_firewalld_remove_default_services:
+  - ssh
+  - dhcpv6-client
+firewall_firewalld_interfaces: []
+firewall_autodetect_default_interface: true
+firewall_verify_strict: false
+firewall_restart_docker_on_changes: true
+firewall_apt_lock_timeout: 300
+firewall_effective_interfaces: >-
+  {{
+    (firewall_firewalld_interfaces | list)
+    if ((firewall_firewalld_interfaces | length) > 0)
+    else (
+      [ansible_default_ipv4.interface]
+      if (
+        (firewall_autodetect_default_interface | bool)
+        and (ansible_default_ipv4 is defined)
+        and (ansible_default_ipv4.interface is defined)
+        and (ansible_default_ipv4.interface | string | trim | length > 0)
+      )
+      else []
+    )
+  }}
+
+# IPv4-only policy for source-based rules.
+firewall_ipv4_cidr_regex: '^(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}(?:/(?:3[0-2]|[12]?\d))?$'

@@ -1,0 +1,11 @@
+---
+postgres_superuser_password: ""
+postgres_n8n_password: ""
+postgres_wiki_password: ""
+
+n8n_postgres_password: ""
+wikijs_postgres_password: ""
+
+n8n_common_encryption_key: ""
+n8n_common_agent_workflow_token: ""
+n8n_redis_password: ""

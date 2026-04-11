@@ -9,11 +9,11 @@ postgres_backup_script_path: '{{ postgres_backup_scripts_dir }}/backup-postgres.
 postgres_restore_script_path: '{{ postgres_backup_scripts_dir }}/restore-postgres.sh'
 
 # Runtime parameters inherited from postgres_server
-postgres_backup_container_name: '{{ postgres_container_name }}'
-postgres_backup_env_file: '{{ postgres_env_file_path }}'
+postgres_backup_container_name: "{{ postgres_container_name | default('postgres') }}"
+postgres_backup_env_file: "{{ postgres_env_file_path | default('/opt/ai-agent/postgres/config/postgres.env') }}"
 postgres_backup_databases:
-  - '{{ postgres_n8n_db }}'
-  - '{{ postgres_wiki_db }}'
+  - "{{ postgres_n8n_db | default('n8n') }}"
+  - "{{ postgres_wiki_db | default('wikijs') }}"
 
 # Backup behavior
 postgres_backup_include_globals: true

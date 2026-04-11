@@ -1,0 +1,23 @@
+---
+ansible_user: ubuntu
+ansible_port: 22
+# Keep generic default. Override in local/vault vars if needed.
+ansible_ssh_private_key_file: >-
+  {{
+    lookup('ansible.builtin.env', 'ANSIBLE_SSH_PRIVATE_KEY_FILE')
+    | default('~/.ssh/ansible_deploy', true)
+  }}
+ansible_python_interpreter: /usr/bin/python3
+
+# Admin ingress source(s) for SSH access to bastion (wiki host).
+# Keep defaults empty in git. Real CIDR should be set in
+# inventories/cloud/group_vars/all/zz-local.yml (gitignored)
+# or in vault overrides.
+firewall_admin_ssh_sources: []
+
+# Allowed client source(s) for edge access (wiki + n8n):
+# HTTPS is served on 443, and 80 is used only for HTTP->HTTPS redirect.
+# Keep defaults empty in git. Real CIDR should be set in
+# inventories/cloud/group_vars/all/zz-local.yml (gitignored)
+# or in vault overrides.
+edge_allowed_client_cidrs: []

@@ -36,12 +36,19 @@
       {{
         (
           docker_engine_gpg_key_info.stdout
-          | regex_search('(?m)^fpr:+([0-9A-F]{40}):$', '\\1')
+          | regex_findall('(?im)^fpr:+([0-9a-f]{40}):$')
+          | first
           | default('')
         )
         | upper
       }}
   changed_when: false
+
+- name: Assert downloaded Docker GPG fingerprint was parsed
+  ansible.builtin.assert:
+    that:
+      - docker_engine_downloaded_gpg_fingerprint | length == 40
+    fail_msg: "Could not parse Docker GPG fingerprint from {{ docker_engine_gpg_key_path_redhat }}"
 
 - name: Validate downloaded Docker GPG fingerprint
   ansible.builtin.assert:

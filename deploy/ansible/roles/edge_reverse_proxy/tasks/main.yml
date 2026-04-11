@@ -1,0 +1,28 @@
+---
+- name: Run nginx reverse proxy validation tasks
+  ansible.builtin.import_tasks: validate.yml
+  tags: [nginx_rp, nginx_rp_validate]
+
+- name: Run nginx reverse proxy install tasks
+  ansible.builtin.import_tasks: install.yml
+  tags: [nginx_rp, nginx_rp_install]
+
+- name: Run nginx reverse proxy config tasks
+  ansible.builtin.import_tasks: config.yml
+  tags: [nginx_rp, nginx_rp_config]
+
+- name: Run nginx reverse proxy service tasks
+  ansible.builtin.import_tasks: service.yml
+  tags: [nginx_rp, nginx_rp_service]
+
+- name: Flush nginx handlers after config/service apply
+  ansible.builtin.meta: flush_handlers
+  when: not ansible_check_mode
+  tags: [nginx_rp, nginx_rp_service]
+
+- name: Run nginx reverse proxy verify tasks
+  ansible.builtin.import_tasks: verify.yml
+  when:
+    - nginx_rp_verify_enabled | bool
+    - nginx_rp_enable_https_server | bool
+  tags: [nginx_rp, nginx_rp_verify]

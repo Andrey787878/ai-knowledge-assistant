@@ -1,0 +1,9 @@
+---
+# SSH jump/bastion settings for private VM groups (db/ollama/n8n).
+# Bastion host/IP is taken from wiki host in inventory (`wiki.ansible_host`),
+# so no separate public bastion IP variable is required in git-tracked vars.
+bastion_user: "{{ ansible_user }}"
+
+ansible_ssh_common_args: >-
+  -o ProxyCommand="ssh -i {{ ansible_ssh_private_key_file }} -o IdentitiesOnly=yes -W %h:%p {{ bastion_user }}@{{ hostvars['wiki']['ansible_host'] }}"
+  -o IdentitiesOnly=yes

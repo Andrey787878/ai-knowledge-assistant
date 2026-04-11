@@ -8,9 +8,17 @@
     mode: "0755"
   loop: >-
     {{
-      [postgres_project_dir, postgres_data_dir, postgres_init_dir, postgres_config_dir]
-      + ([postgres_tls_dir] if (postgres_tls_enabled | bool) else [])
+      [postgres_project_dir, postgres_init_dir, postgres_config_dir]
     }}
+  tags: [postgres, postgres_install]
+
+- name: Ensure postgres data directory exists with postgres ownership
+  ansible.builtin.file:
+    path: "{{ postgres_data_dir }}"
+    state: directory
+    owner: "{{ postgres_data_dir_owner }}"
+    group: "{{ postgres_data_dir_group }}"
+    mode: "{{ postgres_data_dir_mode }}"
   tags: [postgres, postgres_install]
 
 - name: Render postgres docker-compose file
@@ -39,7 +47,7 @@
     dest: "{{ postgres_hba_config_path }}"
     owner: root
     group: root
-    mode: "0640"
+    mode: "0644"
   notify: Apply postgres stack changes
   tags: [postgres, postgres_install]
 
@@ -49,45 +57,5 @@
     dest: "{{ postgres_init_sql_host_path }}"
     owner: root
     group: root
-    mode: "0640"
-  tags: [postgres, postgres_install]
-
-- name: Enforce TLS certificate file owner/mode
-  ansible.builtin.file:
-    path: "{{ postgres_tls_cert_path }}"
-    owner: "{{ postgres_tls_cert_file_owner }}"
-    group: "{{ postgres_tls_cert_file_group }}"
-    mode: "{{ postgres_tls_cert_file_mode }}"
-    state: file
-  when:
-    - postgres_tls_enabled | bool
-    - postgres_tls_manage_file_permissions | bool
-  notify: Apply postgres stack changes
-  tags: [postgres, postgres_install]
-
-- name: Enforce TLS key file owner/mode
-  ansible.builtin.file:
-    path: "{{ postgres_tls_key_path }}"
-    owner: "{{ postgres_tls_key_file_owner }}"
-    group: "{{ postgres_tls_key_file_group }}"
-    mode: "{{ postgres_tls_key_file_mode }}"
-    state: file
-  when:
-    - postgres_tls_enabled | bool
-    - postgres_tls_manage_file_permissions | bool
-  notify: Apply postgres stack changes
-  tags: [postgres, postgres_install]
-
-- name: Enforce TLS CA file owner/mode when CA enabled
-  ansible.builtin.file:
-    path: "{{ postgres_tls_ca_path }}"
-    owner: "{{ postgres_tls_ca_file_owner }}"
-    group: "{{ postgres_tls_ca_file_group }}"
-    mode: "{{ postgres_tls_ca_file_mode }}"
-    state: file
-  when:
-    - postgres_tls_enabled | bool
-    - postgres_tls_ca_enabled | bool
-    - postgres_tls_manage_file_permissions | bool
-  notify: Apply postgres stack changes
+    mode: "0644"
   tags: [postgres, postgres_install]

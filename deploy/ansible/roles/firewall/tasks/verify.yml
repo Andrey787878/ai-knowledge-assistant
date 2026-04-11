@@ -1,0 +1,232 @@
+---
+- name: Check firewalld state
+  ansible.builtin.command: firewall-cmd --state
+  register: firewall_firewalld_state
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+  tags: [firewall, firewall_verify]
+
+- name: Assert firewalld is running
+  ansible.builtin.assert:
+    that:
+      - firewall_firewalld_state.stdout == 'running'
+    fail_msg: "firewalld is not running after firewall role execution."
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+  tags: [firewall, firewall_verify]
+
+- name: Query active firewalld zones
+  ansible.builtin.command: firewall-cmd --get-active-zones
+  register: firewall_active_zones
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+  tags: [firewall, firewall_verify]
+
+- name: Assert configured zone is active when interfaces are declared
+  ansible.builtin.assert:
+    that:
+      - firewall_active_zones.stdout is search('(^|\\n)' ~ firewall_firewalld_zone ~ '(\\n|$)')
+    fail_msg: >-
+      Zone {{ firewall_firewalld_zone }} is not active.
+      active_zones={{ firewall_active_zones.stdout | trim }}
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+    - (firewall_effective_interfaces | length) > 0
+  tags: [firewall, firewall_verify]
+
+- name: Query zone assignment for each configured interface
+  ansible.builtin.command: >-
+    firewall-cmd --get-zone-of-interface={{ item }}
+  register: firewall_interface_zone_checks
+  changed_when: false
+  loop: "{{ firewall_effective_interfaces }}"
+  loop_control:
+    label: "{{ item }}"
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+    - (firewall_effective_interfaces | length) > 0
+  tags: [firewall, firewall_verify]
+
+- name: Assert each configured interface is bound to expected zone
+  ansible.builtin.assert:
+    that:
+      - (item.stdout | trim) == firewall_firewalld_zone
+    fail_msg: >-
+      Interface {{ item.item }} is bound to zone {{ item.stdout | trim }},
+      expected {{ firewall_firewalld_zone }}.
+  loop: "{{ firewall_interface_zone_checks.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+    - (firewall_effective_interfaces | length) > 0
+  tags: [firewall, firewall_verify]
+
+- name: Query zone ports (must stay empty for source-restricted policy)
+  ansible.builtin.command: >-
+    firewall-cmd --zone={{ firewall_firewalld_zone }} --list-ports
+  register: firewall_zone_ports
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+  tags: [firewall, firewall_verify]
+
+- name: Assert no broad zone ports are enabled
+  ansible.builtin.assert:
+    that:
+      - firewall_zone_ports.stdout | trim == ''
+    fail_msg: >-
+      Unexpected non-source-restricted ports found in zone {{ firewall_firewalld_zone }}:
+      {{ firewall_zone_ports.stdout | trim }}
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+  tags: [firewall, firewall_verify]
+
+- name: Query zone services (must stay empty for source-restricted policy)
+  ansible.builtin.command: >-
+    firewall-cmd --zone={{ firewall_firewalld_zone }} --list-services
+  register: firewall_zone_services
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+  tags: [firewall, firewall_verify]
+
+- name: Assert no broad zone services are enabled
+  ansible.builtin.assert:
+    that:
+      - firewall_zone_services.stdout | trim == ''
+    fail_msg: >-
+      Unexpected broad services found in zone {{ firewall_firewalld_zone }}:
+      {{ firewall_zone_services.stdout | trim }}
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+  tags: [firewall, firewall_verify]
+
+- name: Query zone rich rules
+  ansible.builtin.command: >-
+    firewall-cmd --zone={{ firewall_firewalld_zone }} --list-rich-rules
+  register: firewall_zone_rich_rules
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+  tags: [firewall, firewall_verify]
+
+- name: Query zone target
+  ansible.builtin.command: >-
+    firewall-cmd --permanent --zone={{ firewall_firewalld_zone }} --get-target
+  register: firewall_zone_target
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+  tags: [firewall, firewall_verify]
+
+- name: Assert zone target is configured as expected
+  ansible.builtin.assert:
+    that:
+      - (firewall_zone_target.stdout | trim) == firewall_firewalld_zone_target
+    fail_msg: >-
+      Unexpected zone target for {{ firewall_firewalld_zone }}:
+      expected={{ firewall_firewalld_zone_target }}
+      actual={{ firewall_zone_target.stdout | trim }}
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+  tags: [firewall, firewall_verify]
+
+- name: Initialize expected rich rules list
+  ansible.builtin.set_fact:
+    firewall_expected_rich_rule_entries: []
+  tags: [firewall, firewall_verify]
+
+- name: Build expected rich rules list (SSH)
+  ansible.builtin.set_fact:
+    firewall_expected_rich_rule_entries: >-
+      {{
+        (firewall_expected_rich_rule_entries | default([]))
+        +
+        [{'source': item, 'port': (firewall_ssh_port | string), 'proto': 'tcp'}]
+      }}
+  loop: "{{ firewall_ssh_sources }}"
+  when: firewall_manage_ssh | bool
+  tags: [firewall, firewall_verify]
+
+- name: Build expected rich rules list (single-source rules)
+  ansible.builtin.set_fact:
+    firewall_expected_rich_rule_entries: >-
+      {{
+        (firewall_expected_rich_rule_entries | default([]))
+        +
+        [{'source': item.source, 'port': (item.port | string), 'proto': (item.proto | default('tcp'))}]
+      }}
+  loop: "{{ firewall_rules | selectattr('source', 'defined') | list }}"
+  tags: [firewall, firewall_verify]
+
+- name: Build expected rich rules list (multi-source rules)
+  ansible.builtin.set_fact:
+    firewall_expected_rich_rule_entries: >-
+      {{
+        (firewall_expected_rich_rule_entries | default([]))
+        +
+        [{'source': item.1, 'port': (item.0.port | string), 'proto': (item.0.proto | default('tcp'))}]
+      }}
+  loop: "{{ query('subelements', firewall_rules | selectattr('sources', 'defined') | list, 'sources') }}"
+  tags: [firewall, firewall_verify]
+
+- name: Build actual rich rules list
+  ansible.builtin.set_fact:
+    firewall_actual_rich_rules: >-
+      {{
+        firewall_zone_rich_rules.stdout_lines
+        | map('trim')
+        | reject('equalto', '')
+        | list
+      }}
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+    - firewall_verify_strict | bool
+  tags: [firewall, firewall_verify]
+
+- name: Assert no unexpected rich rules exist
+  ansible.builtin.assert:
+    that:
+      - firewall_actual_rich_rules | length == (firewall_expected_rich_rule_entries | default([]) | length)
+    fail_msg: >-
+      Unexpected rich rules count in zone {{ firewall_firewalld_zone }}.
+      expected={{ firewall_expected_rich_rule_entries | default([]) | length }}
+      actual={{ firewall_actual_rich_rules | length }}
+      actual_rules={{ firewall_actual_rich_rules }}
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+    - firewall_verify_strict | bool
+  tags: [firewall, firewall_verify]
+
+- name: Assert expected rich rules are present
+  ansible.builtin.assert:
+    that:
+      - firewall_zone_rich_rules.stdout is search('source address="' ~ (item.source | regex_escape) ~ '".*port port="' ~ (item.port | regex_escape) ~ '" protocol="' ~ (item.proto | regex_escape) ~ '".*accept')
+    fail_msg: >-
+      Missing expected rich rule for source={{ item.source }},
+      port={{ item.port }}, proto={{ item.proto }}.
+  loop: "{{ firewall_expected_rich_rule_entries | default([]) }}"
+  loop_control:
+    label: "{{ item.source }} -> {{ item.port }}/{{ item.proto }}"
+  when:
+    - not ansible_check_mode
+    - ansible_os_family in firewall_supported_os_families
+  tags: [firewall, firewall_verify]

@@ -1,0 +1,50 @@
+---
+- name: Baseline and host-level prerequisites on all VM nodes
+  hosts: all
+  become: true
+  roles:
+    - common
+    - docker_engine
+    - firewall
+
+- name: Deploy PostgreSQL runtime on database VM
+  hosts: db_hosts
+  become: true
+  roles:
+    - postgres_server
+    - postgres_backup
+
+- name: Deploy Ollama runtime on AI VM
+  hosts: ollama_hosts
+  become: true
+  roles:
+    - ollama_server
+
+- name: Deploy n8n stack on automation VM
+  hosts: n8n_hosts
+  become: true
+  roles:
+    - n8n_stack
+
+- name: Deploy Wiki.js and edge reverse proxy on knowledge VM
+  hosts: wiki_hosts
+  become: true
+  roles:
+    - wikijs_server
+    # Phase 1: HTTP bootstrap config for ACME HTTP-01 (no TLS artifacts required yet)
+    - role: edge_reverse_proxy
+      tags: [nginx_rp, edge_rp_bootstrap]
+      vars:
+        nginx_rp_enable_https_server: false
+        nginx_rp_require_tls_artifacts: false
+        nginx_rp_verify_enabled: false
+    # Phase 2: issue/renew Let's Encrypt certificate
+    - role: edge_tls_acme
+      tags: [edge_tls_acme]
+    # Phase 3: final HTTPS config with strict TLS verification
+    - role: edge_reverse_proxy
+      tags: [nginx_rp, edge_rp_https]
+      vars:
+        nginx_rp_enable_https_server: true
+        nginx_rp_require_tls_artifacts: true
+        nginx_rp_verify_enabled: true

@@ -2,6 +2,22 @@
 
 Роль для подготовки и эксплуатации backup/restore процесса PostgreSQL.
 
+## Структура роли
+
+```text
+.
+├── README.md
+├── defaults/main.yml
+├── tasks/
+│   ├── main.yml
+│   ├── validate.yml
+│   ├── setup.yml
+│   └── cron.yml
+└── templates/
+    ├── backup-postgres.sh.j2
+    └── restore-postgres.sh.j2
+```
+
 ## Что делает
 
 - Валидирует обязательные переменные роли.
@@ -14,13 +30,13 @@
 
 ## Предусловия
 
-- Перед `postgres_backup` должны быть выполнены роли `base`, `docker_engine`, `postgres_server`.
+- Перед `postgres_backup` должны быть выполнены роли `common`, `docker_engine`, `postgres_server`.
 - Контейнер PostgreSQL должен быть запущен.
 - Файл `postgres.env` должен существовать и содержать `POSTGRES_USER`, `POSTGRES_PASSWORD`.
 
 ## Граница ответственности
 
-`postgres_backup` отвечает за backup/restore tooling (скрипты, директории, cron, проверки целостности) и не выполняет restore автоматически в обычном `site.yml`.
+`postgres_backup` отвечает только за backup/restore (скрипты, директории, cron, проверки целостности) и не выполняет restore автоматически в обычном `site.yml`.
 
 ## Переменные
 
@@ -60,13 +76,14 @@
 Запуск backup:
 
 ```bash
-ansible-playbook -i inventories/cloud/hosts.ini playbooks/backup_postgres.yml
+ansible-playbook -i inventories/cloud/hosts.yml playbooks/backup_postgres.yml
 ```
 
 Запуск restore (только вручную):
 
 ```bash
-ansible-playbook -i inventories/cloud/hosts.ini playbooks/restore_postgres.yml \
+ansible-playbook -i inventories/cloud/hosts.yml playbooks/restore_postgres.yml \
+  \
   -e postgres_restore_confirm=YES \
   -e postgres_restore_source_dir=/var/backups/ai-agent/postgres/20260316-020000
 ```
@@ -107,9 +124,14 @@ Restore не выполняется автоматически в `site.yml` и 
 
 ## Быстрая проверка
 
+SSH-вариант (опционально): для ручного дебага см. [раздел в основном runbook](../../README.md#manual-ssh).
+
+Команды ниже предполагают, что в текущей shell-сессии уже задан `ANSIBLE_VAULT_PASSWORD_FILE` (см. `deploy/ansible/README.md`, шаг 3).
+
 ```bash
-ls -la /opt/ai-agent/postgres/scripts
-ls -la /var/backups/ai-agent/postgres
-readlink -f /var/backups/ai-agent/postgres/current
-ansible-playbook -i inventories/cloud/hosts.ini playbooks/backup_postgres.yml
+cd deploy/ansible
+ansible -i inventories/cloud/hosts.yml db_hosts -b -J -m shell -a "ls -la /opt/ai-agent/postgres/scripts"
+ansible -i inventories/cloud/hosts.yml db_hosts -b -J -m shell -a "ls -la /var/backups/ai-agent/postgres"
+ansible -i inventories/cloud/hosts.yml db_hosts -b -J -m shell -a "readlink -f /var/backups/ai-agent/postgres/current"
+ansible-playbook -i inventories/cloud/hosts.yml playbooks/backup_postgres.yml
 ```

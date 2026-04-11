@@ -1,0 +1,12 @@
+---
+- name: Run edge Let's Encrypt validation tasks
+  ansible.builtin.import_tasks: validate.yml
+  tags: [edge_tls_acme, edge_tls_acme_validate]
+
+- name: Run edge Let's Encrypt install tasks
+  ansible.builtin.import_tasks: install.yml
+  tags: [edge_tls_acme, edge_tls_acme_install]
+
+- name: Run edge Let's Encrypt issue/renew tasks
+  ansible.builtin.import_tasks: issue.yml
+  tags: [edge_tls_acme, edge_tls_acme_issue]

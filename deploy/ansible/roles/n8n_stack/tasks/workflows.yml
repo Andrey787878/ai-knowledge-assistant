@@ -1,0 +1,319 @@
+---
+- name: Build workflow source file paths
+  ansible.builtin.set_fact:
+    n8n_workflows_source_files: >-
+      {{
+        n8n_workflows_files
+        | map('regex_replace', '^', n8n_workflows_source_dir ~ '/')
+        | list
+      }}
+  changed_when: false
+  when: n8n_workflows_bootstrap_enabled | bool
+  tags: [n8n, n8n_workflows]
+
+- name: Check workflow source files on control host
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  register: n8n_workflows_source_stats
+  loop: "{{ n8n_workflows_source_files }}"
+  loop_control:
+    label: "{{ item | basename }}"
+  delegate_to: localhost
+  become: false
+  when: n8n_workflows_bootstrap_enabled | bool
+  tags: [n8n, n8n_workflows]
+
+- name: Assert workflow source files exist on control host
+  ansible.builtin.assert:
+    that:
+      - (n8n_workflows_source_stats.results | selectattr('stat.exists', 'equalto', true) | list | length) == (n8n_workflows_source_files | length)
+    fail_msg: >-
+      One or more workflow files are missing in {{ n8n_workflows_source_dir }}.
+      Expected files: {{ n8n_workflows_files | join(', ') }}
+  when: n8n_workflows_bootstrap_enabled | bool
+  tags: [n8n, n8n_workflows]
+
+- name: Build workflow source content hash
+  ansible.builtin.set_fact:
+    n8n_workflows_source_hash: >-
+      {{
+        (
+          n8n_workflows_source_stats.results
+          | map(attribute='item')
+          | zip(n8n_workflows_source_stats.results | map(attribute='stat.checksum'))
+          | list
+          | to_json
+        )
+        | hash('sha256')
+      }}
+  changed_when: false
+  when: n8n_workflows_bootstrap_enabled | bool
+  tags: [n8n, n8n_workflows]
+
+- name: Ensure n8n workflows target directory exists
+  ansible.builtin.file:
+    path: "{{ n8n_workflows_target_dir }}"
+    state: directory
+    owner: "{{ n8n_workflows_target_dir_owner }}"
+    group: "{{ n8n_workflows_target_dir_group }}"
+    mode: "{{ n8n_workflows_target_dir_mode }}"
+  when: n8n_workflows_bootstrap_enabled | bool
+  tags: [n8n, n8n_workflows]
+
+- name: Copy workflow files to n8n host
+  ansible.builtin.copy:
+    src: "{{ n8n_workflows_source_dir }}/{{ item }}"
+    dest: "{{ n8n_workflows_target_dir }}/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ n8n_workflows_files }}"
+  loop_control:
+    label: "{{ item }}"
+  when: n8n_workflows_bootstrap_enabled | bool
+  tags: [n8n, n8n_workflows]
+
+- name: Check workflow bootstrap state marker
+  ansible.builtin.stat:
+    path: "{{ n8n_workflows_state_file }}"
+  register: n8n_workflows_state_stat
+  when: n8n_workflows_bootstrap_enabled | bool
+  tags: [n8n, n8n_workflows]
+
+- name: Read workflow bootstrap state marker content
+  ansible.builtin.slurp:
+    path: "{{ n8n_workflows_state_file }}"
+  register: n8n_workflows_state_slurp
+  when:
+    - n8n_workflows_bootstrap_enabled | bool
+    - n8n_workflows_state_stat.stat.exists
+  tags: [n8n, n8n_workflows]
+
+- name: Extract workflow source hash from marker
+  ansible.builtin.set_fact:
+    n8n_workflows_marker_source_hash: >-
+      {{
+        (
+          (n8n_workflows_state_slurp.content | b64decode)
+          | regex_findall('(?m)^source_hash=(.+)$')
+          | first
+          | default('')
+        )
+        | string
+      }}
+  changed_when: false
+  when:
+    - n8n_workflows_bootstrap_enabled | bool
+    - n8n_workflows_state_stat.stat.exists
+  tags: [n8n, n8n_workflows]
+
+- name: Decide if workflow import is required
+  ansible.builtin.set_fact:
+    n8n_workflows_import_required: >-
+      {{
+        (n8n_workflows_force_import | bool)
+        or (not n8n_workflows_state_stat.stat.exists)
+        or ((n8n_workflows_marker_source_hash | default('')) != n8n_workflows_source_hash)
+      }}
+  changed_when: false
+  when: n8n_workflows_bootstrap_enabled | bool
+  tags: [n8n, n8n_workflows]
+
+- name: Render postgres credential bootstrap JSON
+  ansible.builtin.template:
+    src: n8n-postgres-credential.json.j2
+    dest: "{{ n8n_workflows_postgres_credential_source_file }}"
+    owner: "{{ n8n_workflows_postgres_credential_source_owner }}"
+    group: "{{ n8n_workflows_postgres_credential_source_group }}"
+    mode: "{{ n8n_workflows_postgres_credential_source_mode }}"
+  no_log: "{{ n8n_workflows_no_log | bool }}"
+  when:
+    - n8n_workflows_bootstrap_enabled | bool
+    - n8n_workflows_postgres_credential_bootstrap_enabled | bool
+    - not ansible_check_mode
+    - (n8n_workflows_postgres_credential_force_reconcile | bool) or (n8n_workflows_import_required | bool)
+  tags: [n8n, n8n_workflows]
+
+- name: Import postgres credential into n8n-web
+  community.docker.docker_container_exec:
+    container: "{{ n8n_web_container_name }}"
+    user: node
+    argv:
+      - n8n
+      - import:credentials
+      - --decrypted
+      - "--input={{ n8n_workflows_postgres_credential_container_file }}"
+  register: n8n_workflows_postgres_credential_import
+  changed_when: n8n_workflows_postgres_credential_import.rc == 0
+  failed_when: >-
+    (n8n_workflows_postgres_credential_import.rc | int) != 0
+    and ('already exists' not in (((n8n_workflows_postgres_credential_import.stdout | default('')) ~ ' ' ~ (n8n_workflows_postgres_credential_import.stderr | default(''))) | lower))
+    and ('duplicate key value violates unique constraint' not in (((n8n_workflows_postgres_credential_import.stdout | default('')) ~ ' ' ~ (n8n_workflows_postgres_credential_import.stderr | default(''))) | lower))
+  no_log: "{{ n8n_workflows_no_log | bool }}"
+  when:
+    - n8n_workflows_bootstrap_enabled | bool
+    - n8n_workflows_postgres_credential_bootstrap_enabled | bool
+    - not ansible_check_mode
+    - (n8n_workflows_postgres_credential_force_reconcile | bool) or (n8n_workflows_import_required | bool)
+  tags: [n8n, n8n_workflows]
+
+- name: Import n8n workflows into n8n-web container
+  community.docker.docker_container_exec:
+    container: "{{ n8n_web_container_name }}"
+    user: node
+    argv:
+      - n8n
+      - import:workflow
+      - "--input={{ n8n_workflows_container_dir }}/{{ item }}"
+  loop: "{{ n8n_workflows_files }}"
+  loop_control:
+    label: "{{ item }}"
+  when:
+    - n8n_workflows_bootstrap_enabled | bool
+    - n8n_workflows_import_required | bool
+    - not ansible_check_mode
+  tags: [n8n, n8n_workflows]
+
+- name: Read workflow JSON files for activation metadata
+  ansible.builtin.slurp:
+    path: "{{ item }}"
+  register: n8n_workflows_source_slurp
+  loop: "{{ n8n_workflows_source_files }}"
+  loop_control:
+    label: "{{ item | basename }}"
+  delegate_to: localhost
+  become: false
+  when:
+    - n8n_workflows_bootstrap_enabled | bool
+    - n8n_workflows_activate_after_import | bool
+    - not ansible_check_mode
+  tags: [n8n, n8n_workflows]
+
+- name: Assert workflow JSON contains non-empty id
+  ansible.builtin.assert:
+    that:
+      - ((item.content | b64decode | from_json).id | default('') | string | trim | length) > 0
+    fail_msg: "Workflow file is missing top-level id: {{ item.source | default(item.item) }}"
+  loop: "{{ n8n_workflows_source_slurp.results }}"
+  loop_control:
+    label: "{{ (item.source | default(item.item)) | basename }}"
+  when:
+    - n8n_workflows_bootstrap_enabled | bool
+    - n8n_workflows_activate_after_import | bool
+    - not ansible_check_mode
+  tags: [n8n, n8n_workflows]
+
+- name: Initialize desired active workflow id list
+  ansible.builtin.set_fact:
+    n8n_workflows_desired_active_ids: []
+  changed_when: false
+  when:
+    - n8n_workflows_bootstrap_enabled | bool
+    - n8n_workflows_activate_after_import | bool
+    - not ansible_check_mode
+  tags: [n8n, n8n_workflows]
+
+- name: Build desired active workflow id list from source JSON
+  ansible.builtin.set_fact:
+    n8n_workflows_desired_active_ids: >-
+      {{
+        n8n_workflows_desired_active_ids
+        + (
+          [((item.content | b64decode | from_json).id | string)]
+          if ((item.content | b64decode | from_json).active | default(false) | bool)
+          else []
+        )
+      }}
+  changed_when: false
+  loop: "{{ n8n_workflows_source_slurp.results }}"
+  loop_control:
+    label: "{{ (item.source | default(item.item)) | basename }}"
+  when:
+    - n8n_workflows_bootstrap_enabled | bool
+    - n8n_workflows_activate_after_import | bool
+    - not ansible_check_mode
+  tags: [n8n, n8n_workflows]
+
+- name: Activate imported workflows marked active in source JSON
+  community.docker.docker_container_exec:
+    container: "{{ n8n_web_container_name }}"
+    user: node
+    argv:
+      - n8n
+      - publish:workflow
+      - "--id={{ item }}"
+  loop: "{{ n8n_workflows_desired_active_ids | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+  register: n8n_workflows_publish_result
+  when:
+    - n8n_workflows_bootstrap_enabled | bool
+    - n8n_workflows_activate_after_import | bool
+    - not ansible_check_mode
+  tags: [n8n, n8n_workflows]
+
+- name: Ensure active flag is enabled for published workflows (runtime compatibility)
+  community.docker.docker_container_exec:
+    container: "{{ n8n_web_container_name }}"
+    user: node
+    argv:
+      - n8n
+      - update:workflow
+      - "--id={{ item }}"
+      - --active=true
+  loop: "{{ n8n_workflows_desired_active_ids | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+  changed_when: false
+  when:
+    - n8n_workflows_bootstrap_enabled | bool
+    - n8n_workflows_activate_after_import | bool
+    - not ansible_check_mode
+  tags: [n8n, n8n_workflows]
+
+- name: Restart n8n-web after workflow publication/activation
+  community.docker.docker_container:
+    name: "{{ n8n_web_container_name }}"
+    state: started
+    restart: true
+  when:
+    - n8n_workflows_bootstrap_enabled | bool
+    - n8n_workflows_activate_after_import | bool
+    - not ansible_check_mode
+    - (n8n_workflows_desired_active_ids | default([]) | length) > 0
+  tags: [n8n, n8n_workflows]
+
+- name: Wait for n8n HTTP endpoint after workflow publication
+  ansible.builtin.uri:
+    url: "http://{{ n8n_web_bind_host }}:{{ n8n_web_port }}{{ n8n_web_healthcheck_path }}"
+    method: GET
+    status_code: 200
+    return_content: false
+    timeout: "{{ n8n_deploy_http_wait_timeout | int }}"
+  register: n8n_http_after_workflow_publish
+  changed_when: false
+  retries: "{{ n8n_deploy_http_wait_retries | int }}"
+  delay: "{{ n8n_deploy_http_wait_delay | int }}"
+  until: n8n_http_after_workflow_publish.status == 200
+  when:
+    - n8n_workflows_bootstrap_enabled | bool
+    - n8n_workflows_activate_after_import | bool
+    - not ansible_check_mode
+    - (n8n_workflows_desired_active_ids | default([]) | length) > 0
+  tags: [n8n, n8n_workflows]
+
+- name: Write workflow bootstrap state marker
+  ansible.builtin.copy:
+    dest: "{{ n8n_workflows_state_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      imported_at={{ ansible_date_time.iso8601 }}
+      files={{ n8n_workflows_files | join(',') }}
+      source_hash={{ n8n_workflows_source_hash }}
+  when:
+    - n8n_workflows_bootstrap_enabled | bool
+    - n8n_workflows_import_required | bool
+    - not ansible_check_mode
+  tags: [n8n, n8n_workflows]

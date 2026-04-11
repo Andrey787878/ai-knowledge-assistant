@@ -1,0 +1,28 @@
+---
+- name: Strictly reconcile host firewalls on all VM nodes
+  hosts: all
+  become: true
+  tasks:
+    - name: Validate firewall inputs before strict reconcile
+      ansible.builtin.include_role:
+        name: firewall
+        tasks_from: validate.yml
+      tags: [firewall, firewall_validate, firewall_strict_reconcile]
+
+    - name: Purge unmanaged firewalld entries in strict reconcile mode
+      ansible.builtin.include_role:
+        name: firewall
+        tasks_from: strict_reconcile.yml
+      tags: [firewall, firewall_strict_reconcile]
+
+    - name: Apply declarative firewall policy
+      ansible.builtin.include_role:
+        name: firewall
+        tasks_from: firewalld.yml
+      tags: [firewall, firewall_apply, firewall_strict_reconcile]
+
+    - name: Verify effective firewall policy
+      ansible.builtin.include_role:
+        name: firewall
+        tasks_from: verify.yml
+      tags: [firewall, firewall_verify, firewall_strict_reconcile]

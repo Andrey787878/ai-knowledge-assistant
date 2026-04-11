@@ -1,0 +1,70 @@
+---
+- name: Validate supported OS family
+  ansible.builtin.assert:
+    that:
+      - ansible_os_family in common_supported_os_families
+    fail_msg: "Unsupported OS family for common role: {{ ansible_os_family }}"
+  tags: [common, validation]
+
+- name: Validate timezone value when timezone management enabled
+  ansible.builtin.assert:
+    that:
+      - common_timezone is string
+      - common_timezone | trim | length > 0
+    fail_msg: "common_timezone must be a non-empty string when common_manage_timezone is true"
+  when: common_manage_timezone | bool
+  tags: [common, validation]
+
+- name: Validate automation user variable types
+  ansible.builtin.assert:
+    that:
+      - common_manage_automation_user is boolean
+      - common_automation_user_name | trim | length > 0
+      - common_automation_user_shell | trim | length > 0
+      - common_automation_user_create_home is boolean
+      - common_automation_user_groups is sequence
+      - common_automation_user_groups | length > 0
+      - common_automation_user_append_groups is boolean
+      - common_automation_user_manage_sudo is boolean
+      - common_automation_user_sudo_nopasswd is boolean
+      - common_automation_user_sudo_file | trim | length > 0
+      - common_automation_user_sudo_commands | trim | length > 0
+      - common_visudo_binary_path | trim | length > 0
+    fail_msg: >-
+      Invalid automation user settings in common role.
+      Check user name/groups and sudoers settings.
+  when: common_manage_automation_user | bool
+  tags: [common, validation]
+
+- name: Validate SSH hardening variable types
+  ansible.builtin.assert:
+    that:
+      - common_manage_ssh_hardening is boolean
+      - common_sshd_manage_dropin_include is boolean
+      - common_ssh_hardening_allow_root_ansible_user is boolean
+      - common_sshd_dropin_dir | trim | length > 0
+      - common_sshd_dropin_file | trim | length > 0
+      - common_sshd_binary_path | trim | length > 0
+      - common_sshd_service_name | trim | length > 0
+      - (common_sshd_pubkey_authentication | lower) in ['yes', 'no']
+      - (common_sshd_password_authentication | lower) in ['yes', 'no']
+      - (common_sshd_permit_root_login | lower) in ['yes', 'no', 'prohibit-password', 'forced-commands-only']
+      - (common_sshd_kbd_interactive_authentication | lower) in ['yes', 'no']
+    fail_msg: >-
+      Invalid SSH hardening variables in common role. Check booleans, sshd service/binary paths,
+      and yes/no values for sshd options.
+  when: common_manage_ssh_hardening | bool
+  tags: [common, validation]
+
+- name: Guard against root connection lockout during SSH hardening
+  ansible.builtin.assert:
+    that:
+      - common_ssh_hardening_allow_root_ansible_user | bool or (ansible_user | default(ansible_ssh_user | default(''))) != 'root'
+    fail_msg: >-
+      SSH hardening is configured with PermitRootLogin={{ common_sshd_permit_root_login }},
+      but Ansible currently connects as root. Use a non-root ansible_user first or set
+      common_ssh_hardening_allow_root_ansible_user=true explicitly.
+  when:
+    - common_manage_ssh_hardening | bool
+    - (common_sshd_permit_root_login | lower) == 'no'
+  tags: [common, validation]

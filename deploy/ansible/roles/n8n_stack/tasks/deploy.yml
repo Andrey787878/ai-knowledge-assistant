@@ -8,6 +8,21 @@
   register: n8n_compose_deploy_result
   tags: [n8n, n8n_deploy]
 
+- name: Wait for n8n HTTP endpoint after deploy
+  ansible.builtin.uri:
+    url: "http://{{ n8n_web_bind_host }}:{{ n8n_web_port }}{{ n8n_web_healthcheck_path }}"
+    method: GET
+    status_code: 200
+    return_content: false
+    timeout: "{{ n8n_deploy_http_wait_timeout | int }}"
+  register: n8n_http_after_deploy
+  changed_when: false
+  retries: "{{ n8n_deploy_http_wait_retries | int }}"
+  delay: "{{ n8n_deploy_http_wait_delay | int }}"
+  until: n8n_http_after_deploy.status == 200
+  when: not ansible_check_mode
+  tags: [n8n, n8n_deploy]
+
 - name: Mark n8n deploy executed in current run
   ansible.builtin.set_fact:
     n8n_deploy_executed: true

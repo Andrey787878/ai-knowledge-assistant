@@ -41,6 +41,7 @@ services:
       - "{{ n8n_web_bind_host }}:{{ n8n_web_port }}:{{ n8n_web_container_port }}"
     volumes:
       - "{{ n8n_common_data_dir }}:{{ n8n_common_container_data_dir }}"
+      - "{{ n8n_workflows_target_dir }}:{{ n8n_workflows_container_dir }}:ro"
     depends_on:
       redis:
         condition: service_healthy

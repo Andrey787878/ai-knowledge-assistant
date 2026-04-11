@@ -1,0 +1,126 @@
+---
+- name: Validate supported OS family
+  ansible.builtin.assert:
+    that:
+      - ansible_os_family in firewall_supported_os_families
+    fail_msg: "Unsupported OS family for firewall role: {{ ansible_os_family }}"
+  tags: [firewall, firewall_validate]
+
+- name: Validate core network firewall variables
+  ansible.builtin.assert:
+    that:
+      - firewall_manage_ssh is boolean
+      - firewall_ssh_port | int > 0
+      - firewall_ssh_port | int < 65536
+      - firewall_ssh_sources is iterable
+      - firewall_rules is iterable
+      - firewall_firewalld_packages_map is mapping
+      - firewall_firewalld_packages is iterable
+      - firewall_firewalld_packages | length > 0
+      - firewall_firewalld_zone | trim | length > 0
+      - firewall_firewalld_zone_target | trim | length > 0
+      - firewall_firewalld_interfaces is iterable
+      - firewall_autodetect_default_interface is boolean
+      - firewall_verify_strict is boolean
+      - firewall_effective_interfaces is iterable
+      - firewall_ipv4_cidr_regex | trim | length > 0
+    fail_msg: "firewall role validation failed: check core defaults and host/group vars."
+  tags: [firewall, firewall_validate]
+
+- name: Validate each firewalld package name
+  ansible.builtin.assert:
+    that:
+      - item | trim | length > 0
+    fail_msg: "Invalid package name in firewall_firewalld_packages: {{ item }}"
+  loop: "{{ firewall_firewalld_packages | list }}"
+  loop_control:
+    label: "{{ item }}"
+  tags: [firewall, firewall_validate]
+
+- name: Validate each declared firewalld interface name
+  ansible.builtin.assert:
+    that:
+      - item | trim | length > 0
+      - item is match('^[^\\s]+$')
+    fail_msg: "Invalid interface name in firewall_firewalld_interfaces: {{ item }}"
+  loop: "{{ firewall_firewalld_interfaces | list }}"
+  loop_control:
+    label: "{{ item }}"
+  tags: [firewall, firewall_validate]
+
+- name: Ensure auto-detected default interface is available when interface list is empty
+  ansible.builtin.assert:
+    that:
+      - firewall_effective_interfaces | length > 0
+    fail_msg: >-
+      firewall_firewalld_interfaces is empty and auto-detection is enabled,
+      but ansible_default_ipv4.interface is unavailable.
+      Set firewall_firewalld_interfaces explicitly in host_vars.
+  when:
+    - firewall_autodetect_default_interface | bool
+    - (firewall_firewalld_interfaces | length) == 0
+  tags: [firewall, firewall_validate]
+
+- name: Validate each effective firewalld interface name
+  ansible.builtin.assert:
+    that:
+      - item | trim | length > 0
+      - item is match('^[^\\s]+$')
+    fail_msg: "Invalid interface name in firewall_effective_interfaces: {{ item }}"
+  loop: "{{ firewall_effective_interfaces | list }}"
+  loop_control:
+    label: "{{ item }}"
+  tags: [firewall, firewall_validate]
+
+- name: Validate each firewall rule item
+  ansible.builtin.assert:
+    that:
+      - item is mapping
+      - item.port is defined
+      - item.port | int > 0
+      - item.port | int < 65536
+      - item.proto is not defined or item.proto in ['tcp', 'udp']
+      - item.source is defined or item.sources is defined
+      - item.source is not defined or (item.source | trim | length > 0)
+      - item.source is not defined or (item.source is match(firewall_ipv4_cidr_regex))
+      - item.sources is not defined or item.sources is iterable
+      - item.sources is not defined or (item.sources | length) > 0
+      - not (item.source is defined and item.sources is defined)
+    fail_msg: "Invalid firewall rule item: {{ item }}"
+  loop: "{{ firewall_rules }}"
+  loop_control:
+    label: "{{ item.port | default('missing-port') }}/{{ item.proto | default('tcp') }}"
+  tags: [firewall, firewall_validate]
+
+- name: Validate each source item for multi-source firewall rules
+  ansible.builtin.assert:
+    that:
+      - item.1 | trim | length > 0
+      - item.1 is match(firewall_ipv4_cidr_regex)
+    fail_msg: "Invalid source item in firewall rule: {{ item.0 }} source={{ item.1 }}"
+  loop: "{{ query('subelements', firewall_rules | selectattr('sources', 'defined') | list, 'sources') }}"
+  loop_control:
+    label: "{{ item.0.port }}/{{ item.0.proto | default('tcp') }} from {{ item.1 }}"
+  tags: [firewall, firewall_validate]
+
+- name: Validate each SSH source item
+  ansible.builtin.assert:
+    that:
+      - item | trim | length > 0
+      - item is match(firewall_ipv4_cidr_regex)
+    fail_msg: "Invalid SSH source item: {{ item }}"
+  loop: "{{ firewall_ssh_sources }}"
+  loop_control:
+    label: "{{ item }}"
+  when: firewall_manage_ssh | bool
+  tags: [firewall, firewall_validate]
+
+- name: Ensure SSH source list is not empty when SSH management is enabled
+  ansible.builtin.assert:
+    that:
+      - firewall_ssh_sources | length > 0
+    fail_msg: >-
+      firewall_manage_ssh=true requires at least one source CIDR in
+      firewall_ssh_sources (set in zz-local.yml or vault override).
+  when: firewall_manage_ssh | bool
+  tags: [firewall, firewall_validate]
