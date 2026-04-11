@@ -30,6 +30,12 @@
       - postgres_agent_memory_created_at_index is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
       - postgres_hba_rules is iterable
       - postgres_hba_rules | length > 0
+      - postgres_data_dir_owner | string | trim | length > 0
+      - postgres_data_dir_group | string | trim | length > 0
+      - postgres_data_dir_mode | string | trim | length > 0
+      - postgres_compose_wait_timeout | int > 0
+      - postgres_deploy_pg_isready_retries | int > 0
+      - postgres_deploy_pg_isready_delay | int > 0
     fail_msg: "Postgres role validation failed: check architecture/credentials/network/HBA variables."
   tags: [postgres, postgres_validate]
 
@@ -71,44 +77,43 @@
   when: item is mapping
   tags: [postgres, postgres_validate]
 
-- name: Check TLS cert file exists when TLS enabled
-  ansible.builtin.stat:
-    path: "{{ postgres_tls_cert_path }}"
-  register: postgres_tls_cert_stat
-  when: postgres_tls_enabled | bool
+- name: Validate pg_hba rule addresses are valid IPv4/IPv6 CIDR
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_python_interpreter | default('python3') }}"
+      - -c
+      - |
+        import ipaddress
+        import sys
+
+        address = sys.argv[1].strip()
+        if "/" not in address:
+            raise ValueError("CIDR suffix is required")
+        ipaddress.ip_network(address, strict=False)
+      - "{{ item.address }}"
+  register: postgres_hba_address_validation
+  changed_when: false
+  failed_when: false
+  loop: "{{ postgres_hba_rules }}"
+  loop_control:
+    label: "{{ item | to_json }}"
+  when:
+    - item is mapping
+    - item.type in postgres_hba_allowed_types
   tags: [postgres, postgres_validate]
 
-- name: Check TLS key file exists when TLS enabled
-  ansible.builtin.stat:
-    path: "{{ postgres_tls_key_path }}"
-  register: postgres_tls_key_stat
-  when: postgres_tls_enabled | bool
-  tags: [postgres, postgres_validate]
-
-- name: Validate TLS cert/key presence when TLS enabled
+- name: Assert pg_hba addresses validation passed
   ansible.builtin.assert:
     that:
-      - postgres_tls_cert_stat.stat.exists
-      - postgres_tls_key_stat.stat.exists
-    fail_msg: "TLS is enabled, but server.crt/server.key not found on target host."
-  when: postgres_tls_enabled | bool
-  tags: [postgres, postgres_validate]
-
-- name: Check TLS CA file exists when CA enabled
-  ansible.builtin.stat:
-    path: "{{ postgres_tls_ca_path }}"
-  register: postgres_tls_ca_stat
-  when:
-    - postgres_tls_enabled | bool
-    - postgres_tls_ca_enabled | bool
-  tags: [postgres, postgres_validate]
-
-- name: Validate TLS CA presence when CA enabled
-  ansible.builtin.assert:
-    that:
-      - postgres_tls_ca_stat.stat.exists
-    fail_msg: "TLS CA is enabled, but ca.crt not found on target host."
-  when:
-    - postgres_tls_enabled | bool
-    - postgres_tls_ca_enabled | bool
+      - (postgres_hba_address_validation.results | rejectattr('rc', 'equalto', 0) | list | length) == 0
+    fail_msg: >-
+      Invalid pg_hba rule address value(s): {{
+        postgres_hba_address_validation.results
+        | rejectattr('rc', 'equalto', 0)
+        | map(attribute='item.address')
+        | list
+        | join(', ')
+      }}.
+      Each postgres_hba_rules[].address must be a valid IPv4/IPv6 CIDR
+      (for example: 10.10.0.12/32 or 2001:db8::1/128).
   tags: [postgres, postgres_validate]

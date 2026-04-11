@@ -54,7 +54,7 @@
       - psql
       - -v
       - ON_ERROR_STOP=1
-      - "host=127.0.0.1 port=5432 dbname={{ postgres_n8n_db }} user={{ postgres_n8n_user }} sslmode={{ 'require' if postgres_tls_enabled else 'disable' }}"
+      - "host=127.0.0.1 port=5432 dbname={{ postgres_n8n_db }} user={{ postgres_n8n_user }}"
       - -tAc
       - SELECT 1
     env:
@@ -85,7 +85,7 @@
       - psql
       - -v
       - ON_ERROR_STOP=1
-      - "host=127.0.0.1 port=5432 dbname={{ postgres_wiki_db }} user={{ postgres_wiki_user }} sslmode={{ 'require' if postgres_tls_enabled else 'disable' }}"
+      - "host=127.0.0.1 port=5432 dbname={{ postgres_wiki_db }} user={{ postgres_wiki_user }}"
       - -tAc
       - SELECT 1
     env:

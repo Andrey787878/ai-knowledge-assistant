@@ -5,5 +5,5 @@
 local   all             all                                     {{ postgres_local_auth_method }}
 
 {% for rule in postgres_hba_rules %}
-{{ rule.type | default(postgres_hba_remote_type) }}    {{ rule.database }}             {{ rule.user }}             {{ rule.address }}            {{ rule.method }}
+{{ rule.type }}    {{ rule.database }}             {{ rule.user }}             {{ rule.address }}             {{ rule.method }}
 {% endfor %}

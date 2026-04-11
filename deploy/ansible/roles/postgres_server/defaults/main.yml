@@ -28,9 +28,14 @@ postgres_config_dir: '{{ postgres_project_dir }}/config'
 postgres_env_file_path: '{{ postgres_config_dir }}/postgres.env'
 postgres_hba_config_path: '{{ postgres_config_dir }}/pg_hba.conf'
 
+# Host data directory permissions
+postgres_data_dir_owner: '999'
+postgres_data_dir_group: '999'
+postgres_data_dir_mode: '0700'
+
 # Container filesystem layout
 postgres_container_hba_file: /etc/postgresql/pg_hba.conf
-postgres_container_data_dir: /var/lib/postgresql/data
+postgres_container_data_dir: /var/lib/postgresql
 postgres_container_init_dir: /docker-entrypoint-initdb.d
 postgres_container_init_sql_file: '{{ postgres_container_init_dir }}/10-init.sql'
 
@@ -49,39 +54,12 @@ postgres_wiki_password: ''
 # Authentication/security
 postgres_password_encryption: scram-sha-256
 postgres_local_auth_method: '{{ postgres_password_encryption }}'
-postgres_hba_remote_type: "{{ 'hostssl' if postgres_tls_enabled else 'host' }}"
-
-# TLS policy
-postgres_tls_enabled: true
-postgres_tls_min_protocol_version: 'TLSv1.2'
-postgres_tls_ciphers: 'HIGH:!aNULL:!MD5'
-postgres_tls_ca_enabled: false
-postgres_tls_manage_file_permissions: true
-
-# TLS files on host
-postgres_tls_dir: '{{ postgres_config_dir }}/tls'
-postgres_tls_cert_path: '{{ postgres_tls_dir }}/server.crt'
-postgres_tls_key_path: '{{ postgres_tls_dir }}/server.key'
-postgres_tls_ca_path: '{{ postgres_tls_dir }}/ca.crt'
-postgres_tls_cert_file_owner: '999'
-postgres_tls_cert_file_group: '999'
-postgres_tls_cert_file_mode: '0644'
-postgres_tls_key_file_owner: '999'
-postgres_tls_key_file_group: '999'
-postgres_tls_key_file_mode: '0600'
-postgres_tls_ca_file_owner: '999'
-postgres_tls_ca_file_group: '999'
-postgres_tls_ca_file_mode: '0644'
-
-# TLS files inside container
-postgres_container_tls_dir: /etc/postgresql/tls
-postgres_container_tls_cert_file: '{{ postgres_container_tls_dir }}/server.crt'
-postgres_container_tls_key_file: '{{ postgres_container_tls_dir }}/server.key'
-postgres_container_tls_ca_file: '{{ postgres_container_tls_dir }}/ca.crt'
 
 # Compose deploy behavior
-postgres_compose_wait: true
+postgres_compose_wait: false
 postgres_compose_wait_timeout: 300
+postgres_deploy_pg_isready_retries: 40
+postgres_deploy_pg_isready_delay: 3
 postgres_reconcile_enabled: true
 
 # Agent memory schema (stored in n8n database)
@@ -100,15 +78,14 @@ postgres_verify_app_connections: true
 # pg_hba allow-list (override in host_vars/db.yml)
 postgres_hba_allowed_types:
   - host
-  - hostssl
 
 postgres_hba_rules:
-  - type: '{{ postgres_hba_remote_type }}'
+  - type: host
     database: all
     user: all
     address: 127.0.0.1/32
     method: '{{ postgres_password_encryption }}'
-  - type: '{{ postgres_hba_remote_type }}'
+  - type: host
     database: all
     user: all
     address: ::1/128
