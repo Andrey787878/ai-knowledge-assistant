@@ -41,6 +41,9 @@ ollama_model: qwen2.5:1.5b
 # Compose deploy behavior
 ollama_compose_wait: false
 ollama_compose_wait_timeout: 600
+ollama_compose_cli_timeout: 120
+ollama_compose_apply_async_timeout: 900
+ollama_compose_apply_poll: 30
 ollama_deploy_api_wait_retries: 80
 ollama_deploy_api_wait_delay: 3
 ollama_deploy_api_timeout: 10

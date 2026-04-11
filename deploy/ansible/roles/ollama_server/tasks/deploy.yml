@@ -1,11 +1,56 @@
 ---
 - name: Deploy ollama stack with docker compose
-  community.docker.docker_compose_v2:
-    project_src: '{{ ollama_project_dir }}'
-    state: present
-    wait: '{{ ollama_compose_wait }}'
-    wait_timeout: '{{ ollama_compose_wait_timeout }}'
-  register: ollama_compose_deploy_result
+  block:
+    - name: Apply ollama compose project
+      community.docker.docker_compose_v2:
+        project_src: '{{ ollama_project_dir }}'
+        state: present
+        wait: "{{ ollama_compose_wait | bool }}"
+        wait_timeout: "{{ ollama_compose_wait_timeout | int }}"
+        timeout: "{{ ollama_compose_cli_timeout | int }}"
+      register: ollama_compose_deploy_result
+      async: "{{ ollama_compose_apply_async_timeout | int }}"
+      poll: "{{ ollama_compose_apply_poll | int }}"
+
+  rescue:
+    - name: Gather ollama container info after compose apply failure
+      community.docker.docker_container_info:
+        name: "{{ ollama_container_name }}"
+      register: ollama_container_after_failed_compose
+      when: not ansible_check_mode
+
+    - name: Probe ollama tags API after compose apply failure
+      ansible.builtin.uri:
+        url: '{{ ollama_verify_api_url }}'
+        method: GET
+        status_code: 200
+        return_content: false
+        timeout: "{{ ollama_deploy_api_timeout | int }}"
+      register: ollama_api_after_failed_compose
+      changed_when: false
+      failed_when: false
+      retries: "{{ ollama_deploy_api_wait_retries | int }}"
+      delay: "{{ ollama_deploy_api_wait_delay | int }}"
+      until: (ollama_api_after_failed_compose.status | default(0)) == 200
+      ignore_errors: true
+      when: not ansible_check_mode
+
+    - name: Assert ollama is ready after compose apply failure
+      ansible.builtin.assert:
+        that:
+          - ollama_container_after_failed_compose.exists | default(false)
+          - ollama_container_after_failed_compose.container.State.Running | default(false)
+          - (ollama_api_after_failed_compose.status | default(0)) == 200
+        fail_msg: >-
+          Compose apply failed and ollama is not ready yet.
+          Check docker compose output and container logs on host {{ inventory_hostname }}.
+      when: not ansible_check_mode
+
+    - name: Create synthetic deploy result after readiness fallback
+      ansible.builtin.set_fact:
+        ollama_compose_deploy_result:
+          changed: false
+      changed_when: false
   tags: [ollama, ollama_deploy]
 
 - name: Wait for ollama tags API after deploy
