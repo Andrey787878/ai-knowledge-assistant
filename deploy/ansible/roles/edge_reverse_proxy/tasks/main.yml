@@ -15,12 +15,14 @@
   ansible.builtin.import_tasks: service.yml
   tags: [nginx_rp, nginx_rp_service]
 
-- name: Flush nginx handlers before verify
+- name: Flush nginx handlers after config/service apply
   ansible.builtin.meta: flush_handlers
-  when: nginx_rp_verify_enabled | bool
-  tags: [nginx_rp, nginx_rp_verify]
+  when: not ansible_check_mode
+  tags: [nginx_rp, nginx_rp_service]
 
 - name: Run nginx reverse proxy verify tasks
   ansible.builtin.import_tasks: verify.yml
-  when: nginx_rp_verify_enabled | bool
+  when:
+    - nginx_rp_verify_enabled | bool
+    - nginx_rp_enable_https_server | bool
   tags: [nginx_rp, nginx_rp_verify]

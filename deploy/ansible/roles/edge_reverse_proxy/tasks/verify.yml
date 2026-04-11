@@ -1,0 +1,126 @@
+---
+- name: Wait for HTTP port on local edge host
+  ansible.builtin.wait_for:
+    host: "{{ nginx_rp_verify_local_host }}"
+    port: "{{ nginx_rp_http_port }}"
+    timeout: 30
+    state: started
+  when: not ansible_check_mode
+  tags: [nginx_rp, nginx_rp_verify]
+
+- name: Wait for HTTPS port on local edge host
+  ansible.builtin.wait_for:
+    host: "{{ nginx_rp_verify_local_host }}"
+    port: "{{ nginx_rp_https_port }}"
+    timeout: 30
+    state: started
+  when: not ansible_check_mode
+  tags: [nginx_rp, nginx_rp_verify]
+
+- name: Verify HTTP to HTTPS redirect for wiki domain
+  ansible.builtin.uri:
+    url: "http://{{ nginx_rp_verify_local_host }}{{ '' if (nginx_rp_http_port | int == 80) else ':' ~ (nginx_rp_http_port | string) }}/healthz"
+    method: GET
+    status_code: 301
+    follow_redirects: none
+    headers:
+      Host: "{{ nginx_rp_wiki_server_name }}"
+  register: nginx_rp_wiki_http_redirect_check
+  changed_when: false
+  when: not ansible_check_mode
+  tags: [nginx_rp, nginx_rp_verify]
+
+- name: Verify HTTPS wiki health endpoint with certificate validation
+  ansible.builtin.command: >-
+    curl --silent --show-error --fail --output /dev/null --write-out '%{http_code}'
+    --cacert '{{ nginx_rp_verify_ca_cert_path }}'
+    --resolve '{{ nginx_rp_wiki_server_name }}:{{ nginx_rp_https_port }}:{{ nginx_rp_verify_local_host }}'
+    'https://{{ nginx_rp_wiki_server_name }}{{ '' if (nginx_rp_https_port | int == 443) else ':' ~ (nginx_rp_https_port | string) }}/healthz'
+  register: nginx_rp_wiki_https_status
+  changed_when: false
+  when: not ansible_check_mode
+  tags: [nginx_rp, nginx_rp_verify]
+
+- name: Assert wiki HTTPS health endpoint returns 200
+  ansible.builtin.assert:
+    that:
+      - nginx_rp_wiki_https_status.stdout | trim == "200"
+    fail_msg: "Wiki HTTPS health check failed or returned non-200 status."
+  when: not ansible_check_mode
+  tags: [nginx_rp, nginx_rp_verify]
+
+- name: Check HTTPS security headers for wiki domain
+  ansible.builtin.command: >-
+    curl --silent --show-error --head
+    --cacert '{{ nginx_rp_verify_ca_cert_path }}'
+    --resolve '{{ nginx_rp_wiki_server_name }}:{{ nginx_rp_https_port }}:{{ nginx_rp_verify_local_host }}'
+    'https://{{ nginx_rp_wiki_server_name }}{{ '' if (nginx_rp_https_port | int == 443) else ':' ~ (nginx_rp_https_port | string) }}/healthz'
+  register: nginx_rp_wiki_https_headers
+  changed_when: false
+  when: not ansible_check_mode
+  tags: [nginx_rp, nginx_rp_verify]
+
+- name: Assert wiki HTTPS security headers are present
+  ansible.builtin.assert:
+    that:
+      - "'strict-transport-security:' in (nginx_rp_wiki_https_headers.stdout | lower)"
+      - "'x-content-type-options: nosniff' in (nginx_rp_wiki_https_headers.stdout | lower)"
+      - "'x-frame-options: sameorigin' in (nginx_rp_wiki_https_headers.stdout | lower)"
+      - "'referrer-policy: strict-origin-when-cross-origin' in (nginx_rp_wiki_https_headers.stdout | lower)"
+    fail_msg: "Wiki HTTPS response is missing one or more required security headers."
+  when: not ansible_check_mode
+  tags: [nginx_rp, nginx_rp_verify]
+
+- name: Verify HTTP to HTTPS redirect for n8n domain
+  ansible.builtin.uri:
+    url: "http://{{ nginx_rp_verify_local_host }}{{ '' if (nginx_rp_http_port | int == 80) else ':' ~ (nginx_rp_http_port | string) }}/healthz"
+    method: GET
+    status_code: 301
+    follow_redirects: none
+    headers:
+      Host: "{{ nginx_rp_n8n_server_name }}"
+  register: nginx_rp_n8n_http_redirect_check
+  changed_when: false
+  when: not ansible_check_mode
+  tags: [nginx_rp, nginx_rp_verify]
+
+- name: Verify HTTPS n8n health endpoint with certificate validation
+  ansible.builtin.command: >-
+    curl --silent --show-error --fail --output /dev/null --write-out '%{http_code}'
+    --cacert '{{ nginx_rp_verify_ca_cert_path }}'
+    --resolve '{{ nginx_rp_n8n_server_name }}:{{ nginx_rp_https_port }}:{{ nginx_rp_verify_local_host }}'
+    'https://{{ nginx_rp_n8n_server_name }}{{ '' if (nginx_rp_https_port | int == 443) else ':' ~ (nginx_rp_https_port | string) }}/healthz'
+  register: nginx_rp_n8n_https_status
+  changed_when: false
+  when: not ansible_check_mode
+  tags: [nginx_rp, nginx_rp_verify]
+
+- name: Assert n8n HTTPS health endpoint returns 200
+  ansible.builtin.assert:
+    that:
+      - nginx_rp_n8n_https_status.stdout | trim == "200"
+    fail_msg: "n8n HTTPS health check failed or returned non-200 status."
+  when: not ansible_check_mode
+  tags: [nginx_rp, nginx_rp_verify]
+
+- name: Check HTTPS security headers for n8n domain
+  ansible.builtin.command: >-
+    curl --silent --show-error --head
+    --cacert '{{ nginx_rp_verify_ca_cert_path }}'
+    --resolve '{{ nginx_rp_n8n_server_name }}:{{ nginx_rp_https_port }}:{{ nginx_rp_verify_local_host }}'
+    'https://{{ nginx_rp_n8n_server_name }}{{ '' if (nginx_rp_https_port | int == 443) else ':' ~ (nginx_rp_https_port | string) }}/healthz'
+  register: nginx_rp_n8n_https_headers
+  changed_when: false
+  when: not ansible_check_mode
+  tags: [nginx_rp, nginx_rp_verify]
+
+- name: Assert n8n HTTPS security headers are present
+  ansible.builtin.assert:
+    that:
+      - "'strict-transport-security:' in (nginx_rp_n8n_https_headers.stdout | lower)"
+      - "'x-content-type-options: nosniff' in (nginx_rp_n8n_https_headers.stdout | lower)"
+      - "'x-frame-options: sameorigin' in (nginx_rp_n8n_https_headers.stdout | lower)"
+      - "'referrer-policy: strict-origin-when-cross-origin' in (nginx_rp_n8n_https_headers.stdout | lower)"
+    fail_msg: "n8n HTTPS response is missing one or more required security headers."
+  when: not ansible_check_mode
+  tags: [nginx_rp, nginx_rp_verify]

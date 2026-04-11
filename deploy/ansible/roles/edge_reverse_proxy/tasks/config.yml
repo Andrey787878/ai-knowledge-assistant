@@ -8,11 +8,42 @@
     mode: "0755"
   tags: [nginx_rp, nginx_rp_config]
 
-- name: Remove default nginx config files when enabled
+- name: Discover active nginx sites-enabled entries
+  ansible.builtin.find:
+    paths: /etc/nginx/sites-enabled
+    file_type: any
+  register: nginx_rp_sites_enabled_entries
+  failed_when: false
+  changed_when: false
+  when:
+    - nginx_rp_remove_default_site | bool
+  tags: [nginx_rp, nginx_rp_config]
+
+- name: Remove active nginx sites-enabled entries when enabled
   ansible.builtin.file:
-    path: "{{ item }}"
+    path: "{{ item.path }}"
     state: absent
-  loop: "{{ nginx_rp_default_conf_paths }}"
+  loop: "{{ nginx_rp_sites_enabled_entries.files | default([]) }}"
+  when:
+    - nginx_rp_remove_default_site | bool
+  notify: Reload nginx
+  tags: [nginx_rp, nginx_rp_config]
+
+- name: Discover active nginx conf.d *.conf entries
+  ansible.builtin.find:
+    paths: "{{ nginx_rp_conf_dir }}"
+    patterns: "*.conf"
+    file_type: file
+  register: nginx_rp_conf_d_entries
+  when:
+    - nginx_rp_remove_default_site | bool
+  tags: [nginx_rp, nginx_rp_config]
+
+- name: Remove active nginx conf.d *.conf entries when enabled
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ nginx_rp_conf_d_entries.files | default([]) }}"
   when:
     - nginx_rp_remove_default_site | bool
   notify: Reload nginx

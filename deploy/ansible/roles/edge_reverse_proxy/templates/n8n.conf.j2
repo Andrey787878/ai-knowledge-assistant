@@ -14,9 +14,19 @@ server {
     listen {{ nginx_rp_http_port }};
     listen [::]:{{ nginx_rp_http_port }};
     server_name {{ nginx_rp_n8n_server_name }};
-    return 301 https://$host$request_uri;
+
+    location ^~ /.well-known/acme-challenge/ {
+        alias {{ nginx_rp_acme_challenge_webroot_path }}/.well-known/acme-challenge/;
+        default_type text/plain;
+        allow all;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
 }
 
+{% if nginx_rp_enable_https_server | bool %}
 server {
     listen {{ nginx_rp_https_port }} ssl http2;
     listen [::]:{{ nginx_rp_https_port }} ssl http2;
@@ -27,7 +37,46 @@ server {
     server_tokens off;
     client_max_body_size {{ nginx_rp_client_max_body_size }};
 
+    # Stable public webhook path for clients.
+    # Internally proxy to n8n registered production webhook path.
+    location = /webhook/{{ nginx_rp_n8n_agent_query_public_path }} {
+{% for cidr in nginx_rp_allowed_client_cidrs %}
+        allow {{ cidr }};
+{% endfor %}
+        allow 127.0.0.1/32;
+        allow ::1/128;
+        deny all;
+
+        proxy_http_version 1.1;
+        proxy_pass http://n8n_upstream/webhook/{{ nginx_rp_n8n_agent_query_upstream_webhook_path }};
+        proxy_redirect off;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port $server_port;
+
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $n8n_connection_upgrade;
+        proxy_cache_bypass $http_upgrade;
+        proxy_buffering off;
+        proxy_request_buffering off;
+
+        proxy_connect_timeout {{ nginx_rp_n8n_proxy_connect_timeout }};
+        proxy_send_timeout {{ nginx_rp_n8n_proxy_send_timeout }};
+        proxy_read_timeout {{ nginx_rp_n8n_proxy_read_timeout }};
+    }
+
     location / {
+{% for cidr in nginx_rp_allowed_client_cidrs %}
+        allow {{ cidr }};
+{% endfor %}
+        allow 127.0.0.1/32;
+        allow ::1/128;
+        deny all;
+
         proxy_http_version 1.1;
         proxy_pass http://n8n_upstream;
         proxy_redirect off;
@@ -52,6 +101,13 @@ server {
 
     location = /healthz {
         access_log off;
+{% for cidr in nginx_rp_allowed_client_cidrs %}
+        allow {{ cidr }};
+{% endfor %}
+        allow 127.0.0.1/32;
+        allow ::1/128;
+        deny all;
+
         proxy_http_version 1.1;
         proxy_pass http://n8n_upstream/healthz;
 
@@ -63,3 +119,4 @@ server {
         proxy_set_header X-Forwarded-Port $server_port;
     }
 }
+{% endif %}
