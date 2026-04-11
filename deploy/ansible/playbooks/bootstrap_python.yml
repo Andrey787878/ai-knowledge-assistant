@@ -3,6 +3,14 @@
   hosts: all
   gather_facts: false
   become: true
+  serial: 1
+  pre_tasks:
+    - name: Wait for SSH connectivity before python bootstrap
+      ansible.builtin.wait_for_connection:
+        delay: 2
+        sleep: 5
+        timeout: 300
+      tags: [bootstrap, bootstrap_connection]
   tasks:
     - name: Check whether python3 is already installed
       ansible.builtin.raw: command -v python3
