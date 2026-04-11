@@ -1,0 +1,29 @@
+# Non-sensitive defaults for local runs.
+# Sensitive/auth vars are passed via env:
+#   TF_VAR_yc_token, TF_VAR_cloud_id, TF_VAR_folder_id
+
+zone = "ru-central1-b"
+
+ssh_username        = "ubuntu"
+ssh_public_key_path = "~/.ssh/ansible_deploy.pub"
+
+# Optional: override subnet names/CIDRs.
+# public_subnet_name = "vm-public-a"
+# public_subnet_cidr = "10.10.0.16/28"
+# private_subnet_name = "vm-private-a"
+# private_subnet_cidr = "10.10.0.0/28"
+
+# Replace with your admin source CIDR(s) for SSH to wiki (bastion).
+firewall_admin_ssh_sources = [
+  "198.51.100.0/32"
+]
+
+# Replace with CIDR(s) allowed to access edge HTTPS (wiki/n8n domains).
+edge_allowed_client_cidrs = [
+  "198.51.100.0/24"
+]
+
+# Keep 80 open for ACME HTTP-01 and HTTP->HTTPS redirect.
+edge_http_cidrs = [
+  "0.0.0.0/0"
+]
