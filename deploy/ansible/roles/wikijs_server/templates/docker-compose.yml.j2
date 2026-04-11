@@ -17,7 +17,7 @@ services:
       - "{{ wikijs_stack_data_dir }}:{{ wikijs_runtime_container_data_dir }}"
 
     healthcheck:
-      test: ["CMD", "node", "-e", "const http=require('http');const req=http.get({host:'127.0.0.1',port:{{ wikijs_runtime_container_port }},path:'/'},(res)=>{process.exit(res.statusCode<500?0:1);});req.setTimeout(5000,()=>{req.destroy();process.exit(1);});req.on('error',()=>process.exit(1));"]
+      test: ["CMD", "node", "-e", "const http=require('http');const ok=new Set([200,301,302]);const req=http.get({host:'127.0.0.1',port:{{ wikijs_runtime_container_port }},path:'{{ wikijs_runtime_healthcheck_path }}'},(res)=>{process.exit(ok.has(res.statusCode)?0:1);});req.setTimeout(5000,()=>{req.destroy();process.exit(1);});req.on('error',()=>process.exit(1));"]
       interval: "{{ wikijs_runtime_healthcheck_interval }}"
       timeout: "{{ wikijs_runtime_healthcheck_timeout }}"
       retries: {{ wikijs_runtime_healthcheck_retries }}

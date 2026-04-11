@@ -28,20 +28,21 @@
   ansible.builtin.uri:
     url: "{{ wikijs_verify_url }}"
     method: GET
-    status_code: [200, 301, 302]
-    return_content: true
+    status_code: "{{ wikijs_verify_expected_status_codes }}"
+    return_content: false
+    timeout: "{{ wikijs_deploy_http_wait_timeout | int }}"
   register: wikijs_http_check
   changed_when: false
   retries: 20
   delay: 3
-  until: wikijs_http_check.status in [200, 301, 302]
+  until: wikijs_http_check.status in wikijs_verify_expected_status_codes
   when: not ansible_check_mode
   tags: [wikijs, wikijs_verify]
 
 - name: Assert wikijs HTTP endpoint is healthy
   ansible.builtin.assert:
     that:
-      - wikijs_http_check.status in [200, 301, 302]
+      - wikijs_http_check.status in wikijs_verify_expected_status_codes
     fail_msg: "wikijs HTTP check failed."
   when: not ansible_check_mode
   tags: [wikijs, wikijs_verify]

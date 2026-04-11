@@ -46,14 +46,16 @@ wikijs_postgres_port: 5432
 wikijs_postgres_database: wikijs
 wikijs_postgres_user: wikijs
 wikijs_postgres_password: ''
-wikijs_postgres_ssl_enabled: false
-wikijs_postgres_ssl_ca: ''
 
 # Compose deploy behavior
-wikijs_stack_compose_wait: true
+wikijs_stack_compose_wait: false
 wikijs_stack_compose_wait_timeout: 300
+wikijs_deploy_http_wait_retries: 40
+wikijs_deploy_http_wait_delay: 3
+wikijs_deploy_http_wait_timeout: 10
 
 # Runtime healthcheck
+wikijs_runtime_healthcheck_path: /login
 wikijs_runtime_healthcheck_interval: 15s
 wikijs_runtime_healthcheck_timeout: 5s
 wikijs_runtime_healthcheck_retries: 20
@@ -61,5 +63,10 @@ wikijs_runtime_healthcheck_start_period: 30s
 
 # Verify behavior
 wikijs_verify_enabled: true
-wikijs_verify_url: 'http://{{ wikijs_runtime_bind_host }}:{{ wikijs_runtime_host_port }}/'
+wikijs_verify_path: /login
+wikijs_verify_url: 'http://{{ wikijs_runtime_bind_host }}:{{ wikijs_runtime_host_port }}{{ wikijs_verify_path }}'
+wikijs_verify_expected_status_codes:
+  - 200
+  - 301
+  - 302
 wikijs_verify_postgres_tcp_enabled: true
