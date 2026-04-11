@@ -6,7 +6,9 @@
     - postgres_backup
   tasks:
     - name: Execute postgres backup script
-      ansible.builtin.command: "{{ postgres_backup_script_path }}"
+      ansible.builtin.command:
+        argv:
+          - "{{ postgres_backup_script_path }}"
       changed_when: true
       tags: [postgres_backup]
 

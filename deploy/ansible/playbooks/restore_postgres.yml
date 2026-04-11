@@ -3,6 +3,10 @@
   hosts: db_hosts
   become: true
   serial: 1
+  vars:
+    postgres_restore_manage_writers: false
+    postgres_restore_n8n_compose_file: /opt/ai-agent/n8n/docker-compose.yml
+    postgres_restore_wiki_compose_file: /opt/ai-agent/wikijs/docker-compose.yml
   roles:
     - postgres_backup
   pre_tasks:
@@ -22,13 +26,143 @@
       ansible.builtin.assert:
         that:
           - postgres_restore_source_dir | trim | length > 0
+          - postgres_restore_source_dir | trim is match('^/')
         fail_msg: "Set -e postgres_restore_source_dir=/path/to/backup."
 
+    - name: Validate restore flags type
+      ansible.builtin.assert:
+        that:
+          - >-
+            (postgres_restore_with_globals is boolean)
+            or ((postgres_restore_with_globals | string | lower) in ['true', 'false', 'yes', 'no', '1', '0'])
+        fail_msg: >-
+          postgres_restore_with_globals must be boolean-like
+          (true/false/yes/no/1/0).
+
+    - name: Validate restore writer management flag type
+      ansible.builtin.assert:
+        that:
+          - >-
+            (postgres_restore_manage_writers is boolean)
+            or ((postgres_restore_manage_writers | string | lower) in ['true', 'false', 'yes', 'no', '1', '0'])
+        fail_msg: >-
+          postgres_restore_manage_writers must be boolean-like
+          (true/false/yes/no/1/0).
+
+    - name: Normalize restore flags
+      ansible.builtin.set_fact:
+        postgres_restore_with_globals_bool: "{{ postgres_restore_with_globals | bool }}"
+        postgres_restore_manage_writers_bool: "{{ postgres_restore_manage_writers | bool }}"
+      changed_when: false
+
+    - name: Check restore source directory exists
+      ansible.builtin.stat:
+        path: "{{ postgres_restore_source_dir }}"
+        follow: true
+      register: postgres_restore_source_dir_stat
+
+    - name: Assert restore source directory is valid
+      ansible.builtin.assert:
+        that:
+          - postgres_restore_source_dir_stat.stat.exists
+          - postgres_restore_source_dir_stat.stat.isdir
+        fail_msg: >-
+          Restore source directory does not exist on db host (or is not a directory):
+          {{ postgres_restore_source_dir }}.
+
+    - name: Check SHA256SUMS file exists in restore source directory
+      ansible.builtin.stat:
+        path: "{{ postgres_restore_source_dir }}/SHA256SUMS"
+      register: postgres_restore_source_sha_sums_stat
+
+    - name: Assert SHA256SUMS file exists in restore source directory
+      ansible.builtin.assert:
+        that:
+          - postgres_restore_source_sha_sums_stat.stat.exists
+          - postgres_restore_source_sha_sums_stat.stat.isreg
+          - postgres_restore_source_sha_sums_stat.stat.size | int > 0
+        fail_msg: "Restore source directory must contain non-empty SHA256SUMS."
+
+    - name: Validate required groups for managed writer stop/start mode
+      ansible.builtin.assert:
+        that:
+          - groups['n8n_hosts'] | default([]) | length > 0
+          - groups['wiki_hosts'] | default([]) | length > 0
+        fail_msg: >-
+          postgres_restore_manage_writers=true requires n8n_hosts and wiki_hosts
+          groups in inventory.
+      when: postgres_restore_manage_writers_bool | bool
+
   tasks:
-    - name: Execute postgres restore script
-      ansible.builtin.command: >-
-        {{ postgres_restore_script_path }}
-        {{ postgres_restore_source_dir }}
-        {{ 'true' if postgres_restore_with_globals else 'false' }}
-      changed_when: true
+    - name: Restore postgres with optional managed writer stop/start
+      block:
+        - name: Stop n8n writers before restore
+          ansible.builtin.command:
+            argv:
+              - docker
+              - compose
+              - -f
+              - "{{ postgres_restore_n8n_compose_file }}"
+              - stop
+              - n8n-web
+              - n8n-worker
+          delegate_to: "{{ groups['n8n_hosts'][0] }}"
+          run_once: true
+          changed_when: false
+          when: postgres_restore_manage_writers_bool | bool
+
+        - name: Stop wikijs writer before restore
+          ansible.builtin.command:
+            argv:
+              - docker
+              - compose
+              - -f
+              - "{{ postgres_restore_wiki_compose_file }}"
+              - stop
+              - wikijs
+          delegate_to: "{{ groups['wiki_hosts'][0] }}"
+          run_once: true
+          changed_when: false
+          when: postgres_restore_manage_writers_bool | bool
+
+        - name: Execute postgres restore script
+          ansible.builtin.command:
+            argv:
+              - "{{ postgres_restore_script_path }}"
+              - "{{ postgres_restore_source_dir }}"
+              - "{{ 'true' if postgres_restore_with_globals_bool else 'false' }}"
+          changed_when: true
+          tags: [postgres_backup]
+
+      always:
+        - name: Start n8n writers after restore
+          ansible.builtin.command:
+            argv:
+              - docker
+              - compose
+              - -f
+              - "{{ postgres_restore_n8n_compose_file }}"
+              - up
+              - -d
+              - n8n-web
+              - n8n-worker
+          delegate_to: "{{ groups['n8n_hosts'][0] }}"
+          run_once: true
+          changed_when: false
+          when: postgres_restore_manage_writers_bool | bool
+
+        - name: Start wikijs writer after restore
+          ansible.builtin.command:
+            argv:
+              - docker
+              - compose
+              - -f
+              - "{{ postgres_restore_wiki_compose_file }}"
+              - up
+              - -d
+              - wikijs
+          delegate_to: "{{ groups['wiki_hosts'][0] }}"
+          run_once: true
+          changed_when: false
+          when: postgres_restore_manage_writers_bool | bool
       tags: [postgres_backup]
