@@ -1,0 +1,11 @@
+---
+# ClusterIssuer settings.
+cluster_issuer_name: 'letsencrypt-prod'
+acme_email: 'andrey@poluyanov.net'
+ingress_class: 'traefik'
+acme_account_private_key_secret_name: 'letsencrypt-prod-account-key'
+
+# Let's Encrypt ACME directory URL.
+# - Production: https://acme-v02.api.letsencrypt.org/directory
+# - Staging:    https://acme-staging-v02.api.letsencrypt.org/directory
+acme_server: 'https://acme-v02.api.letsencrypt.org/directory'

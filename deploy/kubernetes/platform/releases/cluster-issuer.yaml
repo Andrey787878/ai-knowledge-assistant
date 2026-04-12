@@ -1,0 +1,24 @@
+---
+releases:
+  - name: cluster-issuer
+    namespace: cert-manager
+    createNamespace: true
+    chart: bedag/raw
+    version: "{{ .Values.raw_chart_version }}"
+    wait: true
+    values:
+      - resources:
+          - apiVersion: cert-manager.io/v1
+            kind: ClusterIssuer
+            metadata:
+              name: "{{ .Values.cluster_issuer_name }}"
+            spec:
+              acme:
+                email: "{{ .Values.acme_email }}"
+                server: "{{ .Values.acme_server }}"
+                privateKeySecretRef:
+                  name: "{{ .Values.acme_account_private_key_secret_name }}"
+                solvers:
+                  - http01:
+                      ingress:
+                        class: "{{ .Values.ingress_class }}"
