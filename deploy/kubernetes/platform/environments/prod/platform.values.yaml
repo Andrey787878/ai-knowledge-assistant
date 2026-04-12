@@ -1,0 +1,4 @@
+---
+# Platform chart version pins.
+cert_manager_chart_version: "v1.18.2"
+raw_chart_version: "2.0.0"
