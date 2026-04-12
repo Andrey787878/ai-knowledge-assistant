@@ -1,0 +1,9 @@
+---
+releases:
+  - name: cert-manager
+    namespace: cert-manager
+    createNamespace: true
+    chart: jetstack/cert-manager
+    version: '{{ .Values.cert_manager_chart_version }}'
+    values:
+      - ../environments/prod/cert-manager.values.yaml
