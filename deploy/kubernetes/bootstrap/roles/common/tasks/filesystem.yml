@@ -1,0 +1,10 @@
+---
+- name: Ensure baseline directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop: "{{ common_directories }}"
+  tags: [common, filesystem]
