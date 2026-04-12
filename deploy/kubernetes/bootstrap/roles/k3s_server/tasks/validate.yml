@@ -1,0 +1,41 @@
+---
+- name: Validate supported OS family
+  ansible.builtin.assert:
+    that:
+      - ansible_os_family in k3s_supported_os_families
+    fail_msg: "Unsupported OS family for k3s_server role: {{ ansible_os_family }}"
+  tags: [k3s_server, validation]
+
+- name: Validate install settings
+  ansible.builtin.assert:
+    that:
+      - k3s_install_script_url is string
+      - k3s_install_script_url | trim | length > 0
+      - k3s_release_download_base_url is string
+      - k3s_release_download_base_url | trim | length > 0
+      - k3s_version is string
+      - k3s_version | trim | length > 0
+      - k3s_binary_install_dir is string
+      - k3s_binary_install_dir | trim | length > 0
+      - k3s_download_dir is string
+      - k3s_download_dir | trim | length > 0
+      - k3s_service_name is string
+      - k3s_service_name | trim | length > 0
+      - k3s_kubeconfig_path is string
+      - k3s_kubeconfig_path | trim | length > 0
+      - k3s_write_kubeconfig_mode is match('^[0-7]{3,4}$')
+      - k3s_disable_traefik is boolean
+      - k3s_server_extra_args is sequence
+      - k3s_arch_map is mapping
+      - ansible_architecture in k3s_arch_map
+    fail_msg: "Invalid k3s install settings in k3s_server role."
+  tags: [k3s_server, validation]
+
+- name: Validate wait settings
+  ansible.builtin.assert:
+    that:
+      - k3s_wait_api_timeout | int > 0
+      - k3s_wait_node_ready_retries | int > 0
+      - k3s_wait_node_ready_delay | int > 0
+    fail_msg: "k3s wait settings must be positive integers."
+  tags: [k3s_server, validation]

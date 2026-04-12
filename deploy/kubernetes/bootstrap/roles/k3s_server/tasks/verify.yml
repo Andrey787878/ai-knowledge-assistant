@@ -1,0 +1,50 @@
+---
+- name: Wait for k3s API port
+  ansible.builtin.wait_for:
+    port: 6443
+    timeout: "{{ k3s_wait_api_timeout }}"
+  tags: [k3s_server, verify]
+
+- name: Verify k3s service is active
+  ansible.builtin.command:
+    cmd: systemctl is-active {{ k3s_service_name }}
+  register: k3s_service_status
+  changed_when: false
+  tags: [k3s_server, verify]
+
+- name: Assert k3s service is active
+  ansible.builtin.assert:
+    that:
+      - k3s_service_status.stdout | trim == "active"
+    fail_msg: "k3s service is not active."
+  tags: [k3s_server, verify]
+
+- name: Verify kubeconfig file exists
+  ansible.builtin.stat:
+    path: "{{ k3s_kubeconfig_path }}"
+  register: k3s_kubeconfig_stat
+  tags: [k3s_server, verify]
+
+- name: Assert kubeconfig file is present
+  ansible.builtin.assert:
+    that:
+      - k3s_kubeconfig_stat.stat.exists
+      - k3s_kubeconfig_stat.stat.size | int > 0
+    fail_msg: "k3s kubeconfig file is missing or empty: {{ k3s_kubeconfig_path }}"
+  tags: [k3s_server, verify]
+
+- name: Wait until node becomes Ready
+  ansible.builtin.command:
+    cmd: >-
+      kubectl --kubeconfig {{ k3s_kubeconfig_path }}
+      get nodes
+      -o jsonpath='{range .items[*]}{range .status.conditions[?(@.type=="Ready")]}{.status}{"\n"}{end}{end}'
+  register: k3s_node_ready_statuses
+  changed_when: false
+  failed_when: false
+  retries: "{{ k3s_wait_node_ready_retries }}"
+  delay: "{{ k3s_wait_node_ready_delay }}"
+  until:
+    - k3s_node_ready_statuses.rc == 0
+    - "'True' in (k3s_node_ready_statuses.stdout | default(''))"
+  tags: [k3s_server, verify]

@@ -1,0 +1,26 @@
+---
+k3s_supported_os_families:
+  - Debian
+
+k3s_install_script_url: 'https://get.k3s.io'
+k3s_release_download_base_url: 'https://github.com/k3s-io/k3s/releases/download'
+k3s_version: 'v1.30.6+k3s1'
+k3s_binary_install_dir: '/usr/local/bin'
+k3s_download_dir: '/tmp/k3s-install'
+k3s_arch_map:
+  x86_64: amd64
+  amd64: amd64
+  aarch64: arm64
+  arm64: arm64
+  armv7l: armhf
+  armv6l: armhf
+
+k3s_service_name: 'k3s'
+k3s_kubeconfig_path: '/etc/rancher/k3s/k3s.yaml'
+k3s_write_kubeconfig_mode: '644'
+k3s_disable_traefik: false
+k3s_server_extra_args: []
+
+k3s_wait_api_timeout: 300
+k3s_wait_node_ready_retries: 40
+k3s_wait_node_ready_delay: 5
