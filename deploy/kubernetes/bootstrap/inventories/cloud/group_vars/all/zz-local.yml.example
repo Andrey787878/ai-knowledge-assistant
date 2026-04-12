@@ -1,0 +1,19 @@
+# Local-only overrides (copy to zz-local.yml and set real CIDR values).
+# zz-local.yml is gitignored and loaded after main.yml.
+#
+# Required for firewall role:
+# - firewall_admin_ssh_sources: who can SSH to VM (22/tcp)
+# - kube_api_allowed_cidrs: who can access Kubernetes API (6443/tcp)
+# - edge_allowed_client_cidrs: who can access HTTPS ingress (443/tcp)
+#
+# For HTTP-01 ACME flow keep 80/tcp open in Terraform edge_http_cidrs,
+# or adjust if you switch to DNS-01.
+
+firewall_admin_ssh_sources:
+  - 198.51.100.10/32
+
+kube_api_allowed_cidrs:
+  - 198.51.100.10/32
+
+edge_allowed_client_cidrs:
+  - 198.51.100.0/24

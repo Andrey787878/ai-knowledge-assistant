@@ -1,0 +1,45 @@
+---
+- name: Bootstrap Python 3 on target hosts (raw, no facts)
+  hosts: all
+  gather_facts: false
+  become: true
+  serial: 1
+  pre_tasks:
+    - name: Wait for SSH connectivity before python bootstrap
+      ansible.builtin.wait_for_connection:
+        delay: 2
+        sleep: 5
+        timeout: 300
+      tags: [bootstrap, bootstrap_connection]
+  tasks:
+    - name: Check whether python3 is already installed
+      ansible.builtin.raw: command -v python3
+      register: bootstrap_python3_check
+      changed_when: false
+      failed_when: false
+      tags: [bootstrap, bootstrap_python]
+
+    - name: Install python3 when missing
+      ansible.builtin.raw: |
+        set -e
+        if command -v apt-get >/dev/null 2>&1; then
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -y
+          apt-get install -y python3
+        elif command -v dnf >/dev/null 2>&1; then
+          dnf install -y python3
+        elif command -v yum >/dev/null 2>&1; then
+          yum install -y python3
+        elif command -v microdnf >/dev/null 2>&1; then
+          microdnf install -y python3
+        else
+          echo "Unsupported package manager: cannot install python3 automatically"
+          exit 1
+        fi
+      when: bootstrap_python3_check.rc != 0
+      tags: [bootstrap, bootstrap_python]
+
+    - name: Verify python3 is available after bootstrap
+      ansible.builtin.raw: python3 --version
+      changed_when: false
+      tags: [bootstrap, bootstrap_python]
