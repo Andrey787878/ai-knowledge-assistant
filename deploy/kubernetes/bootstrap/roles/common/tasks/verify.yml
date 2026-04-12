@@ -1,0 +1,52 @@
+---
+- name: Gather installed package facts
+  ansible.builtin.package_facts:
+    manager: auto
+  tags: [common, verify]
+
+- name: Assert baseline packages are installed
+  ansible.builtin.assert:
+    that:
+      - item in ansible_facts.packages
+    fail_msg: "Required package is missing after common role: {{ item }}"
+  loop: "{{ common_packages_common }}"
+  loop_control:
+    label: "{{ item }}"
+  tags: [common, verify]
+
+- name: Stat baseline directories
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  register: common_verify_directories
+  loop: "{{ common_directories }}"
+  loop_control:
+    label: "{{ item }}"
+  tags: [common, verify]
+
+- name: Assert baseline directories exist
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+      - item.stat.isdir
+    fail_msg: "Required baseline directory is missing: {{ item.stat.path }}"
+  loop: "{{ common_verify_directories.results }}"
+  loop_control:
+    label: "{{ item.stat.path }}"
+  tags: [common, verify]
+
+- name: Read current timezone
+  ansible.builtin.command: timedatectl show --property=Timezone --value
+  register: common_verify_timezone
+  changed_when: false
+  when: common_manage_timezone | bool
+  tags: [common, verify]
+
+- name: Assert timezone is configured as expected
+  ansible.builtin.assert:
+    that:
+      - common_verify_timezone.stdout | trim == common_timezone
+    fail_msg: >-
+      Timezone mismatch. Expected '{{ common_timezone }}',
+      got '{{ common_verify_timezone.stdout | trim }}'.
+  when: common_manage_timezone | bool
+  tags: [common, verify]

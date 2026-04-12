@@ -1,0 +1,48 @@
+# Non-sensitive defaults for local runs.
+# Sensitive/auth vars are passed via env:
+#   TF_VAR_yc_token, TF_VAR_cloud_id, TF_VAR_folder_id
+
+# Optional: override zone and network shape.
+# zone         = "ru-central1-b"
+# network_name = "k3s-net"
+# subnet_name  = "k3s-a"
+# subnet_cidr  = "10.20.0.0/24"
+
+# Optional: override VM image/platform behavior.
+# image_family = "ubuntu-2204-lts"
+# platform_id  = "standard-v4a"
+# preemptible  = false
+
+# Optional: override VM sizing and networking.
+# vm_specs = {
+#   k3s_vm = {
+#     private_ip    = "10.20.0.3"
+#     cores         = 8
+#     memory        = 16
+#     core_fraction = 100
+#     disk_size_gb  = 80
+#     disk_type     = "network-ssd"
+#     nat           = true
+#   }
+# }
+
+# Required: admin source CIDR(s) for SSH to k3s VM (22/tcp).
+firewall_admin_ssh_sources = [
+  "198.51.100.0/32"
+]
+
+# Required: admin CIDR(s) for Kubernetes API access (6443/tcp).
+kube_api_allowed_cidrs = [
+  "198.51.100.0/32"
+]
+
+# Required: CIDR(s) allowed to access HTTPS on ingress (443/tcp).
+edge_allowed_client_cidrs = [
+  "198.51.100.0/24"
+]
+
+# Required for HTTP-01 challenge and HTTP->HTTPS redirect (80/tcp).
+# Keep open unless switching to DNS-01 validation.
+edge_http_cidrs = [
+  "0.0.0.0/0"
+]

@@ -1,0 +1,71 @@
+---
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: '{{ firewall_apt_cache_valid_time }}'
+    lock_timeout: '{{ firewall_apt_lock_timeout }}'
+    update_cache_retries: '{{ firewall_apt_update_cache_retries }}'
+    update_cache_retry_max_delay: '{{ firewall_apt_update_cache_retry_max_delay }}'
+  when: ansible_os_family == "Debian"
+  tags: [firewall, firewall_apply]
+
+- name: Install ufw packages if ufw not install
+  ansible.builtin.apt:
+    name: '{{ firewall_package }}'
+    state: present
+    lock_timeout: '{{ firewall_apt_lock_timeout }}'
+  when: ansible_os_family == "Debian"
+  tags: [firewall, firewall_apply]
+
+- name: Set default incoming policy
+  community.general.ufw:
+    direction: incoming
+    policy: '{{ firewall_default_incoming_policy }}'
+  tags: [firewall, firewall_apply]
+
+- name: Set default outgoing policy
+  community.general.ufw:
+    direction: outgoing
+    policy: '{{ firewall_default_outgoing_policy }}'
+  tags: [firewall, firewall_apply]
+
+- name: Allow SSH from admin CIDRs
+  community.general.ufw:
+    rule: allow
+    proto: tcp
+    port: '22'
+    src: '{{ item }}'
+  loop: '{{ firewall_admin_ssh_sources }}'
+  tags: [firewall, firewall_apply]
+
+- name: Allow Kubernetes API from admin CIDRs
+  community.general.ufw:
+    rule: allow
+    proto: tcp
+    port: '6443'
+    src: '{{ item }}'
+  loop: '{{ kube_api_allowed_cidrs }}'
+  tags: [firewall, firewall_apply]
+
+- name: Allow HTTP from allowed CIDRs
+  community.general.ufw:
+    rule: allow
+    proto: tcp
+    port: '80'
+    src: '{{ item }}'
+  loop: '{{ edge_http_cidrs }}'
+  tags: [firewall, firewall_apply]
+
+- name: Allow HTTPS from allowed CIDRs
+  community.general.ufw:
+    rule: allow
+    proto: tcp
+    port: '443'
+    src: '{{ item }}'
+  loop: '{{ edge_allowed_client_cidrs }}'
+  tags: [firewall, firewall_apply]
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+  tags: [firewall, firewall_apply]

@@ -1,0 +1,18 @@
+---
+# Example inventory for Kubernetes bootstrap (single-node k3s).
+# Usage:
+# 1) Copy this file to hosts.yml
+# 2) Replace IPs with real values from Terraform outputs
+# 3) Keep alias `k3s` unchanged unless you also update playbooks/host references
+#
+# Variable meaning:
+# - ansible_host: address Ansible uses for SSH
+# - private_ip: internal address used by firewall/service checks
+#
+all:
+  children:
+    k3s_hosts:
+      hosts:
+        k3s:
+          ansible_host: 198.51.100.10
+          private_ip: 10.20.0.3

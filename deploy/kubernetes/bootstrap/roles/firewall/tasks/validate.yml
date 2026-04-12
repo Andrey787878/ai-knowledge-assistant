@@ -1,0 +1,64 @@
+---
+- name: Validate supported OS family
+  ansible.builtin.assert:
+    that:
+      - ansible_os_family in firewall_supported_os_families
+    fail_msg: "Unsupported OS family for firewall role: {{ ansible_os_family }}"
+  tags: [firewall, validation]
+
+- name: Validate firewall base settings
+  ansible.builtin.assert:
+    that:
+      - firewall_package is string
+      - firewall_package | trim | length > 0
+      - firewall_default_incoming_policy in ['allow', 'deny', 'reject']
+      - firewall_default_outgoing_policy in ['allow', 'deny', 'reject']
+    fail_msg: >-
+      Invalid firewall base settings. Check firewall_package
+      and default policy values (allow/deny/reject).
+  tags: [firewall, validation]
+
+- name: Validate apt tuning values
+  ansible.builtin.assert:
+    that:
+      - firewall_apt_cache_valid_time | int >= 0
+      - firewall_apt_lock_timeout | int > 0
+      - firewall_apt_update_cache_retries | int > 0
+      - firewall_apt_update_cache_retry_max_delay | int > 0
+    fail_msg: "Firewall apt timing values must be positive integers (cache_valid_time >= 0)."
+  tags: [firewall, validation]
+
+- name: Validate mandatory CIDR lists
+  ansible.builtin.assert:
+    that:
+      - firewall_admin_ssh_sources is sequence
+      - kube_api_allowed_cidrs is sequence
+      - edge_http_cidrs is sequence
+      - edge_allowed_client_cidrs is sequence
+      - firewall_admin_ssh_sources | length > 0
+      - kube_api_allowed_cidrs | length > 0
+      - edge_http_cidrs | length > 0
+      - edge_allowed_client_cidrs | length > 0
+    fail_msg: >-
+      CIDR variables must be non-empty lists:
+      firewall_admin_ssh_sources, kube_api_allowed_cidrs,
+      edge_http_cidrs, edge_allowed_client_cidrs.
+  tags: [firewall, validation]
+
+- name: Validate CIDR format in all firewall source lists
+  ansible.builtin.assert:
+    that:
+      - item is string
+      - item | trim | length > 0
+      - item is match('^((25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})\\.){3}(25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})/(3[0-2]|[12]?[0-9])$')
+    fail_msg: "Invalid CIDR entry: {{ item }}"
+  loop: >-
+    {{
+      firewall_admin_ssh_sources
+      + kube_api_allowed_cidrs
+      + edge_http_cidrs
+      + edge_allowed_client_cidrs
+    }}
+  loop_control:
+    label: "{{ item }}"
+  tags: [firewall, validation]

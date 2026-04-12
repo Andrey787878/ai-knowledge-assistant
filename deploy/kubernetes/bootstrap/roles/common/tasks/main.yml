@@ -1,0 +1,22 @@
+---
+- name: Include validation tasks
+  ansible.builtin.import_tasks: validate.yml
+  tags: [common, validation]
+
+- name: Include package tasks
+  ansible.builtin.import_tasks: packages.yml
+  tags: [common, packages]
+
+- name: Include filesystem tasks
+  ansible.builtin.import_tasks: filesystem.yml
+  tags: [common, filesystem]
+
+- name: Include timezone tasks
+  ansible.builtin.import_tasks: timezone.yml
+  when: common_manage_timezone | bool
+  tags: [common, timezone]
+
+- name: Include verification tasks
+  ansible.builtin.import_tasks: verify.yml
+  when: not ansible_check_mode
+  tags: [common, verify]

@@ -1,0 +1,118 @@
+---
+- name: Smoke preflight
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Validate required inventory groups for smoke checks
+      ansible.builtin.assert:
+        that:
+          - groups['k3s_hosts'] | default([]) | length > 0
+        fail_msg: "smoke.yml requires k3s_hosts group in inventory."
+      tags: [smoke, smoke_preflight]
+
+    - name: Validate smoke scalar settings
+      ansible.builtin.assert:
+        that:
+          - (smoke_k3s_wait_api_timeout | default(300) | int) > 0
+          - (smoke_k3s_wait_node_ready_retries | default(40) | int) > 0
+          - (smoke_k3s_wait_node_ready_delay | default(5) | int) > 0
+          - (smoke_k3s_wait_system_pods_retries | default(40) | int) > 0
+          - (smoke_k3s_wait_system_pods_delay | default(5) | int) > 0
+        fail_msg: >-
+          Invalid smoke settings. Check smoke_k3s_wait_* values.
+      tags: [smoke, smoke_preflight]
+
+- name: Smoke k3s bootstrap host
+  hosts: k3s_hosts
+  gather_facts: false
+  become: true
+  tasks:
+    - name: End runtime smoke in check mode
+      ansible.builtin.meta: end_host
+      when: ansible_check_mode
+      tags: [smoke, smoke_k3s]
+
+    - name: Wait until Kubernetes API readyz returns ok
+      ansible.builtin.command:
+        cmd: >-
+          kubectl --kubeconfig {{ k3s_kubeconfig_path | default('/etc/rancher/k3s/k3s.yaml') }}
+          get --raw=/readyz
+      register: smoke_k3s_readyz
+      changed_when: false
+      retries: "{{ smoke_k3s_wait_node_ready_retries | default(40) }}"
+      delay: "{{ smoke_k3s_wait_node_ready_delay | default(5) }}"
+      until:
+        - smoke_k3s_readyz.rc == 0
+        - "'ok' in (smoke_k3s_readyz.stdout | lower)"
+      tags: [smoke, smoke_k3s]
+
+    - name: Wait until at least one node becomes Ready
+      ansible.builtin.command:
+        cmd: >-
+          kubectl --kubeconfig {{ k3s_kubeconfig_path | default('/etc/rancher/k3s/k3s.yaml') }}
+          get nodes
+          -o jsonpath='{range .items[*]}{range .status.conditions[?(@.type=="Ready")]}{.status}{"\n"}{end}{end}'
+      register: smoke_k3s_node_ready_statuses
+      changed_when: false
+      failed_when: false
+      retries: "{{ smoke_k3s_wait_node_ready_retries | default(40) }}"
+      delay: "{{ smoke_k3s_wait_node_ready_delay | default(5) }}"
+      until:
+        - smoke_k3s_node_ready_statuses.rc == 0
+        - "'True' in (smoke_k3s_node_ready_statuses.stdout | default(''))"
+      tags: [smoke, smoke_k3s]
+
+    - name: Wait until kube-system pods are Running or Succeeded
+      ansible.builtin.command:
+        cmd: >-
+          kubectl --kubeconfig {{ k3s_kubeconfig_path | default('/etc/rancher/k3s/k3s.yaml') }}
+          -n kube-system get pods
+          -o jsonpath='{range .items[*]}{.status.phase}{"\n"}{end}'
+      register: smoke_k3s_system_pod_phases
+      changed_when: false
+      failed_when: false
+      retries: "{{ smoke_k3s_wait_system_pods_retries | default(40) }}"
+      delay: "{{ smoke_k3s_wait_system_pods_delay | default(5) }}"
+      until:
+        - smoke_k3s_system_pod_phases.rc == 0
+        - (smoke_k3s_system_pod_phases.stdout | trim | length) > 0
+        - >-
+          (
+            smoke_k3s_system_pod_phases.stdout_lines
+            | reject('equalto', 'Running')
+            | reject('equalto', 'Succeeded')
+            | list
+            | length
+          ) == 0
+      tags: [smoke, smoke_k3s]
+
+    - name: Wait until CoreDNS deployment has available replicas
+      ansible.builtin.command:
+        cmd: >-
+          kubectl --kubeconfig {{ k3s_kubeconfig_path | default('/etc/rancher/k3s/k3s.yaml') }}
+          -n kube-system get deployment coredns -o jsonpath='{.status.availableReplicas}'
+      register: smoke_k3s_coredns_available
+      changed_when: false
+      failed_when: false
+      retries: "{{ smoke_k3s_wait_system_pods_retries | default(40) }}"
+      delay: "{{ smoke_k3s_wait_system_pods_delay | default(5) }}"
+      until:
+        - smoke_k3s_coredns_available.rc == 0
+        - (smoke_k3s_coredns_available.stdout | trim | default('0', true) | int) >= 1
+      tags: [smoke, smoke_k3s]
+
+    - name: Wait until Traefik deployment has available replicas
+      ansible.builtin.command:
+        cmd: >-
+          kubectl --kubeconfig {{ k3s_kubeconfig_path | default('/etc/rancher/k3s/k3s.yaml') }}
+          -n kube-system get deployment traefik -o jsonpath='{.status.availableReplicas}'
+      register: smoke_k3s_traefik_available
+      changed_when: false
+      failed_when: false
+      retries: "{{ smoke_k3s_wait_system_pods_retries | default(40) }}"
+      delay: "{{ smoke_k3s_wait_system_pods_delay | default(5) }}"
+      until:
+        - smoke_k3s_traefik_available.rc == 0
+        - (smoke_k3s_traefik_available.stdout | trim | default('0', true) | int) >= 1
+      when: not (k3s_disable_traefik | default(false) | bool)
+      tags: [smoke, smoke_k3s]

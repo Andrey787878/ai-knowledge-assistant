@@ -1,0 +1,13 @@
+---
+- name: Include validation tasks
+  ansible.builtin.import_tasks: validate.yml
+  tags: [k3s_server, validation]
+
+- name: Include install tasks
+  ansible.builtin.import_tasks: install.yml
+  tags: [k3s_server, install]
+
+- name: Include verification tasks
+  ansible.builtin.import_tasks: verify.yml
+  when: not ansible_check_mode
+  tags: [k3s_server, verify]

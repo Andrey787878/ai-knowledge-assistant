@@ -1,0 +1,23 @@
+---
+common_supported_os_families:
+  - Debian
+
+common_supported_distributions:
+  - Ubuntu
+
+common_packages_common:
+  - ca-certificates
+  - curl
+  - tzdata
+
+common_apt_cache_valid_time: 3600
+common_apt_lock_timeout: 300
+common_apt_update_cache_retries: 5
+common_apt_update_cache_retry_max_delay: 30
+
+common_directories:
+  - /etc/modules-load.d
+  - /etc/sysctl.d
+
+common_manage_timezone: true
+common_timezone: UTC

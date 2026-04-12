@@ -1,0 +1,52 @@
+---
+- name: Validate supported OS family
+  ansible.builtin.assert:
+    that:
+      - ansible_os_family in common_supported_os_families
+    fail_msg: "Unsupported OS family for common role: {{ ansible_os_family }}"
+  tags: [common, validation]
+
+- name: Validate supported distribution
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution in common_supported_distributions
+    fail_msg: "Unsupported distribution for common role: {{ ansible_distribution }}"
+  tags: [common, validation]
+
+- name: Validate common packages list
+  ansible.builtin.assert:
+    that:
+      - common_packages_common is sequence
+      - common_packages_common | length > 0
+      - common_packages_common | map('trim') | reject('equalto', '') | list | length == (common_packages_common | length)
+    fail_msg: "common_packages_common must be a non-empty list of package names."
+  tags: [common, validation]
+
+- name: Validate baseline directories list
+  ansible.builtin.assert:
+    that:
+      - common_directories is sequence
+      - common_directories | length > 0
+      - common_directories | map('regex_search', '^/') | reject('equalto', none) | list | length == (common_directories | length)
+    fail_msg: "common_directories must be a non-empty list of absolute paths."
+  tags: [common, validation]
+
+- name: Validate apt tuning values
+  ansible.builtin.assert:
+    that:
+      - common_apt_cache_valid_time | int >= 0
+      - common_apt_lock_timeout | int > 0
+      - common_apt_update_cache_retries | int > 0
+      - common_apt_update_cache_retry_max_delay | int > 0
+    fail_msg: "Apt timing values must be positive integers (cache_valid_time >= 0)."
+  tags: [common, validation]
+
+- name: Validate timezone value when timezone management enabled
+  ansible.builtin.assert:
+    that:
+      - common_manage_timezone is boolean
+      - common_timezone is string
+      - common_timezone | trim | length > 0
+    fail_msg: "common_timezone must be a non-empty string when common_manage_timezone is true."
+  when: common_manage_timezone | bool
+  tags: [common, validation]

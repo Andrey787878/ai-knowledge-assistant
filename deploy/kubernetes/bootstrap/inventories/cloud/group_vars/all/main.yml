@@ -1,0 +1,34 @@
+---
+ansible_user: ubuntu
+ansible_port: 22
+# Keep generic default. Override in local/vault vars if needed.
+ansible_ssh_private_key_file: >-
+  {{
+    lookup('ansible.builtin.env', 'ANSIBLE_SSH_PRIVATE_KEY_FILE')
+    | default('~/.ssh/k3s_deploy', true)
+  }}
+ansible_python_interpreter: /usr/bin/python3
+
+# CIDR list allowed to access SSH on k3s VM (22/tcp).
+# Keep defaults empty in git. Set real values in:
+# inventories/cloud/group_vars/all/zz-local.yml (gitignored)
+# or in vault overrides.
+firewall_admin_ssh_sources: []
+
+# CIDR list allowed to access Kubernetes API on k3s VM (6443/tcp).
+# Keep defaults empty in git. Set real values in:
+# inventories/cloud/group_vars/all/zz-local.yml (gitignored)
+# or in vault overrides.
+kube_api_allowed_cidrs: []
+
+# CIDR list allowed to access HTTPS ingress on k3s VM (443/tcp).
+# Keep defaults empty in git. Set real values in:
+# inventories/cloud/group_vars/all/zz-local.yml (gitignored)
+# or in vault overrides.
+edge_allowed_client_cidrs: []
+
+# Include public ansible_host into k3s API certificate SAN list.
+# This allows kubectl from local machine against https://<ansible_host>:6443.
+k3s_server_extra_args:
+  - "--tls-san"
+  - "{{ ansible_host }}"
