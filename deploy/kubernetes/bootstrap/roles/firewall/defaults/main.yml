@@ -1,0 +1,20 @@
+---
+firewall_supported_os_families:
+  - Debian
+
+firewall_apt_cache_valid_time: 3600
+firewall_apt_lock_timeout: 300
+firewall_apt_update_cache_retries: 5
+firewall_apt_update_cache_retry_max_delay: 30
+
+firewall_package: ufw
+firewall_default_incoming_policy: deny
+firewall_default_outgoing_policy: allow
+
+# Override these CIDR lists in inventories/cloud/group_vars/all/zz-local.yml.
+# defaults here are placeholders for validation only.
+firewall_admin_ssh_sources: []
+kube_api_allowed_cidrs: []
+edge_http_cidrs:
+  - 0.0.0.0/0
+edge_allowed_client_cidrs: []

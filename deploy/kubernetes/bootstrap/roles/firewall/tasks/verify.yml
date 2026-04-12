@@ -1,0 +1,117 @@
+---
+- name: Read ufw status (verbose)
+  ansible.builtin.command: ufw status verbose
+  register: firewall_ufw_status
+  changed_when: false
+  tags: [firewall, verify]
+
+- name: Assert ufw is active
+  ansible.builtin.assert:
+    that:
+      - (firewall_ufw_status.stdout | lower) is search('(?m)^status:\\s+active\\s*$')
+    fail_msg: "UFW must be active."
+  tags: [firewall, verify]
+
+- name: Assert ufw default policies are applied
+  ansible.builtin.assert:
+    that:
+      - (firewall_ufw_status.stdout | lower) is search('default:.*' ~ firewall_default_incoming_policy ~ '\\s*\\(incoming\\)')
+      - (firewall_ufw_status.stdout | lower) is search('default:.*' ~ firewall_default_outgoing_policy ~ '\\s*\\(outgoing\\)')
+    fail_msg: >-
+      UFW default policies mismatch. Expected incoming={{ firewall_default_incoming_policy }},
+      outgoing={{ firewall_default_outgoing_policy }}.
+  tags: [firewall, verify]
+
+- name: Assert required TCP ports are present in ufw rules
+  ansible.builtin.assert:
+    that:
+      - (firewall_ufw_status.stdout | lower) is search(item ~ '/tcp')
+    fail_msg: "Expected UFW rule for TCP port {{ item }} not found."
+  loop:
+    - '22'
+    - '6443'
+    - '80'
+    - '443'
+  loop_control:
+    label: "{{ item }}/tcp"
+  tags: [firewall, verify]
+
+- name: Assert SSH rules contain expected source CIDRs
+  ansible.builtin.assert:
+    that:
+      - >-
+        (firewall_ufw_status.stdout | lower) is search(
+          '(?im)^\\s*22/tcp\\s+allow in\\s+.*('
+          ~ (item | regex_escape)
+          ~ '|'
+          ~ ((item | regex_replace('/32$', '')) | regex_escape)
+          ~ ')\\s*$'
+        )
+    fail_msg: "Missing expected SSH rule source for 22/tcp: {{ item }}"
+  loop: "{{ firewall_admin_ssh_sources }}"
+  loop_control:
+    label: "22/tcp <- {{ item }}"
+  tags: [firewall, verify]
+
+- name: Assert Kubernetes API rules contain expected source CIDRs
+  ansible.builtin.assert:
+    that:
+      - >-
+        (firewall_ufw_status.stdout | lower) is search(
+          '(?im)^\\s*6443/tcp\\s+allow in\\s+.*('
+          ~ (item | regex_escape)
+          ~ '|'
+          ~ ((item | regex_replace('/32$', '')) | regex_escape)
+          ~ ')\\s*$'
+        )
+    fail_msg: "Missing expected Kubernetes API rule source for 6443/tcp: {{ item }}"
+  loop: "{{ kube_api_allowed_cidrs }}"
+  loop_control:
+    label: "6443/tcp <- {{ item }}"
+  tags: [firewall, verify]
+
+- name: Assert HTTP rules contain expected source CIDRs
+  ansible.builtin.assert:
+    that:
+      - >-
+        (
+          item == '0.0.0.0/0'
+          and
+          (firewall_ufw_status.stdout | lower) is search('(?im)^\\s*80/tcp\\s+allow in\\s+anywhere\\s*$')
+        )
+        or
+        (
+          item != '0.0.0.0/0'
+          and
+          (
+            (firewall_ufw_status.stdout | lower) is search(
+              '(?im)^\\s*80/tcp\\s+allow in\\s+.*('
+              ~ (item | regex_escape)
+              ~ '|'
+              ~ ((item | regex_replace('/32$', '')) | regex_escape)
+              ~ ')\\s*$'
+            )
+          )
+        )
+    fail_msg: "Missing expected HTTP rule source for 80/tcp: {{ item }}"
+  loop: "{{ edge_http_cidrs }}"
+  loop_control:
+    label: "80/tcp <- {{ item }}"
+  tags: [firewall, verify]
+
+- name: Assert HTTPS rules contain expected source CIDRs
+  ansible.builtin.assert:
+    that:
+      - >-
+        (firewall_ufw_status.stdout | lower) is search(
+          '(?im)^\\s*443/tcp\\s+allow in\\s+.*('
+          ~ (item | regex_escape)
+          ~ '|'
+          ~ ((item | regex_replace('/32$', '')) | regex_escape)
+          ~ ')\\s*$'
+        )
+    fail_msg: "Missing expected HTTPS rule source for 443/tcp: {{ item }}"
+  loop: "{{ edge_allowed_client_cidrs }}"
+  loop_control:
+    label: "443/tcp <- {{ item }}"
+  tags: [firewall, verify]

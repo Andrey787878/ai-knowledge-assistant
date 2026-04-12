@@ -1,0 +1,13 @@
+---
+- name: Include validation tasks
+  ansible.builtin.import_tasks: validate.yml
+  tags: [firewall, validation]
+
+- name: Include ufw tasks
+  ansible.builtin.import_tasks: ufw.yml
+  tags: [firewall, firewall_apply]
+
+- name: Include verification tasks
+  ansible.builtin.import_tasks: verify.yml
+  when: not ansible_check_mode
+  tags: [firewall, verify]
