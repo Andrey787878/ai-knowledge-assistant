@@ -157,6 +157,44 @@
     - (n8n_workflows_postgres_credential_force_reconcile | bool) or (n8n_workflows_import_required | bool)
   tags: [n8n, n8n_workflows]
 
+- name: Render wikijs postgres credential bootstrap JSON
+  ansible.builtin.template:
+    src: n8n-postgres-wikijs-credential.json.j2
+    dest: "{{ n8n_workflows_wikijs_postgres_credential_source_file }}"
+    owner: "{{ n8n_workflows_wikijs_postgres_credential_source_owner }}"
+    group: "{{ n8n_workflows_wikijs_postgres_credential_source_group }}"
+    mode: "{{ n8n_workflows_wikijs_postgres_credential_source_mode }}"
+  no_log: "{{ n8n_workflows_no_log | bool }}"
+  when:
+    - n8n_workflows_bootstrap_enabled | bool
+    - n8n_workflows_wikijs_postgres_credential_bootstrap_enabled | bool
+    - not ansible_check_mode
+    - (n8n_workflows_wikijs_postgres_credential_force_reconcile | bool) or (n8n_workflows_import_required | bool)
+  tags: [n8n, n8n_workflows]
+
+- name: Import wikijs postgres credential into n8n-web
+  community.docker.docker_container_exec:
+    container: "{{ n8n_web_container_name }}"
+    user: node
+    argv:
+      - n8n
+      - import:credentials
+      - --decrypted
+      - "--input={{ n8n_workflows_wikijs_postgres_credential_container_file }}"
+  register: n8n_workflows_wikijs_postgres_credential_import
+  changed_when: n8n_workflows_wikijs_postgres_credential_import.rc == 0
+  failed_when: >-
+    (n8n_workflows_wikijs_postgres_credential_import.rc | int) != 0
+    and ('already exists' not in (((n8n_workflows_wikijs_postgres_credential_import.stdout | default('')) ~ ' ' ~ (n8n_workflows_wikijs_postgres_credential_import.stderr | default(''))) | lower))
+    and ('duplicate key value violates unique constraint' not in (((n8n_workflows_wikijs_postgres_credential_import.stdout | default('')) ~ ' ' ~ (n8n_workflows_wikijs_postgres_credential_import.stderr | default(''))) | lower))
+  no_log: "{{ n8n_workflows_no_log | bool }}"
+  when:
+    - n8n_workflows_bootstrap_enabled | bool
+    - n8n_workflows_wikijs_postgres_credential_bootstrap_enabled | bool
+    - not ansible_check_mode
+    - (n8n_workflows_wikijs_postgres_credential_force_reconcile | bool) or (n8n_workflows_import_required | bool)
+  tags: [n8n, n8n_workflows]
+
 - name: Import n8n workflows into n8n-web container
   community.docker.docker_container_exec:
     container: "{{ n8n_web_container_name }}"
