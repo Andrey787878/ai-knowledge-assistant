@@ -19,7 +19,8 @@
 └── templates/
     ├── docker-compose.yml.j2
     ├── n8n.env.j2
-    └── n8n-postgres-credential.json.j2
+    ├── n8n-postgres-credential.json.j2
+    └── n8n-postgres-wikijs-credential.json.j2
 ```
 
 ## Что делает
@@ -34,7 +35,7 @@
 - Автоматически bootstrap/import `workflow-as-code` из `n8n/workflows/*.json` после deploy.
 - После импорта автоматически публикует workflow, где в JSON задано `"active": true`.
 - После публикации автоматически перезапускает `n8n-web`, чтобы production webhooks применились в runtime.
-- Автоматически bootstrap'ит credential `Postgres n8n` (без ручного UI) для memory workflow.
+- Автоматически bootstrap'ит credentials `Postgres n8n` и `Postgres wikijs` (без ручного UI) для memory/wiki workflow.
 - Импортирует `agent_chat_ui` с `Chat Trigger` для удобного общения прямо в интерфейсе n8n.
 - Выполняет проверки после развертывания (`verify`).
 
@@ -65,6 +66,8 @@
   - включая `n8n_common_agent_system_prompt`, `n8n_common_agent_min_memory_chars`,
     `n8n_common_agent_allow_general_kb` и `n8n_common_agent_debug`
     для удобной настройки поведения ассистента без правок workflow JS.
+  - `n8n_common_agent_system_prompt` опционален: если оставить пустым,
+    workflow использует встроенный строгий JSON prompt по умолчанию.
   - `n8n_common_agent_memory_schema` и `n8n_common_agent_memory_table`
     задают schema/table для memory workflow (по умолчанию `agent.agent_memory_messages`).
   - `n8n_common_block_env_access_in_node` должен быть `false`,
@@ -113,9 +116,6 @@ n8n_postgres_host: "{{ hostvars['db'].private_ip }}"
 n8n_postgres_password: '{{ vault_n8n_db_password }}'
 n8n_common_encryption_key: '{{ vault_n8n_encryption_key }}'
 n8n_common_ollama_base_url: "http://{{ hostvars['ollama'].private_ip }}:11434"
-n8n_common_agent_system_prompt: >-
-  Ты внутренний инфраструктурный ассистент.
-  Отвечай кратко и только по данным из памяти/контекста.
 n8n_common_agent_min_memory_chars: 40
 n8n_common_agent_allow_general_kb: false
 n8n_common_agent_debug: false

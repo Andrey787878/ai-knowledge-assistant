@@ -8,10 +8,15 @@
       - n8n_common_ollama_base_url | trim | length > 0
       - n8n_common_ollama_model | trim | length > 0
       - n8n_common_agent_workflow_token is string
-      - n8n_common_agent_system_prompt | trim | length > 0
+      - n8n_common_agent_system_prompt is string
       - n8n_common_agent_min_memory_chars | int >= 0
       - n8n_common_agent_memory_schema is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
       - n8n_common_agent_memory_table is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
+      - n8n_common_agent_wiki_schema is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
+      - n8n_common_agent_wiki_table is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
+      - n8n_common_agent_wiki_title_column is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
+      - n8n_common_agent_wiki_path_column is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
+      - n8n_common_agent_wiki_content_column is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
       - n8n_common_internal_webhook_base_url | trim | length > 0
       - n8n_common_internal_webhook_base_url is match('^http://')
     fail_msg: >-
@@ -70,6 +75,13 @@
       - n8n_deploy_http_wait_timeout | int > 0
       - n8n_common_healthcheck_retries | int > 0
       - n8n_redis_healthcheck_retries | int > 0
+      - n8n_common_agent_wiki_limit | int >= 1
+      - n8n_common_agent_wiki_limit | int <= 20
+      - n8n_common_agent_wiki_context_chars | int >= 1000
+      - n8n_common_agent_wiki_context_chars | int <= 50000
+      - n8n_common_agent_wiki_min_score | int >= 0
+      - n8n_common_agent_wiki_min_term_hits | int >= 0
+      - n8n_common_agent_min_answer_overlap | int >= 0
     fail_msg: >-
       Invalid numeric values for ports/concurrency/timeouts/retries.
   tags: [n8n, n8n_validate]
@@ -84,6 +96,8 @@
       - n8n_workflows_no_log is boolean
       - n8n_workflows_postgres_credential_bootstrap_enabled is boolean
       - n8n_workflows_postgres_credential_force_reconcile is boolean
+      - n8n_workflows_wikijs_postgres_credential_bootstrap_enabled is boolean
+      - n8n_workflows_wikijs_postgres_credential_force_reconcile is boolean
       - n8n_verify_enabled is boolean
       - n8n_verify_redis_ping_enabled is boolean
       - n8n_common_telemetry_enabled is boolean
@@ -94,6 +108,7 @@
       n8n_stack_compose_wait, n8n_workflows_bootstrap_enabled,
       n8n_workflows_force_import, n8n_workflows_activate_after_import, n8n_workflows_no_log,
       n8n_workflows_postgres_credential_bootstrap_enabled, n8n_workflows_postgres_credential_force_reconcile,
+      n8n_workflows_wikijs_postgres_credential_bootstrap_enabled, n8n_workflows_wikijs_postgres_credential_force_reconcile,
       n8n_verify_enabled,
       n8n_verify_redis_ping_enabled, n8n_common_telemetry_enabled,
       n8n_common_agent_allow_general_kb,
@@ -123,9 +138,36 @@
       - n8n_workflows_postgres_credential_source_owner | string | trim | length > 0
       - n8n_workflows_postgres_credential_source_group | string | trim | length > 0
       - n8n_workflows_postgres_credential_source_mode | trim | length > 0
+      - n8n_workflows_wikijs_postgres_credential_name | trim | length > 0
+      - n8n_workflows_wikijs_postgres_credential_type | trim | length > 0
+      - n8n_workflows_wikijs_postgres_credential_id | trim | length > 0
+      - n8n_workflows_wikijs_postgres_credential_ssl_mode in ['disable', 'allow', 'require']
+      - n8n_workflows_wikijs_postgres_credential_pool_size | int > 0
+      - n8n_workflows_wikijs_postgres_credential_source_file | trim | length > 0
+      - n8n_workflows_wikijs_postgres_credential_container_file | trim | length > 0
+      - n8n_workflows_wikijs_postgres_credential_source_owner | string | trim | length > 0
+      - n8n_workflows_wikijs_postgres_credential_source_group | string | trim | length > 0
+      - n8n_workflows_wikijs_postgres_credential_source_mode | trim | length > 0
     fail_msg: >-
       n8n workflow bootstrap settings are invalid.
       Check n8n_workflows_* variables.
+  tags: [n8n, n8n_validate]
+
+- name: Validate wikijs postgres credential source settings when enabled
+  ansible.builtin.assert:
+    that:
+      - n8n_wikijs_postgres_host | trim | length > 0
+      - n8n_wikijs_postgres_port | int > 0
+      - n8n_wikijs_postgres_port | int < 65536
+      - n8n_wikijs_postgres_database | trim | length > 0
+      - n8n_wikijs_postgres_user | trim | length > 0
+      - n8n_wikijs_postgres_password | trim | length > 0
+    fail_msg: >-
+      wikijs postgres credential bootstrap is enabled,
+      but n8n_wikijs_postgres_* variables are invalid or empty.
+  when:
+    - n8n_workflows_bootstrap_enabled | bool
+    - n8n_workflows_wikijs_postgres_credential_bootstrap_enabled | bool
   tags: [n8n, n8n_validate]
 
 - name: Validate each workflow file name
