@@ -1,21 +1,17 @@
 ---
-repositories:
-  - name: jetstack
-    url: https://charts.jetstack.io
-  - name: bedag
-    url: https://bedag.github.io/helm-charts/
-
 environments:
   prod:
     values:
-      - environments/prod/platform.values.yaml
+      - environments/prod/cert-manager.values.yaml
       - environments/prod/cluster-issuer.values.yaml
 
 helmfiles:
+  - path: releases/namespaces.yaml
+    values:
+      - environments/prod/namespaces.values.yaml
   - path: releases/cert-manager.yaml
     values:
-      - environments/prod/platform.values.yaml
+      - environments/prod/cert-manager.values.yaml
   - path: releases/cluster-issuer.yaml
     values:
-      - environments/prod/platform.values.yaml
       - environments/prod/cluster-issuer.values.yaml
