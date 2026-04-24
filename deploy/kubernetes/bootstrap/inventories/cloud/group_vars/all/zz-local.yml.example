@@ -17,3 +17,7 @@ kube_api_allowed_cidrs:
 
 edge_allowed_client_cidrs:
   - 198.51.100.0/24
+
+# Optional: override API certificate SAN list for k3s.
+# k3s_server_tls_sans:
+#   - 198.51.100.10
