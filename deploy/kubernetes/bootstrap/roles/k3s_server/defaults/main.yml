@@ -14,11 +14,19 @@ k3s_arch_map:
   arm64: arm64
   armv7l: armhf
   armv6l: armhf
+k3s_binary_asset_map:
+  amd64: k3s
+  arm64: k3s-arm64
+  armhf: k3s-armhf
 
 k3s_service_name: 'k3s'
+k3s_config_dir: '/etc/rancher/k3s'
+k3s_config_path: '/etc/rancher/k3s/config.yaml'
 k3s_kubeconfig_path: '/etc/rancher/k3s/k3s.yaml'
 k3s_write_kubeconfig_mode: '644'
 k3s_disable_traefik: false
+k3s_secrets_encryption_enabled: false
+k3s_server_tls_sans: []
 k3s_server_extra_args: []
 
 k3s_wait_api_timeout: 300

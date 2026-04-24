@@ -2,15 +2,16 @@
 - name: Resolve k3s architecture for release artifacts
   ansible.builtin.set_fact:
     k3s_arch: "{{ k3s_arch_map[ansible_architecture] }}"
+    k3s_binary_asset: "{{ k3s_binary_asset_map[k3s_arch_map[ansible_architecture]] }}"
   changed_when: false
   tags: [k3s_server, install]
 
 - name: Build k3s release artifact URLs
   ansible.builtin.set_fact:
     k3s_release_base_url: "{{ k3s_release_download_base_url }}/{{ k3s_version }}"
-    k3s_binary_url: "{{ k3s_release_download_base_url }}/{{ k3s_version }}/k3s"
+    k3s_binary_url: "{{ k3s_release_download_base_url }}/{{ k3s_version }}/{{ k3s_binary_asset }}"
     k3s_checksum_url: "{{ k3s_release_download_base_url }}/{{ k3s_version }}/sha256sum-{{ k3s_arch }}.txt"
-    k3s_binary_download_path: "{{ k3s_download_dir }}/k3s"
+    k3s_binary_download_path: "{{ k3s_download_dir }}/{{ k3s_binary_asset }}"
     k3s_checksum_download_path: "{{ k3s_download_dir }}/sha256sum-{{ k3s_arch }}.txt"
     k3s_binary_install_path: "{{ k3s_binary_install_dir }}/k3s"
   changed_when: false
@@ -23,6 +24,24 @@
     owner: root
     group: root
     mode: "0755"
+  tags: [k3s_server, install]
+
+- name: Ensure k3s config directory exists
+  ansible.builtin.file:
+    path: "{{ k3s_config_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  tags: [k3s_server, install]
+
+- name: Render k3s server config
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: "{{ k3s_config_path }}"
+    owner: root
+    group: root
+    mode: "0644"
   tags: [k3s_server, install]
 
 - name: Download k3s binary
@@ -45,7 +64,12 @@
 
 - name: Extract expected checksum for k3s binary
   ansible.builtin.command:
-    cmd: awk '$2 == "k3s" {print $1}' "{{ k3s_checksum_download_path }}"
+    argv:
+      - awk
+      - -v
+      - "asset={{ k3s_binary_asset }}"
+      - '$2 == asset || $2 == ("./" asset) || $2 ~ ("/" asset "$") {print $1; exit}'
+      - "{{ k3s_checksum_download_path }}"
   register: k3s_expected_checksum
   changed_when: false
   tags: [k3s_server, install]
@@ -54,7 +78,9 @@
   ansible.builtin.assert:
     that:
       - k3s_expected_checksum.stdout | trim | length == 64
-    fail_msg: "Failed to extract expected checksum for k3s binary from {{ k3s_checksum_download_path }}."
+    fail_msg: >-
+      Failed to extract expected checksum for asset {{ k3s_binary_asset }}
+      from {{ k3s_checksum_download_path }}.
   tags: [k3s_server, install]
 
 - name: Verify downloaded k3s binary checksum
@@ -99,9 +125,7 @@
   ansible.builtin.set_fact:
     k3s_server_exec_args: >-
       {{
-        (['server', '--write-kubeconfig-mode', k3s_write_kubeconfig_mode]
-         + (['--disable', 'traefik'] if (k3s_disable_traefik | bool) else [])
-         + k3s_server_extra_args) | join(' ')
+        (['server'] + k3s_server_extra_args) | join(' ')
       }}
   changed_when: false
   tags: [k3s_server, install]
