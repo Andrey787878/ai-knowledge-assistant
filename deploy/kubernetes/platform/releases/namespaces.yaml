@@ -1,0 +1,24 @@
+---
+helmDefaults:
+  skipDeps: true
+
+{{- $appPartOf := .Values.app_part_of }}
+{{- $appManagedBy := .Values.app_managed_by }}
+
+releases:
+{{- range $ns := .Values.platform_namespaces }}
+  - name: {{ $ns }}-namespace
+    namespace: default
+    createNamespace: false
+    chart: ../../vendor_charts/raw
+    wait: true
+    values:
+      - resources:
+          - apiVersion: v1
+            kind: Namespace
+            metadata:
+              name: {{ $ns | quote }}
+              labels:
+                app.kubernetes.io/part-of: {{ $appPartOf | quote }}
+                app.kubernetes.io/managed-by: {{ $appManagedBy | quote }}
+{{- end }}
