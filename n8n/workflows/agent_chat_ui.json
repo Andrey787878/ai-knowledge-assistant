@@ -41,9 +41,11 @@
         700,
         320
       ],
+      "continueOnFail": true,
       "parameters": {
         "method": "POST",
         "url": "={{ (($env.INTERNAL_WEBHOOK_BASE_URL || 'http://127.0.0.1:5678').replace(/\\/?$/, '')) + '/webhook/' + ($env.N8N_AGENT_QUERY_WEBHOOK_PATH || 'agent-query') }}",
+        "responseFormat": "string",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ { session_id: $json.session_id, user_id: $json.user_id, question: $json.question, trace_id: $json.trace_id } }}",
@@ -62,7 +64,7 @@
         320
       ],
       "parameters": {
-        "jsCode": "const answer = String($json.answer ?? '').trim() || 'Нет данных.';\nconst traceId = String($json.trace_id ?? '').trim();\nreturn [{\n  json: {\n    text: answer,\n    output: answer,\n    trace_id: traceId\n  }\n}];"
+        "jsCode": "if ($json.error) {\n  const message = String($json.error.message ?? $json.error ?? 'unknown upstream error');\n  return [{ json: { text: 'Нет данных.', output: 'Нет данных.', trace_id: '', error: message } }];\n}\nconst rawBody = $json.body ?? $json.data ?? $json.response ?? $json;\nlet payload = rawBody;\nif (typeof rawBody === 'string') {\n  try {\n    payload = JSON.parse(rawBody);\n  } catch {\n    payload = {};\n  }\n}\nconst answer = String(payload?.answer ?? '').trim() || 'Нет данных.';\nconst traceId = String(payload?.trace_id ?? '').trim();\nreturn [{\n  json: {\n    text: answer,\n    output: answer,\n    trace_id: traceId\n  }\n}];"
       }
     }
   ],
