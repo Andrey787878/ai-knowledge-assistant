@@ -33,6 +33,20 @@
     fail_msg: "k3s kubeconfig file is missing or empty: {{ k3s_kubeconfig_path }}"
   tags: [k3s_server, verify]
 
+- name: Verify k3s config file exists
+  ansible.builtin.stat:
+    path: "{{ k3s_config_path }}"
+  register: k3s_config_stat
+  tags: [k3s_server, verify]
+
+- name: Assert k3s config file is present
+  ansible.builtin.assert:
+    that:
+      - k3s_config_stat.stat.exists
+      - k3s_config_stat.stat.size | int > 0
+    fail_msg: "k3s config file is missing or empty: {{ k3s_config_path }}"
+  tags: [k3s_server, verify]
+
 - name: Wait until node becomes Ready
   ansible.builtin.command:
     cmd: >-
@@ -47,4 +61,20 @@
   until:
     - k3s_node_ready_statuses.rc == 0
     - "'True' in (k3s_node_ready_statuses.stdout | default(''))"
+  tags: [k3s_server, verify]
+
+- name: Verify secrets encryption status when enabled
+  ansible.builtin.command:
+    cmd: k3s secrets-encrypt status
+  register: k3s_secrets_encrypt_status
+  changed_when: false
+  when: k3s_secrets_encryption_enabled | bool
+  tags: [k3s_server, verify]
+
+- name: Assert secrets encryption is enabled
+  ansible.builtin.assert:
+    that:
+      - k3s_secrets_encrypt_status.stdout is search('(?i)encryption status:\\s*enabled')
+    fail_msg: "k3s secrets encryption is not enabled."
+  when: k3s_secrets_encryption_enabled | bool
   tags: [k3s_server, verify]

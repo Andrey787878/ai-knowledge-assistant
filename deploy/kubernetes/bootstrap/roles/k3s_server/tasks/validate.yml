@@ -21,13 +21,24 @@
       - k3s_download_dir | trim | length > 0
       - k3s_service_name is string
       - k3s_service_name | trim | length > 0
+      - k3s_config_dir is string
+      - k3s_config_dir | trim | length > 0
+      - k3s_config_path is string
+      - k3s_config_path | trim | length > 0
       - k3s_kubeconfig_path is string
       - k3s_kubeconfig_path | trim | length > 0
       - k3s_write_kubeconfig_mode is match('^[0-7]{3,4}$')
       - k3s_disable_traefik is boolean
+      - k3s_secrets_encryption_enabled is boolean
+      - k3s_server_tls_sans is sequence
+      - k3s_server_tls_sans | length > 0
+      - (k3s_server_tls_sans | select('string') | list | length) == (k3s_server_tls_sans | length)
+      - (k3s_server_tls_sans | map('trim') | reject('equalto', '') | list | length) == (k3s_server_tls_sans | length)
       - k3s_server_extra_args is sequence
       - k3s_arch_map is mapping
       - ansible_architecture in k3s_arch_map
+      - k3s_binary_asset_map is mapping
+      - k3s_arch_map[ansible_architecture] in k3s_binary_asset_map
     fail_msg: "Invalid k3s install settings in k3s_server role."
   tags: [k3s_server, validation]
 

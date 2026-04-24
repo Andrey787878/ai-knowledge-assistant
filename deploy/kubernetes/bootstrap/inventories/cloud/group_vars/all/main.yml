@@ -27,8 +27,14 @@ kube_api_allowed_cidrs: []
 # or in vault overrides.
 edge_allowed_client_cidrs: []
 
+# Enable Kubernetes secrets encryption at rest in k3s datastore.
+# Enabled by default for Stage B bootstrap.
+k3s_secrets_encryption_enabled: true
+
 # Include public ansible_host into k3s API certificate SAN list.
 # This allows kubectl from local machine against https://<ansible_host>:6443.
-k3s_server_extra_args:
-  - "--tls-san"
+k3s_server_tls_sans:
   - "{{ ansible_host }}"
+
+# Optional extra CLI args passed to INSTALL_K3S_EXEC (in addition to `server`).
+k3s_server_extra_args: []
