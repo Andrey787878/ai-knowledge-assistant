@@ -10,13 +10,13 @@
 
 ## Каталог workflow
 
-| Workflow           | ID                                     | Trigger                      | Active  | Назначение                                                 |
-| ------------------ | -------------------------------------- | ---------------------------- | ------- | ---------------------------------------------------------- |
-| `agent_query_main` | `9c7e0a12-6d2f-4f9c-9ab1-cf2d6c8f5303` | Webhook `agent-query`        | `true`  | Главная API-цепочка: input -> memory -> Ollama -> response |
-| `memory_read`      | `f5d4d6d6-8c5a-4b35-a1e9-0f8e4a6f2101` | Webhook `agent-memory-read`  | `true`  | Чтение истории сессии из PostgreSQL                        |
-| `memory_write`     | `a1b7c2f4-3f20-4f57-9f4e-7f1b8d2f4c02` | Webhook `agent-memory-write` | `true`  | Запись сообщения в PostgreSQL                              |
-| `agent_chat_ui`    | `7b5e9c1d-4eaa-4a83-bef9-09e1c5d6a901` | Chat Trigger                 | `true`  | Встроенный UI чат внутри n8n                               |
-| `agent_smoke_e2e`  | `2d9f4b6a-1e44-4a71-8d52-b1c6f7a9d404` | Manual Trigger               | `false` | Ручной e2e smoke workflow                                  |
+| Workflow           | ID                                     | Trigger                      | Active  | Назначение                                                       |
+| ------------------ | -------------------------------------- | ---------------------------- | ------- | ---------------------------------------------------------------- |
+| `agent_query_main` | `9c7e0a12-6d2f-4f9c-9ab1-cf2d6c8f5303` | Webhook `agent-query`        | `true`  | Главная API-цепочка: input -> wiki context -> Ollama -> response |
+| `memory_read`      | `f5d4d6d6-8c5a-4b35-a1e9-0f8e4a6f2101` | Webhook `agent-memory-read`  | `true`  | Чтение истории сессии из PostgreSQL                              |
+| `memory_write`     | `a1b7c2f4-3f20-4f57-9f4e-7f1b8d2f4c02` | Webhook `agent-memory-write` | `true`  | Запись сообщения в PostgreSQL                                    |
+| `agent_chat_ui`    | `7b5e9c1d-4eaa-4a83-bef9-09e1c5d6a901` | Chat Trigger                 | `true`  | Встроенный UI чат внутри n8n                                     |
+| `agent_smoke_e2e`  | `2d9f4b6a-1e44-4a71-8d52-b1c6f7a9d404` | Manual Trigger               | `false` | Ручной e2e smoke workflow                                        |
 
 ## Логика цепочки
 
@@ -24,14 +24,14 @@
 Client / Chat UI
    -> agent_query_main
       -> memory_write (user)
-      -> memory_read
+      -> wiki_read (Postgres wikijs/pages)
       -> Ollama /api/generate
       -> guard/normalization
       -> memory_write (assistant, only if should_persist_assistant=true)
       -> API response
 ```
 
-`agent_query_main` использует `responseMode=lastNode`, поэтому HTTP JSON-ответ формируется последней нодой (`Build API Response`) и не зависит от отдельной `Respond`-ноды.
+`agent_query_main`, `memory_read` и `memory_write` используют `responseMode=lastNode`, поэтому HTTP JSON-ответ формируется последней нодой цепочки и не зависит от отдельной `Respond`-ноды.
 
 ## Webhook path контракт
 
@@ -64,19 +64,29 @@ Client / Chat UI
 - `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`
 
 Почему последний пункт обязателен: workflow используют `$env` в Code-нодах.
-Если доступ к env заблокирован, получишь `Error: access to env vars denied`.
+Если доступ к env заблокирован: `Error: access to env vars denied`.
 
-### Опциональные
+### Параметры (дефолты/требования)
 
-| Переменная               | Значение по умолчанию   |
-| ------------------------ | ----------------------- |
-| `OLLAMA_MODEL`           | `qwen2.5:1.5b`          |
-| `AGENT_WORKFLOW_TOKEN`   | `empty`                 |
-| `AGENT_MIN_MEMORY_CHARS` | `40`                    |
-| `AGENT_ALLOW_GENERAL_KB` | `false`                 |
-| `AGENT_DEBUG`            | `false`                 |
-| `AGENT_MEMORY_SCHEMA`    | `agent`                 |
-| `AGENT_MEMORY_TABLE`     | `agent_memory_messages` |
+| Переменная                  | Дефолт / требование     |
+| --------------------------- | ----------------------- |
+| `OLLAMA_MODEL`              | `required`              |
+| `AGENT_WORKFLOW_TOKEN`      | `empty`                 |
+| `AGENT_MIN_MEMORY_CHARS`    | `40`                    |
+| `AGENT_ALLOW_GENERAL_KB`    | `false`                 |
+| `AGENT_DEBUG`               | `false`                 |
+| `AGENT_WIKI_MIN_SCORE`      | `2`                     |
+| `AGENT_WIKI_MIN_TERM_HITS`  | `1`                     |
+| `AGENT_MIN_ANSWER_OVERLAP`  | `0`                     |
+| `AGENT_MEMORY_SCHEMA`       | `agent`                 |
+| `AGENT_MEMORY_TABLE`        | `agent_memory_messages` |
+| `AGENT_WIKI_SCHEMA`         | `public`                |
+| `AGENT_WIKI_TABLE`          | `pages`                 |
+| `AGENT_WIKI_TITLE_COLUMN`   | `title`                 |
+| `AGENT_WIKI_PATH_COLUMN`    | `path`                  |
+| `AGENT_WIKI_CONTENT_COLUMN` | `content`               |
+| `AGENT_WIKI_LIMIT`          | `5`                     |
+| `AGENT_WIKI_CONTEXT_CHARS`  | `8000`                  |
 
 ### Где задаются переменные
 
@@ -85,8 +95,8 @@ Client / Chat UI
 
 ## Безопасность и guard-логика
 
-- Если `AGENT_WORKFLOW_TOKEN` не пустой:
-  - `memory_read` и `memory_write` требуют валидный `token`,
+- Рекомендуется задавать `AGENT_WORKFLOW_TOKEN` непустым:
+  - `memory_read` и `memory_write` тогда требуют валидный `token`,
   - `agent_query_main` прокидывает token во внутренние вызовы.
 - При `AGENT_ALLOW_GENERAL_KB=false`:
   - блокируются meta-вопросы о промпте/внутренностях,
@@ -116,7 +126,8 @@ Client / Chat UI
 	"session_id": "user-123",
 	"user_id": "user-123",
 	"question": "Как устроена инфраструктура?",
-	"answer": "..."
+	"answer": "...",
+	"citations": ["D1"]
 }
 ```
 
@@ -126,8 +137,15 @@ Client / Chat UI
 {
 	"memory_count": 4,
 	"memory_has_context": true,
+	"top_score": 12.3,
+	"top_term_hits": 3,
+	"question_terms_count": 4,
+	"min_wiki_score": 2,
+	"min_term_hits": 1,
+	"is_identity_question": false,
 	"is_meta_question": false,
 	"guard_reason": "ok",
+	"overlap_count": 6,
 	"prompt_preview": "..."
 }
 ```
@@ -141,4 +159,4 @@ Client / Chat UI
 | `500 {"message":"Error in workflow"}`        | ошибка в ноде (`$env`, credentials, token, SQL)              | `execution_entity + execution_data`, `docker logs n8n-web`     |
 | `access to env vars denied`                  | `N8N_BLOCK_ENV_ACCESS_IN_NODE=true`                          | выставить `false` и перезапустить n8n                          |
 | `invalid token`                              | включен `AGENT_WORKFLOW_TOKEN`, но token не передан/неверный | проверить payload и `AGENT_WORKFLOW_TOKEN`                     |
-| `credentials not found`/ошибка Postgres-ноды | отсутствует credential `Postgres n8n`                        | bootstrap/reconcile credential через Ansible                   |
+| `credentials not found`/ошибка Postgres-ноды | отсутствует credential `Postgres n8n` или `Postgres wikijs`  | bootstrap/reconcile credential через Ansible                   |
