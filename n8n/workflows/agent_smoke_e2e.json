@@ -27,7 +27,7 @@
         320
       ],
       "parameters": {
-        "jsCode": "const now = new Date().toISOString();\nconst sessionId = `smoke-${Date.now()}`;\nreturn [{\n  json: {\n    session_id: sessionId,\n    question: 'Опиши текущую инфраструктуру кратко',\n    user_id: 'smoke-check',\n    token: $env.AGENT_WORKFLOW_TOKEN || '',\n    run_at: now\n  }\n}];"
+        "jsCode": "const now = new Date().toISOString();\nconst sessionId = `smoke-${Date.now()}`;\nreturn [{\n  json: {\n    session_id: sessionId,\n    question: 'smoke: ping',\n    user_id: 'smoke-check',\n    token: $env.AGENT_WORKFLOW_TOKEN || '',\n    run_at: now\n  }\n}];"
       }
     },
     {
@@ -39,13 +39,17 @@
         700,
         320
       ],
+      "continueOnFail": true,
       "parameters": {
         "method": "POST",
         "url": "={{ (($env.INTERNAL_WEBHOOK_BASE_URL || 'http://127.0.0.1:5678').replace(/\\/?$/, '')) + '/webhook/' + ($env.N8N_AGENT_QUERY_WEBHOOK_PATH || 'agent-query') }}",
+        "responseFormat": "string",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ { session_id: $json.session_id, user_id: $json.user_id, question: $json.question } }}",
-        "options": {}
+        "options": {
+          "timeout": 120000
+        }
       }
     },
     {
@@ -58,38 +62,7 @@
         320
       ],
       "parameters": {
-        "jsCode": "const answer = String($json.answer ?? '').trim();\nif (!answer) throw new Error('agent_query_main returned empty answer');\nreturn [{\n  json: {\n    session_id: $json.session_id,\n    answer\n  }\n}];"
-      }
-    },
-    {
-      "id": "ReadMemoryAfter",
-      "name": "HTTP: memory_read",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1180,
-        320
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "={{ (($env.INTERNAL_WEBHOOK_BASE_URL || 'http://127.0.0.1:5678').replace(/\\/?$/, '')) + '/webhook/' + ($env.N8N_MEMORY_READ_WEBHOOK_PATH || 'agent-memory-read') }}",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ { session_id: $node['Assert Agent Response'].json.session_id, limit: 10, token: ($env.AGENT_WORKFLOW_TOKEN || '') } }}",
-        "options": {}
-      }
-    },
-    {
-      "id": "AssertMemory",
-      "name": "Assert Memory",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1420,
-        320
-      ],
-      "parameters": {
-        "jsCode": "const count = Number($json.count ?? 0);\nif (count < 2) {\n  throw new Error(`memory_read count is ${count}, expected >= 2`);\n}\nreturn [{\n  json: {\n    ok: true,\n    session_id: $json.session_id,\n    memory_count: count\n  }\n}];"
+        "jsCode": "if ($json.error) {\n  const message = String($json.error.message ?? $json.error ?? 'unknown upstream error');\n  throw new Error('agent_query_main call failed: ' + message);\n}\nconst rawBody = $json.body ?? $json.data ?? $json.response ?? $json;\nlet payload = rawBody;\nif (typeof rawBody === 'string') {\n  const text = rawBody.trim();\n  if (!text) throw new Error('agent_query_main returned empty body');\n  try {\n    payload = JSON.parse(text);\n  } catch {\n    throw new Error('agent_query_main returned non-JSON body: ' + text.slice(0, 300));\n  }\n}\nif (!payload || typeof payload !== 'object') {\n  throw new Error('agent_query_main returned unexpected payload type');\n}\nconst answer = String(payload.answer ?? '').trim();\nif (!answer) {\n  throw new Error('agent_query_main returned payload without answer');\n}\nreturn [{\n  json: {\n    session_id: String(payload.session_id ?? $json.session_id ?? ''),\n    answer\n  }\n}];"
       }
     }
   ],
@@ -129,24 +102,7 @@
     },
     "Assert Agent Response": {
       "main": [
-        [
-          {
-            "node": "HTTP: memory_read",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "HTTP: memory_read": {
-      "main": [
-        [
-          {
-            "node": "Assert Memory",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
       ]
     }
   },

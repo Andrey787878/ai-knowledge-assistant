@@ -18,7 +18,7 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "agent-memory-write",
-        "responseMode": "responseNode",
+        "responseMode": "lastNode",
         "options": {}
       }
     },
@@ -66,21 +66,6 @@
       "parameters": {
         "jsCode": "const row = items[0]?.json ?? {};\nreturn [{\n  json: {\n    ok: true,\n    inserted_id: row.id ?? null,\n    session_id: row.session_id ?? null,\n    role: row.role ?? null,\n    created_at: row.created_at ?? null\n  }\n}];"
       }
-    },
-    {
-      "id": "RespondWrite",
-      "name": "Respond",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.2,
-      "position": [
-        1280,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ $json }}",
-        "options": {}
-      }
     }
   ],
   "connections": {
@@ -119,13 +104,7 @@
     },
     "Build Response": {
       "main": [
-        [
-          {
-            "node": "Respond",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
       ]
     }
   },

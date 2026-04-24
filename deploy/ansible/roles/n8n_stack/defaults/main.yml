@@ -44,15 +44,22 @@ n8n_common_encryption_key: ''
 n8n_common_ollama_base_url: ''
 n8n_common_ollama_model: qwen2.5:1.5b
 n8n_common_agent_workflow_token: ''
-n8n_common_agent_system_prompt: >-
-  Ты внутренний инфраструктурный ассистент.
-  Отвечай только на основе переданного контекста и памяти сессии.
-  Если данных недостаточно, ответь ровно: Нет данных.
+n8n_common_agent_system_prompt: ''
 n8n_common_agent_min_memory_chars: 40
 n8n_common_agent_allow_general_kb: false
 n8n_common_agent_debug: false
 n8n_common_agent_memory_schema: agent
 n8n_common_agent_memory_table: agent_memory_messages
+n8n_common_agent_wiki_schema: public
+n8n_common_agent_wiki_table: pages
+n8n_common_agent_wiki_title_column: title
+n8n_common_agent_wiki_path_column: path
+n8n_common_agent_wiki_content_column: render
+n8n_common_agent_wiki_limit: 5
+n8n_common_agent_wiki_context_chars: 8000
+n8n_common_agent_wiki_min_score: 2
+n8n_common_agent_wiki_min_term_hits: 1
+n8n_common_agent_min_answer_overlap: 0
 n8n_common_block_env_access_in_node: false
 
 # n8n web delta
@@ -113,6 +120,13 @@ n8n_postgres_database: n8n
 n8n_postgres_user: n8n
 n8n_postgres_password: ''
 
+# postgres connection for wikijs credential bootstrap in n8n
+n8n_wikijs_postgres_host: "{{ n8n_postgres_host }}"
+n8n_wikijs_postgres_port: "{{ n8n_postgres_port }}"
+n8n_wikijs_postgres_database: wikijs
+n8n_wikijs_postgres_user: wikijs
+n8n_wikijs_postgres_password: "{{ wikijs_postgres_password | default('') }}"
+
 # compose deploy behavior
 n8n_stack_compose_wait: false
 n8n_stack_compose_wait_timeout: 600
@@ -138,6 +152,20 @@ n8n_workflows_postgres_credential_container_file: "{{ n8n_workflows_container_di
 n8n_workflows_postgres_credential_source_owner: "{{ n8n_stack_data_dir_owner }}"
 n8n_workflows_postgres_credential_source_group: "{{ n8n_stack_data_dir_group }}"
 n8n_workflows_postgres_credential_source_mode: "0640"
+
+n8n_workflows_wikijs_postgres_credential_bootstrap_enabled: true
+n8n_workflows_wikijs_postgres_credential_force_reconcile: false
+n8n_workflows_wikijs_postgres_credential_id: "52c9bc40-a4f6-49c9-b831-3c2f09fd24df"
+n8n_workflows_wikijs_postgres_credential_name: "Postgres wikijs"
+n8n_workflows_wikijs_postgres_credential_type: postgres
+n8n_workflows_wikijs_postgres_credential_ssl_mode: disable
+n8n_workflows_wikijs_postgres_credential_allow_unauthorized_certs: false
+n8n_workflows_wikijs_postgres_credential_pool_size: 10
+n8n_workflows_wikijs_postgres_credential_source_file: "{{ n8n_workflows_target_dir }}/credential-postgres-wikijs.json"
+n8n_workflows_wikijs_postgres_credential_container_file: "{{ n8n_workflows_container_dir }}/credential-postgres-wikijs.json"
+n8n_workflows_wikijs_postgres_credential_source_owner: "{{ n8n_stack_data_dir_owner }}"
+n8n_workflows_wikijs_postgres_credential_source_group: "{{ n8n_stack_data_dir_group }}"
+n8n_workflows_wikijs_postgres_credential_source_mode: "0640"
 n8n_workflows_files:
   - memory_read.json
   - memory_write.json

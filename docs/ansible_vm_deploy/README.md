@@ -16,7 +16,7 @@
 ## Сеть, безопасность и TLS
 
 - [Сеть Ansible-деплоя](./network.md)
-- [Схема сети](./diagrams/network-topolog.png)
+- [Схема сети](./diagrams/network-topology.png)
 - [Публичный edge TLS через Let's Encrypt (HTTP-01)](./edge-tls-acme.md)
 - [Ранбук по сертификатам edge](./certificates-runbook.md)
 

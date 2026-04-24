@@ -19,7 +19,7 @@
 
 Схема сети:
 
-![Схема сети Ansible VM](./diagrams/network-topolog.png)
+![Схема сети Ansible VM](./diagrams/network-topology.png)
 
 ## Cloud-сегментация (Terraform)
 

@@ -18,7 +18,7 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "agent-memory-read",
-        "responseMode": "responseNode",
+        "responseMode": "lastNode",
         "options": {}
       }
     },
@@ -66,21 +66,6 @@
       "parameters": {
         "jsCode": "const sessionId = $node['Validate Input'].json.session_id;\nconst rows = items.map((i) => i.json).reverse();\nconst memoryText = rows.map((row) => `${row.role}: ${row.message}`).join('\\n');\nreturn [{\n  json: {\n    ok: true,\n    session_id: sessionId,\n    count: rows.length,\n    memory: rows,\n    memory_text: memoryText\n  }\n}];"
       }
-    },
-    {
-      "id": "RespondRead",
-      "name": "Respond",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.2,
-      "position": [
-        1280,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ $json }}",
-        "options": {}
-      }
     }
   ],
   "connections": {
@@ -119,13 +104,7 @@
     },
     "Build Response": {
       "main": [
-        [
-          {
-            "node": "Respond",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
       ]
     }
   },
