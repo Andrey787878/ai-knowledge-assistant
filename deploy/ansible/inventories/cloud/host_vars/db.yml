@@ -31,5 +31,10 @@ postgres_hba_rules:
   - type: host
     database: '{{ postgres_wiki_db }}'
     user: '{{ postgres_wiki_user }}'
+    address: "{{ hostvars['n8n'].private_ip }}/32"
+    method: '{{ postgres_password_encryption }}'
+  - type: host
+    database: '{{ postgres_wiki_db }}'
+    user: '{{ postgres_wiki_user }}'
     address: "{{ hostvars['wiki'].private_ip }}/32"
     method: '{{ postgres_password_encryption }}'
