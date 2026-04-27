@@ -1,0 +1,24 @@
+---
+environments:
+  prod:
+    values:
+      - environments/prod/meta.values.yaml
+      - environments/prod/app.values.yaml
+      - environments/prod/workflows.values.yaml
+
+helmfiles:
+  - path: releases/networkpolicy.yaml
+    values:
+      - environments/prod/meta.values.yaml
+  - path: releases/http-redirect-middleware.yaml
+    values:
+      - environments/prod/meta.values.yaml
+  - path: releases/n8n.yaml
+    values:
+      - environments/prod/meta.values.yaml
+      - environments/prod/app.values.yaml
+  - path: releases/workflows.yaml
+    values:
+      - environments/prod/meta.values.yaml
+      - environments/prod/app.values.yaml
+      - environments/prod/workflows.values.yaml

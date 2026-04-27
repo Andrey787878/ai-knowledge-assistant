@@ -1,6 +1,7 @@
 ---
-# cert-manager chart values.
-installCRDs: true
+crds:
+  enabled: true
+  keep: true
 prometheus:
   enabled: false
 resources:

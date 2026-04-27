@@ -1,0 +1,171 @@
+---
+helmDefaults:
+  skipDeps: true
+
+releases:
+  - name: postgres-restore
+    namespace: {{ .Values.namespace | quote }}
+    createNamespace: false
+    chart: ../../../vendor_charts/raw
+    wait: true
+    installed: {{ .Values.postgres_restore_enabled }}
+    values:
+      - templates:
+          - |
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: postgres-restore-scripts
+              labels:
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+                app.kubernetes.io/component: postgres-ops
+            data:
+              restore-postgres.sh: |
+                #!/usr/bin/env bash
+                set -Eeuo pipefail
+
+                ROOT_DIR="${BACKUP_ROOT_DIR:-/backups}"
+                SOURCE_INPUT="${RESTORE_SOURCE:-current}"
+                WITH_GLOBALS="${RESTORE_WITH_GLOBALS:-false}"
+                RESTORE_CONFIRM="${RESTORE_CONFIRM:-NO}"
+                PGUSER="${POSTGRES_USER:-postgres}"
+                PGHOST="${POSTGRES_HOST:-postgres-postgresql}"
+                PGPORT="${POSTGRES_PORT:-5432}"
+                DB_LIST="${POSTGRES_RESTORE_DATABASES:-n8n wikijs}"
+
+                read -r -a RESTORE_DATABASES <<< "${DB_LIST}"
+
+                if [[ "${RESTORE_CONFIRM}" != "YES" ]]; then
+                  echo "Set RESTORE_CONFIRM=YES to allow restore." >&2
+                  exit 1
+                fi
+
+                if [[ "${#RESTORE_DATABASES[@]}" -eq 0 ]]; then
+                  echo "POSTGRES_RESTORE_DATABASES must contain at least one database name." >&2
+                  exit 1
+                fi
+
+                if [[ -z "${PGPASSWORD:-}" ]]; then
+                  echo "PGPASSWORD is required." >&2
+                  exit 1
+                fi
+
+                if [[ "${SOURCE_INPUT}" == "current" ]]; then
+                  BACKUP_DIR="${ROOT_DIR}/current"
+                else
+                  BACKUP_DIR="${SOURCE_INPUT}"
+                fi
+
+                if [[ ! -d "${BACKUP_DIR}" ]]; then
+                  echo "backup directory not found: ${BACKUP_DIR}" >&2
+                  exit 1
+                fi
+
+                if [[ ! -f "${BACKUP_DIR}/SHA256SUMS" ]]; then
+                  echo "SHA256SUMS not found in ${BACKUP_DIR}" >&2
+                  exit 1
+                fi
+
+                (
+                  cd "${BACKUP_DIR}"
+                  sha256sum -c SHA256SUMS
+                )
+
+                export PGHOST PGPORT PGUSER PGPASSWORD
+
+                if [[ "${WITH_GLOBALS}" == "true" ]]; then
+                  if [[ ! -f "${BACKUP_DIR}/globals.sql" ]]; then
+                    echo "globals.sql not found in ${BACKUP_DIR}" >&2
+                    exit 1
+                  fi
+                  psql -v ON_ERROR_STOP=1 -U "${PGUSER}" -d postgres -f "${BACKUP_DIR}/globals.sql"
+                fi
+
+                for db_name in "${RESTORE_DATABASES[@]}"; do
+                  dump_file="${BACKUP_DIR}/${db_name}.dump"
+                  if [[ ! -f "${dump_file}" ]]; then
+                    echo "dump not found: ${dump_file}" >&2
+                    exit 1
+                  fi
+                  pg_restore --clean --if-exists -U "${PGUSER}" -d "${db_name}" "${dump_file}"
+                done
+
+                echo "postgres restore completed from: ${BACKUP_DIR}"
+          - |
+            apiVersion: batch/v1
+            kind: Job
+            metadata:
+              name: {{ .Values.postgres_restore_job_name | quote }}
+              labels:
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+                app.kubernetes.io/component: postgres-ops
+            spec:
+              backoffLimit: {{ .Values.postgres_restore_backoff_limit }}
+              ttlSecondsAfterFinished: {{ .Values.postgres_restore_ttl_seconds_after_finished }}
+              template:
+                metadata:
+                  labels:
+                    app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                    app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+                    app.kubernetes.io/component: postgres-ops
+                spec:
+                  restartPolicy: Never
+                  securityContext:
+                    runAsNonRoot: true
+                    runAsUser: 999
+                    runAsGroup: 999
+                    fsGroup: 999
+                    seccompProfile:
+                      type: RuntimeDefault
+                  containers:
+                    - name: postgres-restore
+                      image: {{ .Values.postgres_restore_image | quote }}
+                      imagePullPolicy: {{ .Values.postgres_restore_image_pull_policy | quote }}
+                      command:
+                        - /bin/bash
+                        - /scripts/restore-postgres.sh
+                      securityContext:
+                        allowPrivilegeEscalation: false
+                        capabilities:
+                          drop:
+                            - ALL
+                      env:
+                        - name: POSTGRES_HOST
+                          value: {{ .Values.postgres_restore_service_host | quote }}
+                        - name: POSTGRES_PORT
+                          value: {{ .Values.postgres_restore_service_port | quote }}
+                        - name: POSTGRES_USER
+                          value: {{ .Values.postgres_restore_pg_user | quote }}
+                        - name: POSTGRES_RESTORE_DATABASES
+                          value: {{ .Values.postgres_restore_databases | join " " | quote }}
+                        - name: PGPASSWORD
+                          valueFrom:
+                            secretKeyRef:
+                              name: {{ .Values.postgres_restore_secret_name | quote }}
+                              key: {{ .Values.postgres_restore_secret_key | quote }}
+                        - name: BACKUP_ROOT_DIR
+                          value: {{ .Values.postgres_restore_root_dir | quote }}
+                        - name: RESTORE_SOURCE
+                          value: {{ .Values.postgres_restore_source | quote }}
+                        - name: RESTORE_CONFIRM
+                          value: {{ .Values.postgres_restore_confirm | quote }}
+                        - name: RESTORE_WITH_GLOBALS
+                          value: {{ ternary "true" "false" .Values.postgres_restore_with_globals | quote }}
+                      resources:
+                        {{- toYaml .Values.postgres_restore_resources | nindent 24 }}
+                      volumeMounts:
+                        - name: scripts
+                          mountPath: /scripts
+                          readOnly: true
+                        - name: backups
+                          mountPath: /backups
+                  volumes:
+                    - name: scripts
+                      configMap:
+                        name: postgres-restore-scripts
+                        defaultMode: 0555
+                    - name: backups
+                      persistentVolumeClaim:
+                        claimName: {{ .Values.postgres_backup_pvc_name | quote }}

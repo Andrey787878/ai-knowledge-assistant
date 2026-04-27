@@ -1,0 +1,546 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "image",
+    "web",
+    "worker",
+    "postgres",
+    "redis",
+    "n8n",
+    "secrets",
+    "wikiPostgres",
+    "agent"
+  ],
+  "properties": {
+    "nameOverride": {
+      "type": "string"
+    },
+    "fullnameOverride": {
+      "type": "string"
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "tag",
+        "pullPolicy"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tag": {
+          "type": "string",
+          "minLength": 1
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^$|^sha256:[a-f0-9]{64}$"
+        },
+        "pullPolicy": {
+          "type": "string",
+          "enum": [
+            "Always",
+            "IfNotPresent",
+            "Never"
+          ]
+        }
+      }
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "podAnnotations": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "podSecurityContext": {
+      "type": "object"
+    },
+    "securityContext": {
+      "type": "object"
+    },
+    "web": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "replicas",
+        "service",
+        "probes",
+        "ingress",
+        "resources"
+      ],
+      "properties": {
+        "replicas": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "service": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "port",
+            "targetPort"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "ClusterIP",
+                "NodePort",
+                "LoadBalancer"
+              ]
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "targetPort": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            }
+          }
+        },
+        "probes": {
+          "$ref": "#/$defs/probes"
+        },
+        "ingress": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enabled",
+            "host",
+            "path",
+            "pathType",
+            "tls"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "className": {
+              "type": "string"
+            },
+            "host": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9.-]+$"
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "pathType": {
+              "type": "string",
+              "enum": [
+                "Prefix",
+                "Exact",
+                "ImplementationSpecific"
+              ]
+            },
+            "annotations": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "tls": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "enabled",
+                "secretName"
+              ],
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "secretName": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        },
+        "resources": {
+          "$ref": "#/$defs/resources"
+        }
+      }
+    },
+    "worker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "replicas",
+        "probes",
+        "resources"
+      ],
+      "properties": {
+        "replicas": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "probes": {
+          "$ref": "#/$defs/probes"
+        },
+        "resources": {
+          "$ref": "#/$defs/resources"
+        }
+      }
+    },
+    "postgres": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host",
+        "port",
+        "database",
+        "user"
+      ],
+      "properties": {
+        "host": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9.-]+$"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "database": {
+          "type": "string",
+          "minLength": 1
+        },
+        "user": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "redis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host",
+        "port"
+      ],
+      "properties": {
+        "host": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9.-]+$"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        }
+      }
+    },
+    "n8n": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol",
+        "host",
+        "editorBaseUrl",
+        "webhookUrl",
+        "timezone",
+        "logLevel",
+        "workerConcurrency"
+      ],
+      "properties": {
+        "protocol": {
+          "type": "string",
+          "enum": [
+            "http",
+            "https"
+          ]
+        },
+        "host": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9.-]+$"
+        },
+        "editorBaseUrl": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^https?://.+"
+        },
+        "webhookUrl": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^https?://.+"
+        },
+        "internalWebhookBaseUrl": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^https?://.+"
+        },
+        "agentQueryWebhookPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "memoryReadWebhookPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "memoryWriteWebhookPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ollamaBaseUrl": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^https?://.+"
+        },
+        "ollamaModel": {
+          "type": "string"
+        },
+        "blockEnvAccessInNode": {
+          "type": "boolean"
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 1
+        },
+        "logLevel": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warn",
+            "info",
+            "debug"
+          ]
+        },
+        "workerConcurrency": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "secrets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dbPassword",
+        "wikiDbPassword",
+        "redisPassword",
+        "encryptionKey"
+      ],
+      "properties": {
+        "dbPassword": {
+          "type": "string",
+          "minLength": 8
+        },
+        "redisPassword": {
+          "type": "string",
+          "minLength": 8
+        },
+        "encryptionKey": {
+          "type": "string",
+          "minLength": 32
+        },
+        "wikiDbPassword": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "db_users": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "n8n_password",
+        "wikijs_password"
+      ],
+      "properties": {
+        "n8n_password": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wikijs_password": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "redis_auth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "password"
+      ],
+      "properties": {
+        "password": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "auth": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "wikiPostgres": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host",
+        "port",
+        "database",
+        "user"
+      ],
+      "properties": {
+        "host": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9.-]+$"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "database": {
+          "type": "string",
+          "minLength": 1
+        },
+        "user": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "wikiSchema",
+        "wikiTable",
+        "wikiTitleColumn",
+        "wikiPathColumn",
+        "wikiContentColumn",
+        "wikiLimit",
+        "wikiContextChars"
+      ],
+      "properties": {
+        "wikiSchema": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,62}$"
+        },
+        "wikiTable": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,62}$"
+        },
+        "wikiTitleColumn": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,62}$"
+        },
+        "wikiPathColumn": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,62}$"
+        },
+        "wikiContentColumn": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,62}$"
+        },
+        "wikiLimit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20
+        },
+        "wikiContextChars": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 50000
+        }
+      }
+    }
+  },
+  "$defs": {
+    "probe": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "probes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "readiness",
+        "liveness"
+      ],
+      "properties": {
+        "readiness": {
+          "$ref": "#/$defs/probe"
+        },
+        "liveness": {
+          "$ref": "#/$defs/probe"
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requests",
+        "limits"
+      ],
+      "properties": {
+        "requests": {
+          "$ref": "#/$defs/resourcePair"
+        },
+        "limits": {
+          "$ref": "#/$defs/resourcePair"
+        }
+      }
+    },
+    "resourcePair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cpu",
+        "memory"
+      ],
+      "properties": {
+        "cpu": {
+          "type": "string",
+          "minLength": 1
+        },
+        "memory": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

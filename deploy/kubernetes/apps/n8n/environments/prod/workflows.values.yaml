@@ -1,0 +1,14 @@
+---
+workflows_release_enabled: true
+workflows_configmap_name: n8n-workflows
+workflows_import_job_name: n8n-import-workflows
+workflows_import_backoff_limit: 1
+workflows_import_ttl_seconds_after_finished: 86400
+workflows_job_image: 'n8nio/n8n:stable@sha256:1e764de257f2b1eb6fc0e2477bd82cf8f5de9e68b82ac243b1a2db1551426723'
+workflows_import_resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 300m
+    memory: 256Mi

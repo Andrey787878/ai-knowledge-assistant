@@ -101,8 +101,23 @@ postgres_superuser_password: '{{ vault_postgres_superuser_password }}'
 
 postgres_hba_rules:
   - type: host
+    database: all
+    user: all
+    address: 127.0.0.1/32
+    method: scram-sha-256
+  - type: host
+    database: all
+    user: all
+    address: ::1/128
+    method: scram-sha-256
+  - type: host
     database: n8n
     user: n8n
+    address: "{{ hostvars['n8n'].private_ip }}/32"
+    method: scram-sha-256
+  - type: host
+    database: wikijs
+    user: wikijs
     address: "{{ hostvars['n8n'].private_ip }}/32"
     method: scram-sha-256
   - type: host
@@ -126,6 +141,7 @@ Reconcile также поддерживает отдельную schema `agent`,
 
 `postgres_server` работает по private-network модели: доступ `n8n`/`wikijs` задается явными CIDR в `postgres_hba_rules` через `host_vars/db.yml`.
 Значения `address` в `postgres_hba_rules` должны быть валидным CIDR (например, `10.10.0.12/32` или `2001:db8::1/128`).
+Рекомендуется использовать точечные правила для нужных пар `database/user/source` и не оставлять fallback `all/all` для внешних IP.
 
 Изменения `docker-compose.yml`, `postgres.env` и `pg_hba.conf` вызывают handler `Apply postgres stack changes`.
 Verify-задачи выполняются в обычном режиме запуска и пропускаются в `--check`.

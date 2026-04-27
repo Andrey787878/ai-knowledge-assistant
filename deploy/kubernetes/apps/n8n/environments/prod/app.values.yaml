@@ -1,0 +1,42 @@
+---
+nameOverride: n8n
+
+web:
+  ingress:
+    host: n8n.poluyanov.net
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+      traefik.ingress.kubernetes.io/router.middlewares: n8n-https-redirect@kubernetescrd
+
+n8n:
+  host: n8n.poluyanov.net
+  editorBaseUrl: https://n8n.poluyanov.net/
+  webhookUrl: https://n8n.poluyanov.net/
+  internalWebhookBaseUrl: http://n8n-web-svc.n8n.svc.cluster.local
+  agentQueryWebhookPath: 9c7e0a12-6d2f-4f9c-9ab1-cf2d6c8f5303/webhook_agent_query/agent-query
+  memoryReadWebhookPath: f5d4d6d6-8c5a-4b35-a1e9-0f8e4a6f2101/webhook_memory_read/agent-memory-read
+  memoryWriteWebhookPath: a1b7c2f4-3f20-4f57-9f4e-7f1b8d2f4c02/webhook_memory_write/agent-memory-write
+  ollamaBaseUrl: http://ollama-svc.ollama.svc.cluster.local:11434
+  blockEnvAccessInNode: false
+  ollamaModel: qwen2.5:1.5b
+
+postgres:
+  host: postgres-postgresql.db.svc.cluster.local
+
+wikiPostgres:
+  host: postgres-postgresql.db.svc.cluster.local
+  port: 5432
+  database: wikijs
+  user: wikijs
+
+redis:
+  host: redis-master.n8n.svc.cluster.local
+
+agent:
+  wikiSchema: public
+  wikiTable: pages
+  wikiTitleColumn: title
+  wikiPathColumn: path
+  wikiContentColumn: content
+  wikiLimit: 5
+  wikiContextChars: 8000

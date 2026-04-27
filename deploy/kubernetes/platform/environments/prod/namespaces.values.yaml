@@ -1,0 +1,8 @@
+---
+app_part_of: ai-knowledge-assistant
+app_managed_by: helmfile
+platform_namespaces:
+  - db
+  - n8n
+  - wiki
+  - ollama

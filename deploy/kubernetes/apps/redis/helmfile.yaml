@@ -1,0 +1,19 @@
+---
+environments:
+  prod:
+    values:
+      - environments/prod/meta.values.yaml
+      - environments/prod/app.values.yaml
+
+helmfiles:
+  - path: releases/auth-secret.yaml
+    values:
+      - environments/prod/meta.values.yaml
+      - environments/prod/app.values.yaml
+  - path: releases/networkpolicy.yaml
+    values:
+      - environments/prod/meta.values.yaml
+  - path: releases/redis.yaml
+    values:
+      - environments/prod/meta.values.yaml
+      - environments/prod/app.values.yaml

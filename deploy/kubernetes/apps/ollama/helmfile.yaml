@@ -1,0 +1,21 @@
+---
+environments:
+  prod:
+    values:
+      - environments/prod/meta.values.yaml
+      - environments/prod/app.values.yaml
+      - environments/prod/model.values.yaml
+
+helmfiles:
+  - path: releases/networkpolicy.yaml
+    values:
+      - environments/prod/meta.values.yaml
+  - path: releases/ollama.yaml
+    values:
+      - environments/prod/meta.values.yaml
+      - environments/prod/app.values.yaml
+  - path: releases/model-pull-job.yaml
+    values:
+      - environments/prod/meta.values.yaml
+      - environments/prod/app.values.yaml
+      - environments/prod/model.values.yaml

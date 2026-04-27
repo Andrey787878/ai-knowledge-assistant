@@ -8,3 +8,25 @@
   listen: Apply postgres stack changes
   when: not (postgres_deploy_executed | default(false) | bool)
   tags: [postgres, postgres_handlers]
+
+- name: Reload postgres pg_hba config
+  community.docker.docker_container_exec:
+    container: "{{ postgres_container_name }}"
+    argv:
+      - psql
+      - -v
+      - ON_ERROR_STOP=1
+      - -U
+      - "{{ postgres_superuser }}"
+      - -d
+      - "{{ postgres_default_db }}"
+      - -Atc
+      - SELECT pg_reload_conf();
+    env:
+      PGPASSWORD: "{{ postgres_superuser_password | string }}"
+  listen: Reload postgres pg_hba config
+  when:
+    - not ansible_check_mode
+    - not (postgres_deploy_executed | default(false) | bool)
+  no_log: true
+  tags: [postgres, postgres_handlers]

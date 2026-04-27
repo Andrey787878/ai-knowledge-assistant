@@ -1,0 +1,31 @@
+---
+postgres_restore_enabled: false
+postgres_restore_job_name: postgres-restore-manual
+
+postgres_restore_image: 'postgres:18.3-bookworm'
+postgres_restore_image_pull_policy: IfNotPresent
+
+postgres_restore_pg_user: postgres
+postgres_restore_service_host: postgres-postgresql
+postgres_restore_service_port: 5432
+postgres_restore_secret_name: postgres-postgresql
+postgres_restore_secret_key: postgres-password
+postgres_restore_databases:
+  - n8n
+  - wikijs
+
+postgres_restore_root_dir: /backups
+postgres_restore_source: current
+postgres_restore_confirm: 'NO'
+postgres_restore_with_globals: false
+
+postgres_restore_backoff_limit: 0
+postgres_restore_ttl_seconds_after_finished: 86400
+
+postgres_restore_resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 300m
+    memory: 256Mi

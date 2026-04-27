@@ -1,0 +1,48 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "n8n.name" . }}-cm
+  labels:
+    {{- include "n8n.labels" . | nindent 4 }}
+data:
+  DB_TYPE: "postgresdb"
+  DB_POSTGRESDB_HOST: {{ required "postgres.host is required" .Values.postgres.host | quote }}
+  DB_POSTGRESDB_PORT: {{ .Values.postgres.port | toString | quote }}
+  DB_POSTGRESDB_DATABASE: {{ .Values.postgres.database | quote }}
+  DB_POSTGRESDB_USER: {{ .Values.postgres.user | quote }}
+  WIKI_POSTGRESDB_HOST: {{ required "wikiPostgres.host is required" .Values.wikiPostgres.host | quote }}
+  WIKI_POSTGRESDB_PORT: {{ .Values.wikiPostgres.port | toString | quote }}
+  WIKI_POSTGRESDB_DATABASE: {{ .Values.wikiPostgres.database | quote }}
+  WIKI_POSTGRESDB_USER: {{ .Values.wikiPostgres.user | quote }}
+
+  EXECUTIONS_MODE: "queue"
+  QUEUE_BULL_REDIS_HOST: {{ required "redis.host is required" .Values.redis.host | quote }}
+  QUEUE_BULL_REDIS_PORT: {{ .Values.redis.port | toString | quote }}
+
+  N8N_HOST: {{ .Values.n8n.host | quote }}
+  N8N_PROTOCOL: {{ .Values.n8n.protocol | quote }}
+  N8N_PORT: {{ .Values.web.service.targetPort | toString | quote }}
+  N8N_BLOCK_ENV_ACCESS_IN_NODE: {{ .Values.n8n.blockEnvAccessInNode | toString | quote }}
+  N8N_EDITOR_BASE_URL: {{ .Values.n8n.editorBaseUrl | quote }}
+  WEBHOOK_URL: {{ .Values.n8n.webhookUrl | quote }}
+  INTERNAL_WEBHOOK_BASE_URL: {{ required "n8n.internalWebhookBaseUrl is required" .Values.n8n.internalWebhookBaseUrl | quote }}
+  N8N_AGENT_QUERY_WEBHOOK_PATH: {{ required "n8n.agentQueryWebhookPath is required" .Values.n8n.agentQueryWebhookPath | quote }}
+  N8N_MEMORY_READ_WEBHOOK_PATH: {{ required "n8n.memoryReadWebhookPath is required" .Values.n8n.memoryReadWebhookPath | quote }}
+  N8N_MEMORY_WRITE_WEBHOOK_PATH: {{ required "n8n.memoryWriteWebhookPath is required" .Values.n8n.memoryWriteWebhookPath | quote }}
+  AGENT_WIKI_SCHEMA: {{ .Values.agent.wikiSchema | quote }}
+  AGENT_WIKI_TABLE: {{ .Values.agent.wikiTable | quote }}
+  AGENT_WIKI_TITLE_COLUMN: {{ .Values.agent.wikiTitleColumn | quote }}
+  AGENT_WIKI_PATH_COLUMN: {{ .Values.agent.wikiPathColumn | quote }}
+  AGENT_WIKI_CONTENT_COLUMN: {{ .Values.agent.wikiContentColumn | quote }}
+  AGENT_WIKI_LIMIT: {{ .Values.agent.wikiLimit | toString | quote }}
+  AGENT_WIKI_CONTEXT_CHARS: {{ .Values.agent.wikiContextChars | toString | quote }}
+  OLLAMA_BASE_URL: {{ required "n8n.ollamaBaseUrl is required" .Values.n8n.ollamaBaseUrl | quote }}
+  {{- if .Values.n8n.ollamaModel }}
+  OLLAMA_MODEL: {{ .Values.n8n.ollamaModel | quote }}
+  {{- end }}
+  N8N_LOG_LEVEL: {{ .Values.n8n.logLevel | quote }}
+  N8N_CONCURRENCY: {{ .Values.n8n.workerConcurrency | toString | quote }}
+
+  TZ: {{ .Values.n8n.timezone | quote }}
+  GENERIC_TIMEZONE: {{ .Values.n8n.timezone | quote }}

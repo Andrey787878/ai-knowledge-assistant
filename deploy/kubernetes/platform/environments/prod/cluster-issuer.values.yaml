@@ -1,5 +1,4 @@
 ---
-# ClusterIssuer settings.
 cluster_issuer_name: 'letsencrypt-prod'
 acme_email: 'andrey@poluyanov.net'
 ingress_class: 'traefik'

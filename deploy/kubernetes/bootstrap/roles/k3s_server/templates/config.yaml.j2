@@ -1,0 +1,11 @@
+---
+write-kubeconfig-mode: "{{ k3s_write_kubeconfig_mode }}"
+secrets-encryption: {{ (k3s_secrets_encryption_enabled | bool) | ternary('true', 'false') }}
+{% if k3s_disable_traefik | bool %}
+disable:
+  - traefik
+{% endif %}
+tls-san:
+{% for san in k3s_server_tls_sans %}
+  - "{{ san }}"
+{% endfor %}

@@ -144,6 +144,10 @@
   - контейнер postgres,
   - app roles/databases/grants (reconcile),
   - schema/table/indexes памяти агента в БД `n8n`.
+- Сетевой доступ к БД:
+  - `pg_hba` задается явными правилами `database/user/source`,
+  - для текущего контура нужны как минимум `n8n->n8n`, `n8n->wikijs`, `wiki->wikijs`,
+  - fallback `all/all` для внешних IP не рекомендуется.
 - Что проверяет:
   - контейнер running,
   - `pg_isready`,

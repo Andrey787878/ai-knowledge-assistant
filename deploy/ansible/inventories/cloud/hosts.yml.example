@@ -42,7 +42,7 @@ all:
       hosts:
         wiki:
           ansible_host: 91.224.87.240
-          private_ip: 10.10.0.7
+          private_ip: 10.10.0.19
 
     docker_hosts:
       children:

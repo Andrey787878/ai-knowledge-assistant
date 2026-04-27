@@ -1,0 +1,5 @@
+---
+namespace: wiki
+
+app_part_of: ai-knowledge-assistant
+app_managed_by: helmfile

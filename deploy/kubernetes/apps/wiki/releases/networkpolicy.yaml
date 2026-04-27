@@ -1,0 +1,174 @@
+---
+helmDefaults:
+  skipDeps: true
+
+releases:
+  - name: wiki-networkpolicy
+    namespace: {{ .Values.namespace | quote }}
+    createNamespace: false
+    chart: ../../../vendor_charts/raw
+    wait: true
+    values:
+      - resources:
+          - apiVersion: networking.k8s.io/v1
+            kind: NetworkPolicy
+            metadata:
+              name: wiki-default-deny
+              labels:
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              podSelector: {}
+              policyTypes:
+                - Ingress
+                - Egress
+
+          - apiVersion: networking.k8s.io/v1
+            kind: NetworkPolicy
+            metadata:
+              name: wiki-allow-ingress-from-traefik
+              labels:
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              podSelector:
+                matchLabels:
+                  app.kubernetes.io/instance: wikijs
+                  app.kubernetes.io/name: wiki
+              policyTypes:
+                - Ingress
+              ingress:
+                - from:
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: kube-system
+                      podSelector:
+                        matchLabels:
+                          app.kubernetes.io/name: traefik
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: kube-system
+                      podSelector:
+                        matchLabels:
+                          app: traefik
+                  ports:
+                    - protocol: TCP
+                      port: 3000
+
+          - apiVersion: networking.k8s.io/v1
+            kind: NetworkPolicy
+            metadata:
+              name: wiki-allow-ingress-from-n8n
+              labels:
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              podSelector:
+                matchLabels:
+                  app.kubernetes.io/instance: wikijs
+                  app.kubernetes.io/name: wiki
+              policyTypes:
+                - Ingress
+              ingress:
+                - from:
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: n8n
+                      podSelector:
+                        matchLabels:
+                          app.kubernetes.io/name: n8n
+                  ports:
+                    - protocol: TCP
+                      port: 3000
+
+          - apiVersion: networking.k8s.io/v1
+            kind: NetworkPolicy
+            metadata:
+              name: wiki-allow-egress-postgres
+              labels:
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              podSelector:
+                matchLabels:
+                  app.kubernetes.io/instance: wikijs
+                  app.kubernetes.io/name: wiki
+              policyTypes:
+                - Egress
+              egress:
+                - to:
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: db
+                      podSelector:
+                        matchLabels:
+                          app.kubernetes.io/instance: postgres
+                          app.kubernetes.io/name: postgresql
+                  ports:
+                    - protocol: TCP
+                      port: 5432
+
+          - apiVersion: networking.k8s.io/v1
+            kind: NetworkPolicy
+            metadata:
+              name: wiki-allow-egress-dns
+              labels:
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              podSelector:
+                matchLabels:
+                  app.kubernetes.io/instance: wikijs
+                  app.kubernetes.io/name: wiki
+              policyTypes:
+                - Egress
+              egress:
+                - to:
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: kube-system
+                      podSelector:
+                        matchLabels:
+                          k8s-app: kube-dns
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: kube-system
+                      podSelector:
+                        matchLabels:
+                          app.kubernetes.io/name: coredns
+                  ports:
+                    - protocol: UDP
+                      port: 53
+                    - protocol: TCP
+                      port: 53
+
+          - apiVersion: networking.k8s.io/v1
+            kind: NetworkPolicy
+            metadata:
+              name: wiki-allow-ingress-acme-http01-solver
+              labels:
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              podSelector:
+                matchLabels:
+                  acme.cert-manager.io/http01-solver: 'true'
+              policyTypes:
+                - Ingress
+              ingress:
+                - from:
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: kube-system
+                      podSelector:
+                        matchLabels:
+                          app.kubernetes.io/name: traefik
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: kube-system
+                      podSelector:
+                        matchLabels:
+                          app: traefik
+                  ports:
+                    - protocol: TCP
+                      port: 8089

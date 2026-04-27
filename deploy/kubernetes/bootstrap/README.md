@@ -34,6 +34,9 @@ ansible-galaxy collection install -r requirements.yml
 ansible-playbook -i inventories/cloud/hosts.yml playbooks/bootstrap_python.yml
 ansible-playbook -i inventories/cloud/hosts.yml playbooks/site.yml
 ansible-playbook -i inventories/cloud/hosts.yml playbooks/smoke.yml
+
+# Получите kubeconfig на локальную машину
+bash scripts/pull_kubeconfig.sh
 ```
 
 ## Связанная документация
@@ -104,6 +107,8 @@ cp -n inventories/cloud/group_vars/all/zz-local.yml.example inventories/cloud/gr
   - `firewall_admin_ssh_sources` для `22/tcp`.
   - `kube_api_allowed_cidrs` для `6443/tcp`.
   - `edge_allowed_client_cidrs` для `443/tcp`.
+  - при необходимости локально переопределить `k3s_secrets_encryption_enabled` (по умолчанию уже `true` в `group_vars/all/main.yml`).
+  - при необходимости локально переопределить `k3s_server_tls_sans`.
   - опционально `edge_http_cidrs` для `80/tcp` (если хотите переопределить).
 
 По умолчанию `edge_http_cidrs` задается в роли firewall как `0.0.0.0/0`
@@ -176,6 +181,7 @@ ansible-playbook -i inventories/cloud/hosts.yml playbooks/smoke.yml
 ansible -i inventories/cloud/hosts.yml k3s_hosts -b -m shell -a "systemctl is-active k3s"
 ansible -i inventories/cloud/hosts.yml k3s_hosts -b -m shell -a "kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml get nodes -o wide"
 ansible -i inventories/cloud/hosts.yml k3s_hosts -b -m shell -a "kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml -n kube-system get pods -o wide"
+ansible -i inventories/cloud/hosts.yml k3s_hosts -b -m shell -a "k3s secrets-encrypt status"
 ```
 
 <a id="step-7"></a>

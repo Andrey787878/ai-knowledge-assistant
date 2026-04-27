@@ -35,7 +35,7 @@ ansible-playbook -i inventories/cloud/hosts.yml playbooks/smoke.yml
 
 ## Схема сети (Ansible VM)
 
-![Ansible VM network topology](../../docs/ansible_vm_deploy/diagrams/network-topolog.png)
+![Ansible VM network topology](../../docs/ansible_vm_deploy/diagrams/network-topology.png)
 
 ## Связанная документация
 

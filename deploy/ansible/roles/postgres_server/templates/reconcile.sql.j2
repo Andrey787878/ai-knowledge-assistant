@@ -82,6 +82,14 @@ SELECT format('GRANT CONNECT, TEMP ON DATABASE %I TO %I', '{{ postgres_n8n_db }}
 SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', '{{ postgres_wiki_db }}')\gexec
 SELECT format('GRANT CONNECT, TEMP ON DATABASE %I TO %I', '{{ postgres_wiki_db }}', '{{ postgres_wiki_user }}')\gexec
 
+-- Ensure wikijs role can read wiki content objects even when owners changed after restore.
+\connect {{ postgres_wiki_db }}
+SELECT format('GRANT USAGE ON SCHEMA public TO %I', '{{ postgres_wiki_user }}')\gexec
+SELECT format('GRANT SELECT ON ALL TABLES IN SCHEMA public TO %I', '{{ postgres_wiki_user }}')\gexec
+SELECT format('GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO %I', '{{ postgres_wiki_user }}')\gexec
+
+\connect {{ postgres_default_db }}
+
 -- Agent memory schema is stored in n8n database.
 \connect {{ postgres_n8n_db }}
 {% include "agent_memory.sql.j2" %}

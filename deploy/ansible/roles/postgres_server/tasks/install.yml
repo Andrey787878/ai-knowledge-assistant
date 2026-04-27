@@ -48,7 +48,13 @@
     owner: root
     group: root
     mode: "0644"
-  notify: Apply postgres stack changes
+    # pg_hba.conf is bind-mounted into container as a single file.
+    # Keep inode stable to make in-container reloads reliable.
+    unsafe_writes: true
+    newline_sequence: "\n"
+  notify:
+    - Apply postgres stack changes
+    - Reload postgres pg_hba config
   tags: [postgres, postgres_install]
 
 - name: Render postgres init SQL

@@ -1,0 +1,17 @@
+apiVersion: v2
+appVersion: "2"
+description: The most powerful and extensible open source Wiki software.
+home: https://js.wiki
+icon: https://cdn.js.wiki/images/wikijs-butterfly.svg
+keywords:
+- wiki
+- documentation
+- knowledge base
+- docs
+- reference
+- editor
+name: wiki
+sources:
+- https://github.com/requarks/wiki
+type: application
+version: 3.0.0

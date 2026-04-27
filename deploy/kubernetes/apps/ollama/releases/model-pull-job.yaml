@@ -1,0 +1,89 @@
+---
+helmDefaults:
+  skipDeps: true
+
+releases:
+  - name: ollama-model-pull
+    namespace: {{ .Values.namespace | quote }}
+    createNamespace: false
+    chart: ../../../vendor_charts/raw
+    wait: true
+    installed: {{ .Values.model_pull_enabled }}
+    values:
+      - templates:
+          - |
+            apiVersion: batch/v1
+            kind: Job
+            metadata:
+              name: {{ .Values.model_pull_job_name | quote }}
+              labels:
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+                app.kubernetes.io/name: ollama
+                app.kubernetes.io/instance: ollama
+                app.kubernetes.io/component: ollama-ops
+              annotations:
+                helm.sh/hook: post-install,post-upgrade
+                helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+            spec:
+              backoffLimit: {{ .Values.model_pull_backoff_limit }}
+              ttlSecondsAfterFinished: {{ .Values.model_pull_ttl_seconds_after_finished }}
+              template:
+                metadata:
+                  labels:
+                    app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                    app.kubernetes.io/name: ollama
+                    app.kubernetes.io/instance: ollama
+                    app.kubernetes.io/component: ollama-ops
+                spec:
+                  restartPolicy: OnFailure
+                  securityContext:
+                    runAsNonRoot: true
+                    runAsUser: 1000
+                    runAsGroup: 1000
+                    seccompProfile:
+                      type: RuntimeDefault
+                  containers:
+                    - name: model-pull
+                      image: {{ .Values.model_pull_image | quote }}
+                      imagePullPolicy: {{ .Values.model_pull_image_pull_policy | quote }}
+                      securityContext:
+                        allowPrivilegeEscalation: false
+                        capabilities:
+                          drop:
+                            - ALL
+                      command:
+                        - /bin/sh
+                        - -ec
+                      args:
+                        - |
+                          base_url={{ printf "http://%s-svc:%v" .Values.nameOverride .Values.service.port | quote }}
+                          model={{ .Values.ollama_model | quote }}
+
+                          echo "Waiting for ${base_url}/api/version ..."
+                          curl \
+                            --fail \
+                            --show-error \
+                            --silent \
+                            --connect-timeout 5 \
+                            --max-time 10 \
+                            --retry 60 \
+                            --retry-delay 2 \
+                            --retry-connrefused \
+                            "${base_url}/api/version" >/dev/null
+
+                          echo "Pulling model ${model} ..."
+                          curl \
+                            --fail \
+                            --show-error \
+                            --silent \
+                            --connect-timeout 10 \
+                            --max-time 7200 \
+                            -X POST "${base_url}/api/pull" \
+                            -H 'Content-Type: application/json' \
+                            -d "{\"name\":\"${model}\"}" \
+                            | tee /tmp/pull.log >/dev/null
+
+                          grep -Eq '"status":"(success|already exists)"' /tmp/pull.log
+                      resources:
+                        {{- toYaml .Values.model_pull_resources | nindent 24 }}

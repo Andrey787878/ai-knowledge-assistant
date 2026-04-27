@@ -1,24 +1,26 @@
 ---
+helmDefaults:
+  skipDeps: true
+
 releases:
   - name: cluster-issuer
     namespace: cert-manager
     createNamespace: true
-    chart: bedag/raw
-    version: "{{ .Values.raw_chart_version }}"
+    chart: ../../vendor_charts/raw
     wait: true
     values:
       - resources:
           - apiVersion: cert-manager.io/v1
             kind: ClusterIssuer
             metadata:
-              name: "{{ .Values.cluster_issuer_name }}"
+              name: {{ .Values.cluster_issuer_name | quote }}
             spec:
               acme:
-                email: "{{ .Values.acme_email }}"
-                server: "{{ .Values.acme_server }}"
+                email: {{ .Values.acme_email | quote }}
+                server: {{ .Values.acme_server | quote }}
                 privateKeySecretRef:
-                  name: "{{ .Values.acme_account_private_key_secret_name }}"
+                  name: {{ .Values.acme_account_private_key_secret_name | quote }}
                 solvers:
                   - http01:
                       ingress:
-                        class: "{{ .Values.ingress_class }}"
+                        class: {{ .Values.ingress_class | quote }}

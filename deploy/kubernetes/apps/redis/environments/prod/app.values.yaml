@@ -1,0 +1,24 @@
+---
+redis_auth_secret_name: 'redis-auth'
+redis_auth_secret_key: 'redis-password'
+
+fullnameOverride: redis
+architecture: standalone
+
+auth:
+  enabled: true
+  existingSecret: redis-auth
+  existingSecretPasswordKey: redis-password
+
+master:
+  persistence:
+    enabled: true
+    storageClass: local-path
+    size: 8Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi

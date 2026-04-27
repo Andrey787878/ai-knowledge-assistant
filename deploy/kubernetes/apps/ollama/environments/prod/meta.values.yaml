@@ -1,0 +1,7 @@
+---
+namespace: ollama
+
+app_part_of: ai-knowledge-assistant
+app_managed_by: helmfile
+
+n8n_namespace: n8n
