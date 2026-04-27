@@ -1,0 +1,137 @@
+---
+helmDefaults:
+  skipDeps: true
+
+releases:
+  - name: ollama-networkpolicy
+    namespace: {{ .Values.namespace | quote }}
+    createNamespace: false
+    chart: ../../../vendor_charts/raw
+    wait: true
+    values:
+      - resources:
+          - apiVersion: networking.k8s.io/v1
+            kind: NetworkPolicy
+            metadata:
+              name: ollama-default-deny
+              labels:
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              podSelector: {}
+              policyTypes:
+                - Ingress
+                - Egress
+
+          - apiVersion: networking.k8s.io/v1
+            kind: NetworkPolicy
+            metadata:
+              name: ollama-allow-ingress-from-n8n-and-ops
+              labels:
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: ollama
+                  app.kubernetes.io/component: ollama
+              policyTypes:
+                - Ingress
+              ingress:
+                - from:
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: {{ .Values.n8n_namespace | quote }}
+                      podSelector:
+                        matchLabels:
+                          app.kubernetes.io/name: n8n
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: {{ .Values.namespace | quote }}
+                      podSelector:
+                        matchLabels:
+                          app.kubernetes.io/component: ollama-ops
+                  ports:
+                    - protocol: TCP
+                      port: 11434
+
+          - apiVersion: networking.k8s.io/v1
+            kind: NetworkPolicy
+            metadata:
+              name: ollama-allow-egress-dns
+              labels:
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              podSelector: {}
+              policyTypes:
+                - Egress
+              egress:
+                - to:
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: kube-system
+                      podSelector:
+                        matchLabels:
+                          k8s-app: kube-dns
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: kube-system
+                      podSelector:
+                        matchLabels:
+                          app.kubernetes.io/name: coredns
+                  ports:
+                    - protocol: UDP
+                      port: 53
+                    - protocol: TCP
+                      port: 53
+
+          - apiVersion: networking.k8s.io/v1
+            kind: NetworkPolicy
+            metadata:
+              name: ollama-allow-egress-https
+              labels:
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              podSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/component
+                    operator: In
+                    values:
+                      - ollama
+              policyTypes:
+                - Egress
+              egress:
+                - to:
+                    - ipBlock:
+                        cidr: 0.0.0.0/0
+                  ports:
+                    - protocol: TCP
+                      port: 443
+
+          - apiVersion: networking.k8s.io/v1
+            kind: NetworkPolicy
+            metadata:
+              name: ollama-ops-allow-egress-api
+              labels:
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              podSelector:
+                matchLabels:
+                  app.kubernetes.io/component: ollama-ops
+              policyTypes:
+                - Egress
+              egress:
+                - to:
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: {{ .Values.namespace | quote }}
+                      podSelector:
+                        matchLabels:
+                          app.kubernetes.io/name: ollama
+                          app.kubernetes.io/component: ollama
+                  ports:
+                    - protocol: TCP
+                      port: 11434
