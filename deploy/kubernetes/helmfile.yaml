@@ -1,0 +1,11 @@
+---
+environments:
+  prod: {}
+
+helmfiles:
+  - path: platform/helmfile.yaml
+  - path: apps/postgres/helmfile.yaml
+  - path: apps/redis/helmfile.yaml
+  - path: apps/wiki/helmfile.yaml
+  - path: apps/ollama/helmfile.yaml
+  - path: apps/n8n/helmfile.yaml
