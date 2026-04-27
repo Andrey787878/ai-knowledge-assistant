@@ -1,0 +1,18 @@
+---
+model_pull_enabled: true
+model_pull_job_name: ollama-model-pull
+model_pull_backoff_limit: 1
+model_pull_ttl_seconds_after_finished: 300
+
+model_pull_image: curlimages/curl:8.12.1
+model_pull_image_pull_policy: IfNotPresent
+
+ollama_model: qwen2.5:1.5b
+
+model_pull_resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi

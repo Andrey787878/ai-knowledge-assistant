@@ -1,0 +1,12 @@
+---
+helmDefaults:
+  skipDeps: true
+
+releases:
+  - name: ollama
+    namespace: {{ .Values.namespace | quote }}
+    createNamespace: false
+    chart: ../chart
+    wait: true
+    values:
+      - ../environments/prod/app.values.yaml

@@ -1,0 +1,32 @@
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# IDE/editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Local temp and backups
+tmp/
+temp/
+*.tmp
+*.bak
+*.orig
+
+# Build/output artifacts
+*.tgz
+*.tar
+*.gz
+
+# Local chart overrides
+values.local.yaml
+values.override.yaml
+*.local.yaml
