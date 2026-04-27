@@ -1,0 +1,38 @@
+---
+postgres_backup_enabled: true
+postgres_backup_schedule: '30 2 * * *'
+postgres_backup_time_zone: 'UTC'
+
+postgres_backup_image: 'postgres:18.3-bookworm'
+postgres_backup_image_pull_policy: IfNotPresent
+
+postgres_backup_pg_user: postgres
+postgres_backup_service_host: postgres-postgresql
+postgres_backup_service_port: 5432
+postgres_backup_secret_name: postgres-postgresql
+postgres_backup_secret_key: postgres-password
+postgres_backup_databases:
+  - n8n
+  - wikijs
+
+postgres_backup_root_dir: /backups
+postgres_backup_include_globals: true
+postgres_backup_prune_enabled: false
+postgres_backup_retention_days: 7
+
+postgres_backup_starting_deadline_seconds: 600
+postgres_backup_successful_history: 3
+postgres_backup_failed_history: 3
+
+postgres_backup_pvc_create: true
+postgres_backup_pvc_name: postgres-backups
+postgres_backup_pvc_storage_class: local-path
+postgres_backup_pvc_size: 20Gi
+
+postgres_backup_resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 300m
+    memory: 256Mi

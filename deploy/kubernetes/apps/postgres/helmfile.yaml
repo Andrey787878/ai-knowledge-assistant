@@ -1,0 +1,23 @@
+---
+environments:
+  prod:
+    values:
+      - environments/prod/meta.values.yaml
+      - environments/prod/app.values.yaml
+
+helmfiles:
+  - path: releases/initdb-secret.yaml
+    values:
+      - environments/prod/meta.values.yaml
+      - environments/prod/app.values.yaml
+  - path: releases/postgres.yaml
+    values:
+      - environments/prod/meta.values.yaml
+      - environments/prod/app.values.yaml
+  - path: releases/networkpolicy.yaml
+    values:
+      - environments/prod/meta.values.yaml
+  - path: releases/backup-cronjob.yaml
+    values:
+      - environments/prod/meta.values.yaml
+      - environments/prod/backup.values.yaml
