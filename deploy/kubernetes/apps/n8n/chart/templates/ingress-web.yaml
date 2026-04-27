@@ -1,0 +1,35 @@
+{{- if .Values.web.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "n8n.name" . }}-web-ingress
+  labels:
+    {{- include "n8n.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+  {{- with .Values.web.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.web.ingress.className }}
+  ingressClassName: {{ .Values.web.ingress.className | quote }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.web.ingress.host | quote }}
+      http:
+        paths:
+          - path: {{ .Values.web.ingress.path | quote }}
+            pathType: {{ .Values.web.ingress.pathType | quote }}
+            backend:
+              service:
+                name: {{ include "n8n.name" . }}-web-svc
+                port:
+                  number: {{ .Values.web.service.port }}
+  {{- if .Values.web.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.web.ingress.host | quote }}
+      secretName: {{ .Values.web.ingress.tls.secretName | quote }}
+  {{- end }}
+{{- end }}

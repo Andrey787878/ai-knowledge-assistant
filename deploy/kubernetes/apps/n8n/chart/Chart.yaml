@@ -1,0 +1,7 @@
+---
+apiVersion: v2
+name: n8n
+description: Helm chart for n8n in queue mode web + worker
+type: application
+version: 1.0.0
+appVersion: 'stable'

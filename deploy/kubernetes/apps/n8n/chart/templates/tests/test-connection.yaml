@@ -1,0 +1,45 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ printf "%s-test-connection" (include "n8n.name" .) | quote }}
+  labels:
+    {{- include "n8n.labels" . | nindent 4 }}
+    app.kubernetes.io/component: test
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: curl
+      image: curlimages/curl:8.12.1
+      imagePullPolicy: {{ "IfNotPresent" | quote }}
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+      command:
+        - /bin/sh
+        - -ec
+      args:
+        - |
+          url={{ printf "http://%s-web-svc:%v/healthz" (include "n8n.name" .) .Values.web.service.port | quote }}
+          echo "Checking ${url}"
+          curl \
+            --fail \
+            --show-error \
+            --silent \
+            --connect-timeout 5 \
+            --max-time 10 \
+            --retry 20 \
+            --retry-delay 2 \
+            --retry-connrefused \
+            "${url}" >/dev/null
