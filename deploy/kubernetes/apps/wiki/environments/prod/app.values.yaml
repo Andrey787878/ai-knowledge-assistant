@@ -1,0 +1,42 @@
+---
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: traefik
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.middlewares: wiki-https-redirect@kubernetescrd
+  hosts:
+    - host: wiki.poluyanov.net
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: wiki-tls
+      hosts:
+        - wiki.poluyanov.net
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+externalPostgresql:
+  host: postgres-postgresql.db.svc.cluster.local
+  port: '5432'
+  database: wikijs
+  username: wikijs
+  existingSecret: wiki-external-postgresql
+  existingSecretKey: password
+  ssl: false
+
+postgresql:
+  enabled: false
