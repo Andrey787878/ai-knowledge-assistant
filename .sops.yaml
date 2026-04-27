@@ -1,0 +1,4 @@
+---
+creation_rules:
+  - path_regex: ^deploy/kubernetes/apps/.*/environments/.*/.*\.enc\.yaml$
+    age: age1l4t3wd0cnxzqskhgttme07pg4lfsd8twsh2qppcdjqy3shtahq8salfrxu
