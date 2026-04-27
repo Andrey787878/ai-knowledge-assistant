@@ -1,0 +1,12 @@
+---
+helmDefaults:
+  skipDeps: true
+
+releases:
+  - name: redis
+    namespace: {{ .Values.namespace | quote }}
+    createNamespace: false
+    chart: ../../../vendor_charts/redis
+    wait: true
+    values:
+      - ../environments/prod/app.values.yaml
