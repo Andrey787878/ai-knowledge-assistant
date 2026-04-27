@@ -1,0 +1,7 @@
+---
+apiVersion: v2
+name: ollama
+description: Helm chart for Ollama runtime
+type: application
+version: 1.0.0
+appVersion: '0.18.1'

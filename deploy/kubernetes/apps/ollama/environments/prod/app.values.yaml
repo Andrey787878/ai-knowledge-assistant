@@ -1,0 +1,82 @@
+---
+nameOverride: ollama
+fullnameOverride: ''
+
+image:
+  repository: ollama/ollama
+  tag: '0.18.1'
+  digest: 'sha256:5949ec041e62b28f92d5ff1d7c34080ec67efd73ad24a523e2ff558a24f33072'
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+podAnnotations: {}
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+
+service:
+  type: ClusterIP
+  port: 11434
+  targetPort: 11434
+
+ollama:
+  replicas: 1
+  env:
+    OLLAMA_HOST: 0.0.0.0:11434
+    OLLAMA_KEEP_ALIVE: 5m
+  probes:
+    enabled: true
+    startup:
+      httpGet:
+        path: /api/version
+        port: http
+        scheme: HTTP
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 24
+    readiness:
+      httpGet:
+        path: /api/tags
+        port: http
+        scheme: HTTP
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 12
+    liveness:
+      httpGet:
+        path: /api/version
+        port: http
+        scheme: HTTP
+      initialDelaySeconds: 40
+      periodSeconds: 20
+      timeoutSeconds: 3
+      failureThreshold: 6
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: 2000m
+      memory: 6Gi
+
+persistence:
+  enabled: true
+  existingClaim: ''
+  storageClass: local-path
+  accessModes:
+    - ReadWriteOnce
+  size: 15Gi
+  mountPath: /root/.ollama
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
