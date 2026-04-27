@@ -1,0 +1,86 @@
+---
+helmDefaults:
+  skipDeps: true
+
+releases:
+  - name: redis-networkpolicy
+    namespace: {{ .Values.namespace | quote }}
+    createNamespace: false
+    chart: ../../../vendor_charts/raw
+    wait: true
+    values:
+      - resources:
+          - apiVersion: networking.k8s.io/v1
+            kind: NetworkPolicy
+            metadata:
+              name: redis-default-deny
+              labels:
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              podSelector:
+                matchLabels:
+                  app.kubernetes.io/instance: redis
+                  app.kubernetes.io/name: redis
+              policyTypes:
+                - Ingress
+                - Egress
+          - apiVersion: networking.k8s.io/v1
+            kind: NetworkPolicy
+            metadata:
+              name: redis-allow-ingress-from-n8n
+              labels:
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              podSelector:
+                matchLabels:
+                  app.kubernetes.io/instance: redis
+                  app.kubernetes.io/name: redis
+              policyTypes:
+                - Ingress
+              ingress:
+                - from:
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: {{ .Values.namespace | quote }}
+                      podSelector:
+                        matchLabels:
+                          app.kubernetes.io/name: n8n
+                  ports:
+                    - protocol: TCP
+                      port: 6379
+
+          - apiVersion: networking.k8s.io/v1
+            kind: NetworkPolicy
+            metadata:
+              name: redis-allow-egress-dns
+              labels:
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              podSelector:
+                matchLabels:
+                  app.kubernetes.io/instance: redis
+                  app.kubernetes.io/name: redis
+              policyTypes:
+                - Egress
+              egress:
+                - to:
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: kube-system
+                      podSelector:
+                        matchLabels:
+                          k8s-app: kube-dns
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: kube-system
+                      podSelector:
+                        matchLabels:
+                          app.kubernetes.io/name: coredns
+                  ports:
+                    - protocol: UDP
+                      port: 53
+                    - protocol: TCP
+                      port: 53
