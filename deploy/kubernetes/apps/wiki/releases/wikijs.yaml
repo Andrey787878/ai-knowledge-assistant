@@ -1,0 +1,12 @@
+---
+helmDefaults:
+  skipDeps: true
+
+releases:
+  - name: wikijs
+    namespace: {{ .Values.namespace | quote }}
+    createNamespace: false
+    chart: ../../../vendor_charts/wiki
+    wait: true
+    values:
+      - ../environments/prod/app.values.yaml
