@@ -1,0 +1,64 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "n8n.name" . }}-web
+  labels:
+    {{- include "n8n.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  replicas: {{ .Values.web.replicas }}
+  selector:
+    matchLabels:
+      {{- include "n8n.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: web
+  template:
+    metadata:
+      labels:
+        {{- include "n8n.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: web
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: n8n-web
+          image: {{ include "n8n.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
+          command: ["n8n"]
+          args: ["start"]
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.web.service.targetPort }}
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              value: production
+          envFrom:
+            - configMapRef:
+                name: {{ include "n8n.name" . }}-cm
+            - secretRef:
+                name: {{ include "n8n.name" . }}-secret
+          {{- with .Values.web.probes.readiness }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.web.probes.liveness }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.web.resources | nindent 12 }}

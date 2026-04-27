@@ -1,0 +1,146 @@
+---
+nameOverride: ''
+fullnameOverride: ''
+
+image:
+  repository: n8nio/n8n
+  tag: 'stable'
+  digest: 'sha256:1e764de257f2b1eb6fc0e2477bd82cf8f5de9e68b82ac243b1a2db1551426723'
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+web:
+  replicas: 1
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 5678
+  probes:
+    readiness:
+      httpGet:
+        path: /healthz/readiness
+        port: http
+        scheme: HTTP
+      initialDelaySeconds: 20
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 6
+    liveness:
+      httpGet:
+        path: /healthz
+        port: http
+        scheme: HTTP
+      initialDelaySeconds: 40
+      periodSeconds: 20
+      timeoutSeconds: 3
+      failureThreshold: 6
+  ingress:
+    enabled: true
+    className: traefik
+    host: n8n.example.com
+    path: /
+    pathType: Prefix
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    tls:
+      enabled: true
+      secretName: n8n-tls
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+worker:
+  replicas: 1
+  probes:
+    readiness:
+      httpGet:
+        path: /healthz/readiness
+        port: 5678
+        scheme: HTTP
+      initialDelaySeconds: 20
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 6
+    liveness:
+      httpGet:
+        path: /healthz
+        port: 5678
+        scheme: HTTP
+      initialDelaySeconds: 40
+      periodSeconds: 20
+      timeoutSeconds: 3
+      failureThreshold: 6
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+postgres:
+  host: postgres.example.svc.cluster.local
+  port: 5432
+  database: n8n
+  user: n8n
+
+wikiPostgres:
+  host: postgres.example.svc.cluster.local
+  port: 5432
+  database: wikijs
+  user: wikijs
+
+redis:
+  host: redis.example.svc.cluster.local
+  port: 6379
+
+agent:
+  wikiSchema: public
+  wikiTable: pages
+  wikiTitleColumn: title
+  wikiPathColumn: path
+  wikiContentColumn: content
+  wikiLimit: 5
+  wikiContextChars: 8000
+
+n8n:
+  protocol: https
+  host: n8n.example.com
+  editorBaseUrl: https://n8n.example.com/
+  webhookUrl: https://n8n.example.com/
+  internalWebhookBaseUrl: http://n8n-web-svc.n8n.svc.cluster.local
+  agentQueryWebhookPath: CHANGE_ME_AGENT_QUERY_WEBHOOK_PATH
+  memoryReadWebhookPath: CHANGE_ME_MEMORY_READ_WEBHOOK_PATH
+  memoryWriteWebhookPath: CHANGE_ME_MEMORY_WRITE_WEBHOOK_PATH
+  ollamaBaseUrl: http://ollama.example.svc.cluster.local:11434
+  ollamaModel: ''
+  blockEnvAccessInNode: false
+  timezone: Europe/Moscow
+  logLevel: info
+  workerConcurrency: 10
+
+secrets:
+  dbPassword: CHANGE_ME_DB_PASSWORD
+  wikiDbPassword: CHANGE_ME_WIKI_DB_PASSWORD
+  redisPassword: CHANGE_ME_REDIS_PASSWORD
+  encryptionKey: CHANGE_ME_LONG_RANDOM_ENCRYPTION_KEY
