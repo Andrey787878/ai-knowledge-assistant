@@ -1,0 +1,14 @@
+---
+environments:
+  prod:
+    values:
+      - environments/prod/meta.values.yaml
+      - environments/prod/backup.values.yaml
+      - environments/prod/restore.values.yaml
+
+helmfiles:
+  - path: releases/restore-job.yaml
+    values:
+      - environments/prod/meta.values.yaml
+      - environments/prod/backup.values.yaml
+      - environments/prod/restore.values.yaml
