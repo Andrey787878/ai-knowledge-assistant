@@ -1,0 +1,14 @@
+---
+helmDefaults:
+  skipDeps: true
+
+releases:
+  - name: postgres
+    namespace: {{ .Values.namespace | quote }}
+    createNamespace: false
+    chart: ../../../vendor_charts/postgresql
+    wait: true
+    values:
+      - ../environments/prod/app.values.yaml
+    secrets:
+      - ../environments/prod/secrets.values.enc.yaml
