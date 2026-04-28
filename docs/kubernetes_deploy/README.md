@@ -1,51 +1,49 @@
-# Этап B (k3s): документация
+# Этап B (single-node k3s): документация Terraform + Ansible bootstrap + Helmfile
 
-Единая навигация по Kubernetes-деплою Stage B.
+Единая точка входа в документацию этапа B.
 
-## Быстрые ссылки
+## Назначение
 
-- [Главный ранбук Kubernetes-слоя](../../deploy/kubernetes/README.md)
-- [Terraform инфраструктура](../../deploy/terraform/k3s_deploy/README.md)
-- [Ansible bootstrap](../../deploy/kubernetes/bootstrap/README.md)
-- [Platform слой](../../deploy/kubernetes/platform/README.md)
-- [Эксплуатация и приемка](./operations-stage-b.md)
+Этап B разворачивает single-node k3s и сервисы в Kubernetes через Helmfile:
 
-## Архитектурные документы
+- `platform` (namespaces + cert-manager + ClusterIssuer)
+- `db` (PostgreSQL + backup/restore jobs)
+- `n8n` (n8n-web + n8n-worker + redis + workflows jobs)
+- `wiki` (Wiki.js)
+- `ollama` (Ollama + model-pull job)
+
+## Запуск и приемка
+
+- [Terraform: инфраструктура этапа B](../../deploy/terraform/k3s_deploy/README.md)
+- [Ansible bootstrap k3s](../../deploy/kubernetes/bootstrap/README.md)
+- [Ранбук Kubernetes-деплоя](../../deploy/kubernetes/README.md)
+- [Эксплуатация и приемка](./operations.md)
+- [Карта helmfile/release](./helmfiles-releases-map.md)
+
+## Сеть и безопасность
+
+![Схема сети этапа B](./diagrams/network-topology.png)
 
 - [Сеть и NetworkPolicy](./network.md)
-- [Edge TLS и ACME](./edge-tls-acme.md)
+- [Ingress TLS и ACME](./ingress-tls-acme.md)
 - [Ранбук по сертификатам](./certificates-runbook.md)
-- [Backup/Restore PostgreSQL](./backup-restore.md)
 
-## Документация по app-слоям
+## Данные
 
+- [PostgreSQL: backup/restore](./backup-restore.md)
+
+## Слои и приложения
+
+- [Platform слой](../../deploy/kubernetes/platform/README.md)
 - [apps/postgres](../../deploy/kubernetes/apps/postgres/README.md)
 - [apps/redis](../../deploy/kubernetes/apps/redis/README.md)
 - [apps/wiki](../../deploy/kubernetes/apps/wiki/README.md)
 - [apps/ollama](../../deploy/kubernetes/apps/ollama/README.md)
 - [apps/n8n](../../deploy/kubernetes/apps/n8n/README.md)
 
-## Charts и workflows
+## Проектные Helm charts (apps)
+
+Ниже перечислены Helm charts, которые разрабатываются в проекте (`deploy/kubernetes/apps/*/chart`), в отличие от вендорных снапшотов в `deploy/kubernetes/vendor_charts`.
 
 - [n8n chart](../../deploy/kubernetes/apps/n8n/chart/README.md)
 - [ollama chart](../../deploy/kubernetes/apps/ollama/chart/README.md)
-- [n8n workflows](../../n8n/workflows/README.md)
-
-## Рекомендуемый порядок запуска Stage B
-
-1. `deploy/terraform/k3s_deploy`
-2. `deploy/kubernetes/bootstrap`
-3. `deploy/kubernetes/platform`
-4. `deploy/kubernetes/apps/postgres`
-5. `deploy/kubernetes/apps/redis`
-6. `deploy/kubernetes/apps/wiki`
-7. `deploy/kubernetes/apps/ollama`
-8. `deploy/kubernetes/apps/n8n`
-
-## Definition Of Done
-
-- Terraform применен без ошибок.
-- `bootstrap` smoke прошел, узел `k3s` в `Ready`.
-- `cert-manager` и `ClusterIssuer` в `Ready`.
-- Все app-слои применяются через `helmfile -e prod sync`.
-- Базовые health-проверки `wiki`, `n8n`, `ollama` проходят.

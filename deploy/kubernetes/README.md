@@ -1,11 +1,21 @@
-# Этап B (k3s): ранбук Kubernetes-деплоя
+# Этап B (single-node k3s): Kubernetes runbook
 
-Пошаговый ранбук Kubernetes-слоя проекта.
-Этот слой применяется через единый Helmfile и разворачивает platform + apps.
+Единая точка запуска для Kubernetes-этапа (k3s + Helmfile).
 
-Индекс этапной документации: [README этапа B](../../docs/kubernetes_deploy/README.md)
+Индекс документации этапа B: [README этапа B](../../docs/kubernetes_deploy/README.md)
 
 ![Архитектура и сеть этапа B](../../docs/kubernetes_deploy/diagrams/network-topology.png)
+
+## Назначение
+
+Этот этап разворачивает кластерный слой на single-node k3s:
+
+- `platform` (cert-manager, ClusterIssuer, namespaces)
+- `apps/postgres`
+- `apps/redis`
+- `apps/wiki`
+- `apps/ollama`
+- `apps/n8n`
 
 ## Быстрый старт
 
@@ -13,80 +23,21 @@
 export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/config-k3s}"
 
 cd deploy/kubernetes
-
-# Проверка рендера
 helmfile -e prod build > /tmp/k3s-build.yaml
-
-# Применение всех слоев
 helmfile -e prod sync
 ```
 
-## Связанная документация
-
-- [Bootstrap k3s](./bootstrap/README.md)
-- [Platform слой](./platform/README.md)
-- [apps/postgres](./apps/postgres/README.md)
-- [apps/redis](./apps/redis/README.md)
-- [apps/wiki](./apps/wiki/README.md)
-- [apps/ollama](./apps/ollama/README.md)
-- [apps/n8n](./apps/n8n/README.md)
-
-## Оглавление
-
-- [Критерии готовности](#definition-of-done)
-- [Что деплоится и в каком порядке](#step-1)
-- [Предусловия](#step-2)
-- [Проверка перед запуском](#step-3)
-- [Порядок запуска](#step-4)
-- [Проверка после деплоя](#step-5)
-- [Обновление и удаление](#step-6)
-- [Частые ошибки и быстрые фиксы](#step-7)
-
-<a id="definition-of-done"></a>
-
-## Критерии готовности
-
-- `helmfile -e prod sync` завершился без ошибок.
-- `cert-manager` pod-ы в `Running`.
-- `ClusterIssuer` в `Ready=True`.
-- Runtime приложения в `Running`:
-  - `postgres` (`db`)
-  - `redis` (`n8n`)
-  - `wikijs` (`wiki`)
-  - `ollama` (`ollama`)
-  - `n8n-web` и `n8n-worker` (`n8n`)
-
-<a id="step-1"></a>
-
-## Что деплоится и в каком порядке
-
-Порядок задается в [helmfile.yaml](./helmfile.yaml):
-
-1. `platform/helmfile.yaml`
-2. `apps/postgres/helmfile.yaml`
-3. `apps/redis/helmfile.yaml`
-4. `apps/wiki/helmfile.yaml`
-5. `apps/ollama/helmfile.yaml`
-6. `apps/n8n/helmfile.yaml`
-
-<a id="step-2"></a>
-
 ## Предусловия
 
-- Terraform-этап выполнен: `deploy/terraform/k3s_deploy`.
-- Bootstrap-этап выполнен: `deploy/kubernetes/bootstrap`.
-- Есть рабочий `KUBECONFIG` (`~/.kube/config-k3s`).
-- Установлены:
-  - `kubectl`
-  - `helm`
-  - `helmfile`
-  - `sops`
-  - `age`
+- Terraform Этап B выполнен: `deploy/terraform/k3s_deploy`.
+- Bootstrap Этап B выполнен: `deploy/kubernetes/bootstrap`.
+- Установлены: `kubectl`, `helm`, `helmfile`, `sops`, `age`.
 - Установлен Helm plugin `secrets`.
+- Доступен `KUBECONFIG` к целевому k3s-кластеру.
 
-<a id="step-3"></a>
+## Подготовка
 
-## Проверка перед запуском
+Проверки перед запуском:
 
 ```bash
 export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/config-k3s}"
@@ -97,9 +48,18 @@ helmfile --version
 helm plugin list
 ```
 
-<a id="step-4"></a>
+Порядок слоев задан в [helmfile.yaml](./helmfile.yaml):
+
+1. `platform/helmfile.yaml`
+2. `apps/postgres/helmfile.yaml`
+3. `apps/redis/helmfile.yaml`
+4. `apps/wiki/helmfile.yaml`
+5. `apps/ollama/helmfile.yaml`
+6. `apps/n8n/helmfile.yaml`
 
 ## Порядок запуска
+
+Полный запуск:
 
 ```bash
 cd deploy/kubernetes
@@ -107,14 +67,12 @@ helmfile -e prod build > /tmp/k8s-stage-build.yaml
 helmfile -e prod sync
 ```
 
-Если нужно применить только один app-слой:
+Точечный запуск одного слоя (пример `n8n`):
 
 ```bash
 cd deploy/kubernetes/apps/n8n
 helmfile -e prod sync
 ```
-
-<a id="step-5"></a>
 
 ## Проверка после деплоя
 
@@ -138,9 +96,13 @@ kubectl -n wiki rollout status deploy/wikijs
 kubectl -n ollama rollout status deploy/ollama
 ```
 
-<a id="step-6"></a>
+Критерий готовности:
 
-## Обновление и удаление
+- `helmfile -e prod sync` завершился без ошибок;
+- runtime workloads в `Running`;
+- `ClusterIssuer` в `Ready=True`.
+
+## Операционные команды
 
 Обновление:
 
@@ -149,34 +111,51 @@ cd deploy/kubernetes
 helmfile -e prod sync
 ```
 
-Удаление всего Kubernetes-слоя:
+Удаление слоя:
 
 ```bash
 cd deploy/kubernetes
 helmfile -e prod destroy
 ```
 
-<a id="step-7"></a>
-
-## Частые ошибки и быстрые фиксы
+## Частые проблемы
 
 `Kubernetes cluster unreachable`:
 
 - проверьте `KUBECONFIG`;
-- проверьте доступность API `:6443`.
+- проверьте доступ к API `:6443`.
 
 `failed to decrypt`:
 
-- проверьте AGE ключ (`~/.config/sops/age/keys.txt`);
+- проверьте `~/.config/sops/age/keys.txt`;
 - проверьте доступ к `*.enc.yaml`.
 
 `n8n workflows import failed`:
 
-- проверьте логи:
+- проверьте логи job:
   `kubectl -n n8n logs job/n8n-import-workflows --tail=200`.
 
 `certificate not ready`:
 
-- проверьте DNS;
-- проверьте `kubectl describe clusterissuer letsencrypt-prod`;
-- проверьте доступность HTTP-01 (`80/tcp`).
+- проверьте DNS и HTTP-01 доступность `80/tcp`;
+- проверьте `kubectl describe clusterissuer letsencrypt-prod`.
+
+## Связанная документация
+
+- [Индекс Kubernetes-документации](../../docs/kubernetes_deploy/README.md)
+- [Сеть](../../docs/kubernetes_deploy/network.md)
+- [Ingress TLS и ACME](../../docs/kubernetes_deploy/ingress-tls-acme.md)
+- [Ранбук по сертификатам](../../docs/kubernetes_deploy/certificates-runbook.md)
+- [Резервное копирование и восстановление PostgreSQL](../../docs/kubernetes_deploy/backup-restore.md)
+- [Эксплуатация и приемка](../../docs/kubernetes_deploy/operations.md)
+- [Карта helmfile/release](../../docs/kubernetes_deploy/helmfiles-releases-map.md)
+
+Локальные README по слоям:
+
+- [Bootstrap k3s](./bootstrap/README.md)
+- [Platform слой](./platform/README.md)
+- [apps/postgres](./apps/postgres/README.md)
+- [apps/redis](./apps/redis/README.md)
+- [apps/wiki](./apps/wiki/README.md)
+- [apps/ollama](./apps/ollama/README.md)
+- [apps/n8n](./apps/n8n/README.md)
