@@ -184,4 +184,4 @@ helmfile -e prod sync
 
 - [README этапа B](./README.md)
 - [Сеть этапа B](./network.md)
-- [Эксплуатация этапа B](./operations-stage-b.md)
+- [Эксплуатация этапа B](./operations.md)
