@@ -1,0 +1,177 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repository:
+    name: Repository sanity
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate n8n workflow JSON
+        run: |
+          node -e '
+            const fs = require("fs");
+            const dir = "n8n/workflows";
+            for (const file of fs.readdirSync(dir).filter((name) => name.endsWith(".json"))) {
+              JSON.parse(fs.readFileSync(`${dir}/${file}`, "utf8"));
+              console.log(`ok ${file}`);
+            }
+          '
+
+      - name: Check local-only files are not committed
+        run: |
+          forbidden='(^|/)(terraform\.tfvars|backend\.hcl|hosts\.yml|zz-local\.yml|vault-pass\.txt)$|\.tfstate(\.|$)|\.tfplan$'
+          if git ls-files | grep -E "$forbidden"; then
+            echo "Local-only or state files are tracked. Remove them from git." >&2
+            exit 1
+          fi
+
+  terraform:
+    name: Terraform
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.10.5'
+
+      - name: Check formatting
+        run: terraform fmt -check -recursive deploy/terraform
+
+      - name: Validate modules
+        run: |
+          for dir in deploy/terraform/ansible_deploy deploy/terraform/k3s_deploy; do
+            echo "==> ${dir}"
+            terraform -chdir="${dir}" init -backend=false
+            terraform -chdir="${dir}" validate
+          done
+
+  helm:
+    name: Helm charts
+    runs-on: ubuntu-24.04
+    env:
+      KUBECONFORM_VERSION: '0.6.7'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      - name: Install kubeconform
+        run: |
+          curl -sSL \
+            "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
+            -o /tmp/kubeconform.tar.gz
+          tar -xzf /tmp/kubeconform.tar.gz -C /tmp kubeconform
+          sudo install -m 0755 /tmp/kubeconform /usr/local/bin/kubeconform
+          kubeconform -v
+
+      - name: Lint custom charts
+        run: |
+          helm lint deploy/kubernetes/apps/n8n/chart \
+            -f deploy/kubernetes/apps/n8n/environments/prod/app.values.yaml
+
+          helm lint deploy/kubernetes/apps/ollama/chart \
+            -f deploy/kubernetes/apps/ollama/environments/prod/app.values.yaml
+
+      - name: Render custom charts
+        run: |
+          helm template n8n deploy/kubernetes/apps/n8n/chart \
+            -f deploy/kubernetes/apps/n8n/environments/prod/app.values.yaml \
+            >/tmp/n8n-rendered.yaml
+
+          helm template ollama deploy/kubernetes/apps/ollama/chart \
+            -f deploy/kubernetes/apps/ollama/environments/prod/app.values.yaml \
+            >/tmp/ollama-rendered.yaml
+
+      - name: Validate rendered manifests
+        run: |
+          kubeconform \
+            -strict \
+            -summary \
+            -ignore-missing-schemas \
+            /tmp/n8n-rendered.yaml \
+            /tmp/ollama-rendered.yaml
+
+  ansible:
+    name: Ansible syntax
+    runs-on: ubuntu-24.04
+    env:
+      ANSIBLE_LOCAL_TEMP: /tmp/ansible-local
+      ANSIBLE_REMOTE_TEMP: /tmp/.ansible/tmp
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Ansible
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ansible-core
+          ansible --version
+
+      - name: Install Ansible collections
+        run: |
+          ansible-galaxy collection install -r deploy/ansible/requirements.yml
+          ansible-galaxy collection install -r deploy/kubernetes/bootstrap/requirements.yml
+
+      - name: Validate VM inventory example
+        run: |
+          cp deploy/ansible/inventories/cloud/hosts.yml.example /tmp/vm-hosts.yml
+          ansible-inventory -i /tmp/vm-hosts.yml --list >/tmp/vm-inventory.json
+          grep -q '"db"' /tmp/vm-inventory.json
+          grep -q '"wiki"' /tmp/vm-inventory.json
+
+      - name: Syntax check VM playbook
+        env:
+          ANSIBLE_ROLES_PATH: ${{ github.workspace }}/deploy/ansible/roles
+        run: |
+          ansible-playbook \
+            -i /tmp/vm-hosts.yml \
+            deploy/ansible/playbooks/site.yml \
+            --syntax-check
+
+      - name: Validate k3s inventory example
+        run: |
+          cp deploy/kubernetes/bootstrap/inventories/cloud/hosts.yml.example /tmp/k3s-hosts.yml
+          ansible-inventory -i /tmp/k3s-hosts.yml --list >/tmp/k3s-inventory.json
+          grep -q '"k3s"' /tmp/k3s-inventory.json
+
+      - name: Syntax check k3s bootstrap playbook
+        env:
+          ANSIBLE_ROLES_PATH: ${{ github.workspace }}/deploy/kubernetes/bootstrap/roles
+        run: |
+          ansible-playbook \
+            -i /tmp/k3s-hosts.yml \
+            deploy/kubernetes/bootstrap/playbooks/site.yml \
+            --syntax-check
