@@ -4,6 +4,7 @@ environments:
 
 helmfiles:
   - path: platform/helmfile.yaml
+  - path: observability/helmfile.yaml
   - path: apps/postgres/helmfile.yaml
   - path: apps/redis/helmfile.yaml
   - path: apps/wiki/helmfile.yaml
