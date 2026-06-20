@@ -22,6 +22,10 @@ helmfiles:
   - path: releases/http-redirect-middleware.yaml
     values:
       - environments/prod/meta.values.yaml
+  - path: releases/kube-prometheus-stack.yaml
+    values:
+      - environments/prod/meta.values.yaml
+      - environments/prod/kube-prometheus-stack.values.yaml
   - path: releases/blackbox-exporter.yaml
     values:
       - environments/prod/meta.values.yaml
@@ -29,10 +33,6 @@ helmfiles:
     values:
       - environments/prod/meta.values.yaml
       - environments/prod/app-probes.values.yaml
-  - path: releases/kube-prometheus-stack.yaml
-    values:
-      - environments/prod/meta.values.yaml
-      - environments/prod/kube-prometheus-stack.values.yaml
   - path: releases/loki.yaml
     values:
       - environments/prod/meta.values.yaml
