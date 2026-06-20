@@ -27,6 +27,8 @@
   - `deploy/kubernetes/apps/wiki/releases/networkpolicy.yaml`
   - `deploy/kubernetes/apps/redis/releases/networkpolicy.yaml`
   - `deploy/kubernetes/apps/ollama/releases/networkpolicy.yaml`
+  - `deploy/kubernetes/observability/releases/networkpolicy.yaml`
+  - `deploy/kubernetes/observability/network-policies.md`
 
 ## Сетевые зоны и trust boundary
 
@@ -58,9 +60,12 @@
 
 ### Kubernetes NetworkPolicy (внутренний периметр)
 
-- в `db`, `n8n`, `wiki`, `ollama` используется `default deny` (`Ingress + Egress`),
+- в `db`, `n8n`, `wiki`, `ollama`, `observability` используется `default deny` (`Ingress + Egress`),
 - далее добавляются только целевые `allow` policy,
 - DNS разрешается отдельными egress policy на CoreDNS.
+
+Полная матрица observability-потоков, порядок безопасного включения и rollback
+описаны в `deploy/kubernetes/observability/network-policies.md`.
 
 Важно: в `n8n` namespace policy Redis selector-ограничена (применяется к redis pod-ам), что корректно для этой роли.
 
@@ -87,6 +92,11 @@
 | `kube-system/traefik`, `n8n/(web,worker)` | `n8n-web`                   | `5678/tcp`  | `n8n/releases/networkpolicy.yaml`      |
 | `n8n/*`                                   | `n8n/redis`                 | `6379/tcp`  | `redis/releases/networkpolicy.yaml`    |
 | `n8n/*`, `ollama/ollama-ops`              | `ollama (component=ollama)` | `11434/tcp` | `ollama/releases/networkpolicy.yaml`   |
+| `observability/prometheus`                | `db/postgresql metrics`     | `9187/tcp`  | `postgres/releases/networkpolicy.yaml` |
+| `observability/prometheus`                | `n8n/redis metrics`         | `9121/tcp`  | `redis/releases/networkpolicy.yaml`    |
+| `observability/blackbox-exporter`         | `n8n/web`                   | `5678/tcp`  | `n8n/releases/networkpolicy.yaml`      |
+| `observability/blackbox-exporter`         | `wiki/wikijs`               | `3000/tcp`  | `wiki/releases/networkpolicy.yaml`     |
+| `observability/blackbox-exporter`         | `ollama`                    | `11434/tcp` | `ollama/releases/networkpolicy.yaml`   |
 | `kube-system/traefik`                     | `n8n/http01-solver`         | `8089/tcp`  | `n8n/releases/networkpolicy.yaml`      |
 | `kube-system/traefik`                     | `wiki/http01-solver`        | `8089/tcp`  | `wiki/releases/networkpolicy.yaml`     |
 

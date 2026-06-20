@@ -29,9 +29,11 @@ Observability-слой кластера: метрики Kubernetes, логи wor
 - `releases/kube-prometheus-stack.yaml` — релиз monitoring stack
 - `releases/loki.yaml` — хранилище логов
 - `releases/alloy.yaml` — сбор логов Kubernetes pods
+- `releases/networkpolicy.yaml` — allow-list и default deny для observability
 - `environments/prod/kube-prometheus-stack.values.yaml` — параметры production
 - `environments/prod/secrets.values.enc.yaml` — production secrets
 - `environments/prod/meta.values.yaml` — namespace и общие labels
+- `network-policies.md` — матрица трафика, rollout, проверки и rollback
 
 ## Как применять
 
@@ -65,4 +67,7 @@ Port-forward можно использовать для локальной пр�
 - SMTP app password для Alertmanager хранится в `environments/prod/secrets.values.enc.yaml` по ключу `alertmanager.smtp.auth_password`.
 - Loki хранит логи 7 дней на `local-path` PVC размером `10Gi`.
 - Alloy начинает читать новые строки после запуска и отправляет их в `loki-gateway`.
+- Blackbox напрямую проверяет ClusterIP-сервисы n8n, Wiki.js и Ollama.
+- NetworkPolicy применяются как explicit allow-list с namespace-wide default deny.
+- Перед изменением IP ноды или Service CIDR обновите `network_policy` в `meta.values.yaml`.
 - Traces пока не входят в этот слой.
