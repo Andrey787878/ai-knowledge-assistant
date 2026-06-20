@@ -47,6 +47,12 @@ releases:
                           app.kubernetes.io/name: n8n
                     - namespaceSelector:
                         matchLabels:
+                          kubernetes.io/metadata.name: {{ .Values.observability_namespace | quote }}
+                      podSelector:
+                        matchLabels:
+                          app.kubernetes.io/name: blackbox-exporter
+                    - namespaceSelector:
+                        matchLabels:
                           kubernetes.io/metadata.name: {{ .Values.namespace | quote }}
                       podSelector:
                         matchLabels:
