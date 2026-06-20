@@ -54,7 +54,7 @@ n8n_common_agent_wiki_schema: public
 n8n_common_agent_wiki_table: pages
 n8n_common_agent_wiki_title_column: title
 n8n_common_agent_wiki_path_column: path
-n8n_common_agent_wiki_content_column: render
+n8n_common_agent_wiki_content_column: content
 n8n_common_agent_wiki_limit: 5
 n8n_common_agent_wiki_context_chars: 8000
 n8n_common_agent_wiki_min_score: 2
