@@ -151,7 +151,8 @@ jobs:
             -f deploy/kubernetes/apps/ollama/environments/prod/app.values.yaml
 
           helm lint deploy/kubernetes/vendor_charts/kube-prometheus-stack \
-            -f deploy/kubernetes/observability/environments/prod/kube-prometheus-stack.values.yaml
+            -f deploy/kubernetes/observability/environments/prod/kube-prometheus-stack.values.yaml \
+            --set alertmanager.smtp.auth_password=dummy
 
           helm lint deploy/kubernetes/vendor_charts/loki \
             -f deploy/kubernetes/observability/environments/prod/loki.values.yaml
@@ -176,6 +177,7 @@ jobs:
             deploy/kubernetes/vendor_charts/kube-prometheus-stack \
             --namespace observability \
             -f deploy/kubernetes/observability/environments/prod/kube-prometheus-stack.values.yaml \
+            --set alertmanager.smtp.auth_password=dummy \
             >/tmp/kube-prometheus-stack-rendered.yaml
 
           helm template loki deploy/kubernetes/vendor_charts/loki \
