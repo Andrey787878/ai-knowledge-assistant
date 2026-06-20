@@ -8,7 +8,10 @@ releases:
     createNamespace: false
     chart: ../../vendor_charts/kube-prometheus-stack
     wait: true
-    secrets:
-      - ../environments/prod/secrets.values.enc.yaml
     values:
+      {{- if eq .Environment.Name "prod" }}
+      - ../environments/prod/secrets.values.enc.yaml
+      {{- else }}
+      - ../environments/ci/secrets.values.yaml
+      {{- end }}
       - ../environments/prod/kube-prometheus-stack.values.yaml

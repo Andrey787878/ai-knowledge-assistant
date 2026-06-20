@@ -7,6 +7,13 @@ environments:
       - environments/prod/loki.values.yaml
       - environments/prod/alloy.values.yaml
       - environments/prod/app-probes.values.yaml
+  ci:
+    values:
+      - environments/prod/meta.values.yaml
+      - environments/prod/kube-prometheus-stack.values.yaml
+      - environments/prod/loki.values.yaml
+      - environments/prod/alloy.values.yaml
+      - environments/prod/app-probes.values.yaml
 
 helmfiles:
   - path: releases/grafana-admin-secret.yaml

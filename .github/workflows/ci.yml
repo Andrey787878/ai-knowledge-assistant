@@ -178,7 +178,7 @@ jobs:
             -f deploy/kubernetes/observability/environments/prod/alloy.values.yaml
 
       - name: Validate Helmfile composition
-        run: helmfile -f deploy/kubernetes/helmfile.yaml -e prod build >/dev/null
+        run: helmfile -f deploy/kubernetes/helmfile.yaml -e ci build >/dev/null
 
       - name: Render charts
         run: |
@@ -210,7 +210,7 @@ jobs:
 
       - name: Render full Kubernetes stack
         run: |
-          helmfile -f deploy/kubernetes/helmfile.yaml -e prod template \
+          helmfile -f deploy/kubernetes/helmfile.yaml -e ci template \
             >/tmp/k8s-rendered.yaml
 
       - name: Validate rendered manifests

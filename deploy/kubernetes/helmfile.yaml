@@ -1,6 +1,7 @@
 ---
 environments:
   prod: {}
+  ci: {}
 
 helmfiles:
   - path: platform/helmfile.yaml

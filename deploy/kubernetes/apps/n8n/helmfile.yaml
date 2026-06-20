@@ -5,6 +5,11 @@ environments:
       - environments/prod/meta.values.yaml
       - environments/prod/app.values.yaml
       - environments/prod/workflows.values.yaml
+  ci:
+    values:
+      - environments/prod/meta.values.yaml
+      - environments/prod/app.values.yaml
+      - environments/prod/workflows.values.yaml
 
 helmfiles:
   - path: releases/networkpolicy.yaml
