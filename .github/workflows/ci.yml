@@ -122,6 +122,23 @@ jobs:
         with:
           version: 'v3.20.0'
 
+      - name: Install SOPS
+        env:
+          SOPS_VERSION: '3.10.2'
+        run: |
+          curl -sSL \
+            "https://github.com/getsops/sops/releases/download/v${SOPS_VERSION}/sops-v${SOPS_VERSION}.linux.amd64" \
+            -o /tmp/sops
+          sudo install -m 0755 /tmp/sops /usr/local/bin/sops
+          sops --version
+
+      - name: Install helm-secrets plugin
+        env:
+          HELM_SECRETS_VERSION: '4.6.11'
+        run: |
+          helm plugin install https://github.com/jkroepke/helm-secrets --version "v${HELM_SECRETS_VERSION}"
+          helm plugin list
+
       - name: Install Helmfile
         env:
           HELMFILE_VERSION: '0.170.1'
