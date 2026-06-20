@@ -11,6 +11,7 @@
 Этот этап разворачивает кластерный слой на single-node k3s:
 
 - `platform` (cert-manager, ClusterIssuer, namespaces)
+- `observability` (Prometheus, Alertmanager, Grafana, Loki, Alloy)
 - `apps/postgres`
 - `apps/redis`
 - `apps/wiki`
@@ -51,11 +52,12 @@ helm plugin list
 Порядок слоев задан в [helmfile.yaml](./helmfile.yaml):
 
 1. `platform/helmfile.yaml`
-2. `apps/postgres/helmfile.yaml`
-3. `apps/redis/helmfile.yaml`
-4. `apps/wiki/helmfile.yaml`
-5. `apps/ollama/helmfile.yaml`
-6. `apps/n8n/helmfile.yaml`
+2. `observability/helmfile.yaml`
+3. `apps/postgres/helmfile.yaml`
+4. `apps/redis/helmfile.yaml`
+5. `apps/wiki/helmfile.yaml`
+6. `apps/ollama/helmfile.yaml`
+7. `apps/n8n/helmfile.yaml`
 
 ## Порядок запуска
 
@@ -81,6 +83,7 @@ kubectl get ns
 kubectl -n cert-manager get pods
 kubectl get clusterissuer
 
+kubectl -n observability get pods,svc,pvc
 kubectl -n db get pods
 kubectl -n n8n get deploy,pods,svc,ingress,job
 kubectl -n wiki get deploy,pods,svc,ingress
@@ -154,6 +157,7 @@ helmfile -e prod destroy
 
 - [Bootstrap k3s](./bootstrap/README.md)
 - [Platform слой](./platform/README.md)
+- [Observability слой](./observability/README.md)
 - [apps/postgres](./apps/postgres/README.md)
 - [apps/redis](./apps/redis/README.md)
 - [apps/wiki](./apps/wiki/README.md)

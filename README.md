@@ -60,10 +60,10 @@ Wiki.js выступает единым централизованным ист�
 - `2` воспроизводимых контура деплоя: VM-контур и Kubernetes-контур.
 - `4` VM в Этапе A: `wiki`, `db`, `n8n`, `ollama`.
 - `1` публичная VM в Этапе A: только `wiki` имеет public IP и выполняет роль edge/bastion.
-- `6` Helmfile-слоев в Этапе B: `platform`, `postgres`, `redis`, `wiki`, `ollama`, `n8n`.
+- `7` Helmfile-слоев в Этапе B: `platform`, `observability`, `postgres`, `redis`, `wiki`, `ollama`, `n8n`.
 - `5` n8n workflow: `agent_query_main`, `memory_read`, `memory_write`, `agent_chat_ui`, `agent_smoke_e2e`.
 - `2` собственных Helm-чарта: `n8n` и `ollama`.
-- Локально сохраненные сторонние Helm-чарты: `postgresql`, `redis`, `wiki`, `cert-manager`, `raw`.
+- Локально сохраненные сторонние Helm-чарты: `postgresql`, `redis`, `wiki`, `cert-manager`, `kube-prometheus-stack`, `loki`, `alloy`, `raw`.
 - Backup/restore PostgreSQL на обоих этапах с проверкой целостности и явным подтверждением восстановления.
 
 ## Этап A: VM-контур
@@ -114,7 +114,7 @@ Wiki.js выступает единым централизованным ист�
 - HTTP-to-HTTPS redirect настроен через Traefik Middleware.
 - Kubernetes secrets хранятся в SOPS-encrypted values.
 - Для n8n и Ollama написаны собственные Helm-чарты.
-- PostgreSQL, Redis, Wiki.js, cert-manager и raw-ресурсы разворачиваются через локально сохраненные сторонние Helm-чарты.
+- PostgreSQL, Redis, Wiki.js, cert-manager, observability-компоненты и raw-ресурсы разворачиваются через локально сохраненные сторонние Helm-чарты.
 - NetworkPolicy реализует запрет по умолчанию и точечные разрешения только для нужных сервисных связей.
 
 Ключевые директории:

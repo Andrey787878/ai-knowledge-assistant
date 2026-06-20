@@ -7,6 +7,7 @@
 Этап B разворачивает single-node k3s и сервисы в Kubernetes через Helmfile:
 
 - `platform` (namespaces + cert-manager + ClusterIssuer)
+- `observability` (Prometheus + Alertmanager + Grafana + Loki + Alloy)
 - `db` (PostgreSQL + backup/restore jobs)
 - `n8n` (n8n-web + n8n-worker + redis + workflows jobs)
 - `wiki` (Wiki.js)
@@ -35,6 +36,7 @@
 ## Слои и приложения
 
 - [Platform слой](../../deploy/kubernetes/platform/README.md)
+- [Observability слой](../../deploy/kubernetes/observability/README.md)
 - [apps/postgres](../../deploy/kubernetes/apps/postgres/README.md)
 - [apps/redis](../../deploy/kubernetes/apps/redis/README.md)
 - [apps/wiki](../../deploy/kubernetes/apps/wiki/README.md)
