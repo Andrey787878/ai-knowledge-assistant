@@ -2,3 +2,8 @@
 namespace: observability
 app_part_of: ai-knowledge-assistant
 app_managed_by: helmfile
+
+network_policy:
+  kubernetes_api_service_cidr: 10.43.0.1/32
+  node_cidr: 10.20.0.3/32
+  external_cidr: 0.0.0.0/0

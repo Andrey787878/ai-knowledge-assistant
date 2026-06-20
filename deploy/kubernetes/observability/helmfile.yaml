@@ -41,3 +41,6 @@ helmfiles:
     values:
       - environments/prod/meta.values.yaml
       - environments/prod/alloy.values.yaml
+  - path: releases/networkpolicy.yaml
+    values:
+      - environments/prod/meta.values.yaml

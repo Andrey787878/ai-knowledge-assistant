@@ -63,6 +63,12 @@ releases:
                       podSelector:
                         matchLabels:
                           app: traefik
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: observability
+                      podSelector:
+                        matchLabels:
+                          app.kubernetes.io/name: blackbox-exporter
                   ports:
                     - protocol: TCP
                       port: 5678
