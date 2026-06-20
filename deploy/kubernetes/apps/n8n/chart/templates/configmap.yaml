@@ -42,7 +42,6 @@ data:
   OLLAMA_MODEL: {{ .Values.n8n.ollamaModel | quote }}
   {{- end }}
   N8N_LOG_LEVEL: {{ .Values.n8n.logLevel | quote }}
-  N8N_CONCURRENCY: {{ .Values.n8n.workerConcurrency | toString | quote }}
 
   TZ: {{ .Values.n8n.timezone | quote }}
   GENERIC_TIMEZONE: {{ .Values.n8n.timezone | quote }}

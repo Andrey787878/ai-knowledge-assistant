@@ -35,7 +35,7 @@ spec:
           image: {{ include "n8n.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
           command: ["n8n"]
-          args: ["worker"]
+          args: ["worker", "--concurrency={{ .Values.n8n.workerConcurrency }}"]
           {{- with .Values.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}

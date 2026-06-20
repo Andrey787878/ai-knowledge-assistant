@@ -137,7 +137,7 @@ n8n:
   blockEnvAccessInNode: false
   timezone: Europe/Moscow
   logLevel: info
-  workerConcurrency: 10
+  workerConcurrency: 5
 
 secrets:
   dbPassword: CHANGE_ME_DB_PASSWORD
