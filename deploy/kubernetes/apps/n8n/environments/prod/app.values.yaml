@@ -18,7 +18,7 @@ n8n:
   memoryWriteWebhookPath: a1b7c2f4-3f20-4f57-9f4e-7f1b8d2f4c02/webhook_memory_write/agent-memory-write
   ollamaBaseUrl: http://ollama-svc.ollama.svc.cluster.local:11434
   blockEnvAccessInNode: false
-  ollamaModel: qwen2.5:1.5b
+  ollamaModel: qwen3:4b
 
 postgres:
   host: postgres-postgresql.db.svc.cluster.local
