@@ -123,6 +123,7 @@ if [[ "${WITH_GLOBALS}" == "true" ]]; then
     exit 1
   fi
   k cp "${BACKUP_DIR}/globals.sql" "${PG_NAMESPACE}/${PG_POD}:/tmp/globals.sql"
+  # shellcheck disable=SC2016
   k exec "${PG_POD}" -- sh -eu -c 'PGPASSWORD="$1" psql -v ON_ERROR_STOP=1 -U "$2" -d postgres -f /tmp/globals.sql' sh "${PG_PASSWORD}" "${PG_USER}"
   k exec "${PG_POD}" -- rm -f /tmp/globals.sql
 fi
@@ -137,6 +138,7 @@ for db_name in "${BACKUP_DATABASES[@]}"; do
   fi
 
   k cp "${dump_file}" "${PG_NAMESPACE}/${PG_POD}:${tmp_dump}"
+  # shellcheck disable=SC2016
   k exec "${PG_POD}" -- sh -eu -c 'PGPASSWORD="$1" pg_restore --clean --if-exists -U "$2" -d "$3" "$4"' sh "${PG_PASSWORD}" "${PG_USER}" "${db_name}" "${tmp_dump}"
   k exec "${PG_POD}" -- rm -f "${tmp_dump}"
 done

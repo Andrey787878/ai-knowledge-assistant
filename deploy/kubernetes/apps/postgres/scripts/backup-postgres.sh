@@ -89,12 +89,14 @@ if [[ -z "${PG_PASSWORD}" ]]; then
 fi
 
 if [[ "${BACKUP_INCLUDE_GLOBALS}" == "true" ]]; then
+  # shellcheck disable=SC2016
   k exec "${PG_POD}" -- sh -eu -c 'PGPASSWORD="$1" pg_dumpall --globals-only -U "$2"' sh "${PG_PASSWORD}" "${PG_USER}" > "${TARGET_DIR}/globals.sql"
 fi
 
 for db_name in "${BACKUP_DATABASES[@]}"; do
   tmp_dump="/tmp/${db_name}.dump"
 
+  # shellcheck disable=SC2016
   k exec "${PG_POD}" -- sh -eu -c 'PGPASSWORD="$1" pg_dump -Fc -U "$2" -d "$3" -f "$4"' sh "${PG_PASSWORD}" "${PG_USER}" "${db_name}" "${tmp_dump}"
   k cp "${PG_NAMESPACE}/${PG_POD}:${tmp_dump}" "${TARGET_DIR}/${db_name}.dump"
   k exec "${PG_POD}" -- rm -f "${tmp_dump}"
