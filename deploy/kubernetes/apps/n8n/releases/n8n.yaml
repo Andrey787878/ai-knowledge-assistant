@@ -8,12 +8,15 @@ releases:
     createNamespace: false
     chart: ../chart
     wait: true
-    values:
-      - ../environments/prod/app.values.yaml
+    secrets:
       {{- if eq .Environment.Name "prod" }}
+      - ../environments/prod/secrets.values.enc.yaml
       - ../../postgres/environments/prod/secrets.values.enc.yaml
       - ../../redis/environments/prod/secrets.values.enc.yaml
-      {{- else }}
+      {{- end }}
+    values:
+      - ../environments/prod/app.values.yaml
+      {{- if eq .Environment.Name "ci" }}
       - ../../postgres/environments/ci/secrets.values.yaml
       - ../../redis/environments/ci/secrets.values.yaml
       {{- end }}
