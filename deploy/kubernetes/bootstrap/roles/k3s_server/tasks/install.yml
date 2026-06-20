@@ -51,6 +51,11 @@
     mode: "0755"
     owner: root
     group: root
+    timeout: "{{ k3s_download_timeout }}"
+  register: k3s_binary_download_result
+  retries: "{{ k3s_download_retries }}"
+  delay: "{{ k3s_download_retry_delay }}"
+  until: k3s_binary_download_result is succeeded
   tags: [k3s_server, install]
 
 - name: Download official k3s checksum file for architecture
@@ -60,6 +65,11 @@
     mode: "0644"
     owner: root
     group: root
+    timeout: "{{ k3s_download_timeout }}"
+  register: k3s_checksum_download_result
+  retries: "{{ k3s_download_retries }}"
+  delay: "{{ k3s_download_retry_delay }}"
+  until: k3s_checksum_download_result is succeeded
   tags: [k3s_server, install]
 
 - name: Extract expected checksum for k3s binary
@@ -119,6 +129,11 @@
     mode: "0755"
     owner: root
     group: root
+    timeout: "{{ k3s_download_timeout }}"
+  register: k3s_install_script_download_result
+  retries: "{{ k3s_download_retries }}"
+  delay: "{{ k3s_download_retry_delay }}"
+  until: k3s_install_script_download_result is succeeded
   tags: [k3s_server, install]
 
 - name: Build k3s exec args
