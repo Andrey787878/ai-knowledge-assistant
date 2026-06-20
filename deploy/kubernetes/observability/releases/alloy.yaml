@@ -1,0 +1,12 @@
+---
+helmDefaults:
+  skipDeps: true
+
+releases:
+  - name: alloy
+    namespace: {{ .Values.namespace | quote }}
+    createNamespace: false
+    chart: ../../vendor_charts/alloy
+    wait: true
+    values:
+      - ../environments/prod/alloy.values.yaml

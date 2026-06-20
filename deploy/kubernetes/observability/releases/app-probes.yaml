@@ -1,0 +1,89 @@
+---
+helmDefaults:
+  skipDeps: true
+
+releases:
+  - name: app-probes
+    namespace: {{ .Values.namespace | quote }}
+    createNamespace: false
+    chart: ../../vendor_charts/raw
+    wait: true
+    values:
+      - resources:
+          - apiVersion: monitoring.coreos.com/v1
+            kind: Probe
+            metadata:
+              name: n8n
+              labels:
+                release: kube-prometheus-stack
+                app.kubernetes.io/name: blackbox-probe
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              jobName: blackbox-n8n
+              interval: {{ .Values.blackbox.interval | quote }}
+              module: {{ .Values.blackbox.module | quote }}
+              prober:
+                url: blackbox-exporter.{{ .Values.namespace }}.svc.cluster.local:9115
+                scheme: http
+                path: /probe
+              targets:
+                staticConfig:
+                  static:
+                    - {{ .Values.blackbox.targets.n8n.url | quote }}
+                  labels:
+                    app: {{ .Values.blackbox.targets.n8n.app | quote }}
+                    namespace: {{ .Values.blackbox.targets.n8n.namespace | quote }}
+                    signal: availability
+
+          - apiVersion: monitoring.coreos.com/v1
+            kind: Probe
+            metadata:
+              name: wiki
+              labels:
+                release: kube-prometheus-stack
+                app.kubernetes.io/name: blackbox-probe
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              jobName: blackbox-wiki
+              interval: {{ .Values.blackbox.interval | quote }}
+              module: {{ .Values.blackbox.module | quote }}
+              prober:
+                url: blackbox-exporter.{{ .Values.namespace }}.svc.cluster.local:9115
+                scheme: http
+                path: /probe
+              targets:
+                staticConfig:
+                  static:
+                    - {{ .Values.blackbox.targets.wiki.url | quote }}
+                  labels:
+                    app: {{ .Values.blackbox.targets.wiki.app | quote }}
+                    namespace: {{ .Values.blackbox.targets.wiki.namespace | quote }}
+                    signal: availability
+
+          - apiVersion: monitoring.coreos.com/v1
+            kind: Probe
+            metadata:
+              name: ollama
+              labels:
+                release: kube-prometheus-stack
+                app.kubernetes.io/name: blackbox-probe
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              jobName: blackbox-ollama
+              interval: {{ .Values.blackbox.interval | quote }}
+              module: {{ .Values.blackbox.module | quote }}
+              prober:
+                url: blackbox-exporter.{{ .Values.namespace }}.svc.cluster.local:9115
+                scheme: http
+                path: /probe
+              targets:
+                staticConfig:
+                  static:
+                    - {{ .Values.blackbox.targets.ollama.url | quote }}
+                  labels:
+                    app: {{ .Values.blackbox.targets.ollama.app | quote }}
+                    namespace: {{ .Values.blackbox.targets.ollama.namespace | quote }}
+                    signal: availability

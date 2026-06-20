@@ -1,0 +1,36 @@
+---
+environments:
+  prod:
+    values:
+      - environments/prod/meta.values.yaml
+      - environments/prod/kube-prometheus-stack.values.yaml
+      - environments/prod/loki.values.yaml
+      - environments/prod/alloy.values.yaml
+      - environments/prod/app-probes.values.yaml
+
+helmfiles:
+  - path: releases/grafana-admin-secret.yaml
+    values:
+      - environments/prod/meta.values.yaml
+  - path: releases/http-redirect-middleware.yaml
+    values:
+      - environments/prod/meta.values.yaml
+  - path: releases/blackbox-exporter.yaml
+    values:
+      - environments/prod/meta.values.yaml
+  - path: releases/app-probes.yaml
+    values:
+      - environments/prod/meta.values.yaml
+      - environments/prod/app-probes.values.yaml
+  - path: releases/kube-prometheus-stack.yaml
+    values:
+      - environments/prod/meta.values.yaml
+      - environments/prod/kube-prometheus-stack.values.yaml
+  - path: releases/loki.yaml
+    values:
+      - environments/prod/meta.values.yaml
+      - environments/prod/loki.values.yaml
+  - path: releases/alloy.yaml
+    values:
+      - environments/prod/meta.values.yaml
+      - environments/prod/alloy.values.yaml
