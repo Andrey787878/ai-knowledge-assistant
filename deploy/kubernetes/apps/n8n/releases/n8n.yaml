@@ -17,8 +17,8 @@ releases:
     values:
       - ../environments/prod/app.values.yaml
       {{- if eq .Environment.Name "ci" }}
-      - ../../postgres/environments/ci/secrets.values.yaml
-      - ../../redis/environments/ci/secrets.values.yaml
+      - ../../postgres/environments/ci/validation.values.yaml
+      - ../../redis/environments/ci/validation.values.yaml
       {{- end }}
       - secrets:
           dbPassword: {{ "{{ .Values.db_users.n8n_password }}" | quote }}

@@ -14,6 +14,6 @@ releases:
       {{- end }}
     values:
       {{- if eq .Environment.Name "ci" }}
-      - ../environments/ci/secrets.values.yaml
+      - ../environments/ci/validation.values.yaml
       {{- end }}
       - ../environments/prod/kube-prometheus-stack.values.yaml
