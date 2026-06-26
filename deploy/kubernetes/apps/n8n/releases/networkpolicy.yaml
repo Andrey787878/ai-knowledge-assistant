@@ -69,6 +69,13 @@ releases:
                       podSelector:
                         matchLabels:
                           app.kubernetes.io/name: blackbox-exporter
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: observability
+                      podSelector:
+                        matchLabels:
+                          app.kubernetes.io/name: prometheus
+                          operator.prometheus.io/name: observability-prometheus
                   ports:
                     - protocol: TCP
                       port: 5678

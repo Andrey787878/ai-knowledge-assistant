@@ -9,6 +9,7 @@
 - Traefik Middleware для HTTP->HTTPS redirect
 - NetworkPolicy
 - ConfigMap c workflow JSON + import Job
+- native `/metrics` endpoint + `ServiceMonitor` для `n8n-web`
 
 ## Какие chart используются
 
@@ -33,6 +34,23 @@
 - workflow файлы существуют в `n8n/workflows/*.json`
 - настроены `sops` и `helm-secrets`
 
+## Reverse proxy
+
+`n8n` в этом контуре работает за Traefik ingress, поэтому runtime должен доверять одному proxy hop. Это задается через `n8n.proxyHops: 1`, который рендерится в `N8N_PROXY_HOPS`. Без этого `n8n` получает `X-Forwarded-For` от ingress, но не считает proxy trusted и начинает ломать часть web/API логики.
+
+## Workflows bootstrap
+
+Import job для workflows всегда повторно импортирует, публикует и переактивирует workflow через CLI (`n8n import:workflow` → `n8n publish:workflow` → `n8n update:workflow --active=true`). Раньше поверх этого post-sync hook в `releases/workflows.yaml` дополнительно делал `kubectl rollout restart` для `n8n-web` и `n8n-worker`. Этот рестарт убран: при обновлении Deployment spec (image digest, env, secret) helm/helmfile и так выполнит rolling restart, а принудительный `rollout restart` делал второй rolling update поверх первого, удлинял окно недоступности во время deploy и порождал post-rollout `N8nDown` / `N8nPublicEndpointDown` / `N8nAvailabilityBurnRateFast` шум. Если n8n-версия, выбранная в `image`, действительно требует ручного рестарта для регистрации webhook-ов, helm-upgrade уже даёт rolling restart при обновлении digest-а.
+
+Для контрольной проверки после deploy, что webhooks реально активны:
+
+```bash
+kubectl -n n8n exec deploy/n8n-web -- \
+  n8n list:workflow --only-active
+```
+
+Если активных workflow-ов меньше, чем ожидалось из `n8n/workflows/*.json` с `active: true`, запустить `n8n update:workflow --id=<id> --active=true` вручную или инициировать helm-upgrade n8n-runtime так, чтобы изменился Deployment spec и K8s сделал rolling restart.
+
 ## Как применять
 
 ```bash
@@ -50,11 +68,14 @@ helmfile -e prod sync
 
 ```bash
 kubectl -n n8n get deploy,pods,svc,ingress,job,networkpolicy
+kubectl -n n8n get servicemonitor
 kubectl -n n8n rollout status deploy/n8n-web
 kubectl -n n8n rollout status deploy/n8n-worker
 kubectl -n n8n logs job/n8n-import-workflows --tail=200
 curl -I http://n8n.poluyanov.net
 curl -I https://n8n.poluyanov.net
+kubectl -n n8n port-forward svc/n8n-web-svc 5678:5678
+curl http://127.0.0.1:5678/metrics
 ```
 
 ## Smoke

@@ -52,6 +52,10 @@ spec:
                 name: {{ include "n8n.name" . }}-cm
             - secretRef:
                 name: {{ include "n8n.name" . }}-secret
+          {{- with .Values.worker.probes.startup }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with .Values.worker.probes.readiness }}
           readinessProbe:
             {{- toYaml . | nindent 12 }}

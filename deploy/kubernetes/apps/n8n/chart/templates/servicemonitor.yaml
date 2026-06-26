@@ -1,0 +1,24 @@
+{{- if and .Values.metrics.enabled .Values.metrics.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "n8n.name" . }}-web
+  labels:
+    release: kube-prometheus-stack
+    {{- include "n8n.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  jobLabel: prometheus.io/job
+  selector:
+    matchLabels:
+      {{- include "n8n.labels" . | nindent 6 }}
+      app.kubernetes.io/component: web
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace | quote }}
+  endpoints:
+    - port: metrics
+      path: {{ .Values.metrics.path | quote }}
+      interval: {{ .Values.metrics.serviceMonitor.interval | quote }}
+      scrapeTimeout: {{ .Values.metrics.serviceMonitor.scrapeTimeout | quote }}
+{{- end }}

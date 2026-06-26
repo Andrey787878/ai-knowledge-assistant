@@ -27,17 +27,37 @@ securityContext:
 
 web:
   replicas: 1
+  # Rolling update strategy for n8n-web. Default keeps the old pod alive until a
+  # new one is ready (maxUnavailable: 0, maxSurge: 1), so a single-replica
+  # deployment rolls without a probe-failure gap. This is the contract the
+  # rollout suppression alerts rely on: during a deploy the active pod stays
+  # serving until the replacement is ready, eliminating user-facing downtime
+  # that previously tripped N8nDown / N8nPublicEndpointDown.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   service:
     type: ClusterIP
     port: 80
     targetPort: 5678
   probes:
+    startup:
+      httpGet:
+        path: /healthz
+        port: http
+        scheme: HTTP
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 60
     readiness:
       httpGet:
         path: /healthz/readiness
         port: http
         scheme: HTTP
-      initialDelaySeconds: 20
+      initialDelaySeconds: 0
       periodSeconds: 10
       timeoutSeconds: 3
       failureThreshold: 6
@@ -46,7 +66,7 @@ web:
         path: /healthz
         port: http
         scheme: HTTP
-      initialDelaySeconds: 40
+      initialDelaySeconds: 0
       periodSeconds: 20
       timeoutSeconds: 3
       failureThreshold: 6
@@ -72,12 +92,21 @@ web:
 worker:
   replicas: 1
   probes:
+    startup:
+      httpGet:
+        path: /healthz
+        port: 5678
+        scheme: HTTP
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 60
     readiness:
       httpGet:
         path: /healthz/readiness
         port: 5678
         scheme: HTTP
-      initialDelaySeconds: 20
+      initialDelaySeconds: 0
       periodSeconds: 10
       timeoutSeconds: 3
       failureThreshold: 6
@@ -86,7 +115,7 @@ worker:
         path: /healthz
         port: 5678
         scheme: HTTP
-      initialDelaySeconds: 40
+      initialDelaySeconds: 0
       periodSeconds: 20
       timeoutSeconds: 3
       failureThreshold: 6
@@ -97,6 +126,15 @@ worker:
     limits:
       cpu: 1000m
       memory: 1Gi
+
+metrics:
+  enabled: true
+  port: 5678
+  path: /metrics
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
 
 postgres:
   host: postgres.example.svc.cluster.local
@@ -128,6 +166,7 @@ n8n:
   host: n8n.example.com
   editorBaseUrl: https://n8n.example.com/
   webhookUrl: https://n8n.example.com/
+  proxyHops: 1
   internalWebhookBaseUrl: http://n8n-web-svc.n8n.svc.cluster.local
   agentQueryWebhookPath: CHANGE_ME_AGENT_QUERY_WEBHOOK_PATH
   memoryReadWebhookPath: CHANGE_ME_MEMORY_READ_WEBHOOK_PATH
