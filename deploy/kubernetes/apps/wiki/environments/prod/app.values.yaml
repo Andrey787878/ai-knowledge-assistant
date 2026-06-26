@@ -9,7 +9,7 @@ ingress:
   enabled: true
   className: traefik
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
+    cert-manager.io/cluster-issuer: letsencrypt-staging
     traefik.ingress.kubernetes.io/router.middlewares: wiki-https-redirect@kubernetescrd
   hosts:
     - host: wiki.poluyanov.net
