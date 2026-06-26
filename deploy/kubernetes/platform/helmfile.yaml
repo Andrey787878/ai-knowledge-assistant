@@ -4,6 +4,10 @@ environments:
     values:
       - environments/prod/cert-manager.values.yaml
       - environments/prod/cluster-issuer.values.yaml
+  ci:
+    values:
+      - environments/prod/cert-manager.values.yaml
+      - environments/prod/cluster-issuer.values.yaml
 
 helmfiles:
   - path: releases/namespaces.yaml

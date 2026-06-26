@@ -90,6 +90,33 @@ releases:
           - apiVersion: networking.k8s.io/v1
             kind: NetworkPolicy
             metadata:
+              name: postgres-allow-ingress-metrics
+              labels:
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              podSelector:
+                matchLabels:
+                  app.kubernetes.io/instance: postgres
+                  app.kubernetes.io/name: postgresql
+              policyTypes:
+                - Ingress
+              ingress:
+                - from:
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: observability
+                      podSelector:
+                        matchLabels:
+                          app.kubernetes.io/name: prometheus
+                          operator.prometheus.io/name: observability-prometheus
+                  ports:
+                    - protocol: TCP
+                      port: 9187
+
+          - apiVersion: networking.k8s.io/v1
+            kind: NetworkPolicy
+            metadata:
               name: db-allow-egress-dns
               labels:
                 app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}

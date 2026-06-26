@@ -1,0 +1,7 @@
+---
+grafana_admin:
+  password: admin
+
+alertmanager:
+  smtp:
+    auth_password: dummy

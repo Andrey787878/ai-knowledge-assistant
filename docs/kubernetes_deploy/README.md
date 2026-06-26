@@ -1,12 +1,13 @@
-# Этап B (single-node k3s): документация Terraform + Ansible bootstrap + Helmfile
+# Этапы B/C (single-node k3s): документация Terraform + Ansible bootstrap + Helmfile + CI/observability
 
-Единая точка входа в документацию этапа B.
+Единая точка входа в документацию этапов B и C.
 
 ## Назначение
 
 Этап B разворачивает single-node k3s и сервисы в Kubernetes через Helmfile:
 
 - `platform` (namespaces + cert-manager + ClusterIssuer)
+- `observability` (Prometheus + Alertmanager + Grafana + Loki + Alloy)
 - `db` (PostgreSQL + backup/restore jobs)
 - `n8n` (n8n-web + n8n-worker + redis + workflows jobs)
 - `wiki` (Wiki.js)
@@ -22,11 +23,14 @@
 
 ## Сеть и безопасность
 
-![Схема сети этапа B](./diagrams/network-topology.png)
-
 - [Сеть и NetworkPolicy](./network.md)
 - [Ingress TLS и ACME](./ingress-tls-acme.md)
 - [Ранбук по сертификатам](./certificates-runbook.md)
+
+## Observability и SLA
+
+- [SLI и SLO](./sli-slo.md)
+- [Monitoring, alerting и dashboards](./monitoring.md)
 
 ## Данные
 
@@ -35,6 +39,7 @@
 ## Слои и приложения
 
 - [Platform слой](../../deploy/kubernetes/platform/README.md)
+- [Observability слой](../../deploy/kubernetes/observability/README.md)
 - [apps/postgres](../../deploy/kubernetes/apps/postgres/README.md)
 - [apps/redis](../../deploy/kubernetes/apps/redis/README.md)
 - [apps/wiki](../../deploy/kubernetes/apps/wiki/README.md)

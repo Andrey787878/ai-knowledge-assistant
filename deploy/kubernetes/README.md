@@ -11,6 +11,7 @@
 Этот этап разворачивает кластерный слой на single-node k3s:
 
 - `platform` (cert-manager, ClusterIssuer, namespaces)
+- `observability` (Prometheus, Alertmanager, Grafana, Loki, Alloy)
 - `apps/postgres`
 - `apps/redis`
 - `apps/wiki`
@@ -21,7 +22,6 @@
 
 ```bash
 export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/config-k3s}"
-
 cd deploy/kubernetes
 helmfile -e prod build > /tmp/k3s-build.yaml
 helmfile -e prod sync
@@ -51,11 +51,12 @@ helm plugin list
 Порядок слоев задан в [helmfile.yaml](./helmfile.yaml):
 
 1. `platform/helmfile.yaml`
-2. `apps/postgres/helmfile.yaml`
-3. `apps/redis/helmfile.yaml`
-4. `apps/wiki/helmfile.yaml`
-5. `apps/ollama/helmfile.yaml`
-6. `apps/n8n/helmfile.yaml`
+2. `observability/helmfile.yaml`
+3. `apps/postgres/helmfile.yaml`
+4. `apps/redis/helmfile.yaml`
+5. `apps/wiki/helmfile.yaml`
+6. `apps/ollama/helmfile.yaml`
+7. `apps/n8n/helmfile.yaml`
 
 ## Порядок запуска
 
@@ -81,6 +82,7 @@ kubectl get ns
 kubectl -n cert-manager get pods
 kubectl get clusterissuer
 
+kubectl -n observability get pods,svc,pvc
 kubectl -n db get pods
 kubectl -n n8n get deploy,pods,svc,ingress,job
 kubectl -n wiki get deploy,pods,svc,ingress
@@ -144,6 +146,8 @@ helmfile -e prod destroy
 
 - [Индекс Kubernetes-документации](../../docs/kubernetes_deploy/README.md)
 - [Сеть](../../docs/kubernetes_deploy/network.md)
+- [SLI и SLO](../../docs/kubernetes_deploy/sli-slo.md)
+- [Monitoring, alerting и dashboards](../../docs/kubernetes_deploy/monitoring.md)
 - [Ingress TLS и ACME](../../docs/kubernetes_deploy/ingress-tls-acme.md)
 - [Ранбук по сертификатам](../../docs/kubernetes_deploy/certificates-runbook.md)
 - [Резервное копирование и восстановление PostgreSQL](../../docs/kubernetes_deploy/backup-restore.md)
@@ -154,6 +158,7 @@ helmfile -e prod destroy
 
 - [Bootstrap k3s](./bootstrap/README.md)
 - [Platform слой](./platform/README.md)
+- [Observability слой](./observability/README.md)
 - [apps/postgres](./apps/postgres/README.md)
 - [apps/redis](./apps/redis/README.md)
 - [apps/wiki](./apps/wiki/README.md)

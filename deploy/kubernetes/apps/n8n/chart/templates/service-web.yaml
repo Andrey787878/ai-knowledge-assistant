@@ -6,6 +6,9 @@ metadata:
   labels:
     {{- include "n8n.labels" . | nindent 4 }}
     app.kubernetes.io/component: web
+    {{- if .Values.metrics.enabled }}
+    prometheus.io/job: {{ include "n8n.name" . }}-web
+    {{- end }}
 spec:
   type: {{ .Values.web.service.type | quote }}
   selector:
@@ -16,3 +19,9 @@ spec:
       protocol: TCP
       port: {{ .Values.web.service.port }}
       targetPort: {{ .Values.web.service.targetPort }}
+    {{- if .Values.metrics.enabled }}
+    - name: metrics
+      protocol: TCP
+      port: {{ .Values.metrics.port }}
+      targetPort: {{ .Values.web.service.targetPort }}
+    {{- end }}

@@ -1,0 +1,199 @@
+---
+fullnameOverride: observability
+
+defaultRules:
+  create: true
+
+# k3s single-node does not expose the control-plane the same way as a
+# standard kubeadm cluster, so the upstream monitors below tend to create
+# noisy or permanently down targets unless they are wired explicitly.
+kubeControllerManager:
+  enabled: false
+
+kubeEtcd:
+  enabled: false
+
+kubeProxy:
+  enabled: false
+
+kubeScheduler:
+  enabled: false
+
+grafana:
+  enabled: true
+  fullnameOverride: observability-grafana
+  defaultDashboardsEnabled: true
+  sidecar:
+    dashboards:
+      enabled: true
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      uid: loki
+      access: proxy
+      url: http://loki-gateway.observability.svc.cluster.local
+      isDefault: false
+      jsonData:
+        maxLines: 1000
+  admin:
+    existingSecret: observability-grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-staging
+      traefik.ingress.kubernetes.io/router.middlewares: observability-https-redirect@kubernetescrd
+    hosts:
+      - grafana.poluyanov.net
+    path: /
+    pathType: Prefix
+    tls:
+      - secretName: grafana-tls
+        hosts:
+          - grafana.poluyanov.net
+  persistence:
+    enabled: true
+    type: pvc
+    storageClassName: local-path
+    accessModes:
+      - ReadWriteOnce
+    size: 2Gi
+
+prometheus:
+  prometheusSpec:
+    retention: 7d
+    retentionSize: 8GB
+    scrapeInterval: 30s
+    evaluationInterval: 30s
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    scrapeConfigSelectorNilUsesHelmValues: false
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
+
+alertmanager:
+  enabled: true
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-staging
+      traefik.ingress.kubernetes.io/router.middlewares: observability-https-redirect@kubernetescrd
+    hosts:
+      - alertmanager.poluyanov.net
+    paths:
+      - /
+    pathType: Prefix
+    tls:
+      - secretName: alertmanager-tls
+        hosts:
+          - alertmanager.poluyanov.net
+  tplConfig: true
+  config:
+    global:
+      resolve_timeout: 5m
+      smtp_smarthost: smtp.yandex.ru:587
+      smtp_from: alerts@poluyanov.net
+      smtp_auth_username: andrey@poluyanov.net
+      smtp_auth_password: '{{ .Values.alertmanager.smtp.auth_password }}'
+      smtp_require_tls: true
+      smtp_tls_config:
+        server_name: smtp.yandex.ru
+    inhibit_rules:
+      - source_matchers:
+          - 'severity = critical'
+        target_matchers:
+          - 'severity =~ warning|info'
+        equal:
+          - namespace
+          - alertname
+      - source_matchers:
+          - 'severity = warning'
+        target_matchers:
+          - 'severity = info'
+        equal:
+          - namespace
+          - alertname
+      - source_matchers:
+          - 'alertname = InfoInhibitor'
+        target_matchers:
+          - 'severity = info'
+        equal:
+          - namespace
+      - target_matchers:
+          - 'alertname = InfoInhibitor'
+    route:
+      group_by:
+        - namespace
+        - alertname
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      receiver: email-default
+      routes:
+        # SLO history alerts (*AvailabilityDegraded, *BurnRateFast/Slow) are
+        # useful in the observability layer but noisy over email: they are
+        # computed on 30m/1h/6h windows and tend to fire (and then send
+        # resolved) as a tail after a rollout rather than signalling a
+        # current outage. Route them to the null receiver so they stay
+        # visible in Alertmanager/Grafana but never reach the inbox and do
+        # not generate resolved notifications.
+        - receiver: "null"
+          matchers:
+            - alertname =~ ".*AvailabilityDegraded"
+        - receiver: "null"
+          matchers:
+            - alertname =~ ".*BurnRateFast"
+        - receiver: "null"
+          matchers:
+            - alertname =~ ".*BurnRateSlow"
+        # PrometheusScrapeHealthDegraded is a 30m-window history signal over
+        # scrape quality per job/namespace. During bootstrap or a deploy it
+        # remembers a temporary scrape gap (e.g. n8n-web was down while its new
+        # pod started) and fires a warning + resolved tail. It is not an
+        # immediate incident requiring action: actual scrape failure of core
+        # targets is surfaced by *Down alerts and Prometheus self-alerts from
+        # kube-prometheus-stack. Route it to the null receiver so it stays
+        # visible in Alertmanager UI / Grafana but does not spam the inbox.
+        - receiver: "null"
+          matchers:
+            - alertname = "PrometheusScrapeHealthDegraded"
+        - receiver: "null"
+          matchers:
+            - alertname = "Watchdog"
+        - receiver: "null"
+          matchers:
+            - alertname = "InfoInhibitor"
+        - receiver: "null"
+          matchers:
+            - severity = "info"
+    receivers:
+      - name: email-default
+        email_configs:
+          - to: andrey@poluyanov.net
+            send_resolved: true
+      - name: "null"
+    templates:
+      - /etc/alertmanager/config/*.tmpl
+  alertmanagerSpec:
+    retention: 120h
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 2Gi

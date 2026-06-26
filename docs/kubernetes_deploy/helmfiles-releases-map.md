@@ -16,7 +16,8 @@
 1. Terraform: `deploy/terraform/k3s_deploy`
 2. Bootstrap: `deploy/kubernetes/bootstrap` (Ansible)
 3. Kubernetes platform: `deploy/kubernetes/platform`
-4. Kubernetes apps: `deploy/kubernetes/apps/*`
+4. Kubernetes observability: `deploy/kubernetes/observability`
+5. Kubernetes apps: `deploy/kubernetes/apps/*`
 
 Главный вход Helmfile:
 
@@ -44,11 +45,12 @@ Playbook:
 В [deploy/kubernetes/helmfile.yaml](../../deploy/kubernetes/helmfile.yaml) слои идут строго по порядку:
 
 1. `platform/helmfile.yaml`
-2. `apps/postgres/helmfile.yaml`
-3. `apps/redis/helmfile.yaml`
-4. `apps/wiki/helmfile.yaml`
-5. `apps/ollama/helmfile.yaml`
-6. `apps/n8n/helmfile.yaml`
+2. `observability/helmfile.yaml`
+3. `apps/postgres/helmfile.yaml`
+4. `apps/redis/helmfile.yaml`
+5. `apps/wiki/helmfile.yaml`
+6. `apps/ollama/helmfile.yaml`
+7. `apps/n8n/helmfile.yaml`
 
 ## Platform слой
 
@@ -65,6 +67,28 @@ Values:
 
 - `environments/prod/platform.values.yaml`
 - `environments/prod/cluster-issuer.values.yaml`
+
+## Observability слой
+
+Helmfile:
+
+- [deploy/kubernetes/observability/helmfile.yaml](../../deploy/kubernetes/observability/helmfile.yaml)
+
+Releases:
+
+- `grafana-admin-secret.yaml` — SOPS-backed admin secret Grafana
+- `http-redirect-middleware.yaml` — HTTPS redirect Grafana
+- `kube-prometheus-stack.yaml` — Prometheus, Alertmanager и Grafana
+- `loki.yaml` — single-binary хранилище логов
+- `alloy.yaml` — DaemonSet сбора Kubernetes pod logs
+
+Values:
+
+- `environments/prod/meta.values.yaml`
+- `environments/prod/kube-prometheus-stack.values.yaml`
+- `environments/prod/loki.values.yaml`
+- `environments/prod/alloy.values.yaml`
+- `environments/prod/secrets.values.enc.yaml`
 
 ## Apps слой (карта по namespace)
 

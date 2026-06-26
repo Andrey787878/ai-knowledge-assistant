@@ -1,0 +1,7 @@
+---
+auth:
+  postgresPassword: postgres
+
+db_users:
+  n8n_password: n8n
+  wikijs_password: wikijs

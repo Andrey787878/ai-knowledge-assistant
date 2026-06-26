@@ -5,7 +5,7 @@
 
 ## Что ставится
 
-- namespace: `db`, `n8n`, `wiki`, `ollama`
+- namespace: `db`, `observability`, `n8n`, `wiki`, `ollama`
 - `cert-manager`
 - `ClusterIssuer` для Let's Encrypt (HTTP-01 через `traefik`)
 
@@ -37,7 +37,7 @@ helmfile -e prod sync
 ## Проверка
 
 ```bash
-kubectl get ns db n8n wiki ollama
+kubectl get ns db observability n8n wiki ollama
 kubectl -n cert-manager get pods
 kubectl get clusterissuer
 kubectl describe clusterissuer letsencrypt-prod

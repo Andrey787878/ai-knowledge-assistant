@@ -17,36 +17,24 @@ releases:
           - -ec
           - |
             ns={{ .Values.namespace | quote }}
-            deploy="n8n-web"
-            cm={{ .Values.workflows_configmap_name | quote }}
-            ann='ai-knowledge-assistant-workflows-hash'
-
-            desired="$(
-              kubectl -n "$ns" get configmap "$cm" \
-                -o jsonpath='{.data.agent_query_main\.json}{.data.agent_chat_ui\.json}{.data.memory_read\.json}{.data.memory_write\.json}{.data.agent_smoke_e2e\.json}' \
-              | sha256sum \
-              | awk '{print $1}'
-            )"
-
-            if [ -z "$desired" ]; then
-              echo "Failed to calculate workflows hash from ConfigMap ${cm}"
-              exit 1
-            fi
-
-            current="$(
-              kubectl -n "$ns" get deployment "$deploy" \
-                -o jsonpath="{.spec.template.metadata.annotations['$ann']}" 2>/dev/null || true
-            )"
-
-            if [ -n "$current" ] && [ "$current" = "$desired" ]; then
-              echo "Workflows hash unchanged ($desired), skip n8n-web rollout"
-              exit 0
-            fi
-
-            kubectl -n "$ns" patch deployment "$deploy" --type merge -p \
-              "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"$ann\":\"$desired\"}}}}}"
-
-            kubectl -n "$ns" rollout status "deployment/$deploy" --timeout=300s
+            # Previously this hook ran `kubectl rollout restart` against
+            # n8n-web and n8n-worker on every workflow-import deploy. That
+            # forced an extra rolling update even when the Deployment spec
+            # had not changed, doubling the deploy-time probe-outage window
+            # and tripping N8nDown / N8nPublicEndpointDown / BurnRate alerts
+            # that the recording-rule suppression could not fully cover.
+            #
+            # The workflow import job performs `n8n import:workflow`
+            # followed by `n8n publish:workflow` and `n8n update:workflow
+            # --active=true`, which is sufficient for re-registration of
+            # webhooks on the running runtime in the n8n image currently
+            # in use. When the Deployment spec is changed (image digest,
+            # env, secret) helmfile/helm performs the rolling restart
+            # itself; this hook only verifies the resulting rollout is
+            # healthy.
+            for deploy in n8n-web n8n-worker; do
+              kubectl -n "$ns" rollout status "deployment/$deploy" --timeout=300s
+            done
     values:
       - resources:
           - apiVersion: v1

@@ -29,6 +29,17 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install YAML linter
+        run: python -m pip install yamllint==1.35.1
+
+      - name: Lint YAML
+        run: yamllint .github deploy
+
       - name: Validate n8n workflow JSON
         run: |
           node -e '
@@ -48,6 +59,20 @@ jobs:
             exit 1
           fi
 
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   terraform:
     name: Terraform
     runs-on: ubuntu-24.04
@@ -60,6 +85,11 @@ jobs:
         with:
           terraform_version: '1.10.5'
 
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: 'v0.55.1'
+
       - name: Check formatting
         run: terraform fmt -check -recursive deploy/terraform
 
@@ -69,6 +99,13 @@ jobs:
             echo "==> ${dir}"
             terraform -chdir="${dir}" init -backend=false
             terraform -chdir="${dir}" validate
+          done
+
+      - name: Lint modules
+        run: |
+          for dir in deploy/terraform/ansible_deploy deploy/terraform/k3s_deploy; do
+            echo "==> ${dir}"
+            tflint --chdir="${dir}" --config="${GITHUB_WORKSPACE}/.tflint.hcl"
           done
 
   helm:
@@ -82,6 +119,36 @@ jobs:
 
       - name: Setup Helm
         uses: azure/setup-helm@v4
+        with:
+          version: 'v3.20.0'
+
+      - name: Install SOPS
+        env:
+          SOPS_VERSION: '3.10.2'
+        run: |
+          curl -sSL \
+            "https://github.com/getsops/sops/releases/download/v${SOPS_VERSION}/sops-v${SOPS_VERSION}.linux.amd64" \
+            -o /tmp/sops
+          sudo install -m 0755 /tmp/sops /usr/local/bin/sops
+          sops --version
+
+      - name: Install helm-secrets plugin
+        env:
+          HELM_SECRETS_VERSION: '4.6.11'
+        run: |
+          helm plugin install https://github.com/jkroepke/helm-secrets --version "v${HELM_SECRETS_VERSION}"
+          helm plugin list
+
+      - name: Install Helmfile
+        env:
+          HELMFILE_VERSION: '0.170.1'
+        run: |
+          curl -sSL \
+            "https://github.com/helmfile/helmfile/releases/download/v${HELMFILE_VERSION}/helmfile_${HELMFILE_VERSION}_linux_amd64.tar.gz" \
+            -o /tmp/helmfile.tar.gz
+          tar -xzf /tmp/helmfile.tar.gz -C /tmp helmfile
+          sudo install -m 0755 /tmp/helmfile /usr/local/bin/helmfile
+          helmfile --version
 
       - name: Install kubeconform
         run: |
@@ -92,7 +159,7 @@ jobs:
           sudo install -m 0755 /tmp/kubeconform /usr/local/bin/kubeconform
           kubeconform -v
 
-      - name: Lint custom charts
+      - name: Lint charts
         run: |
           helm lint deploy/kubernetes/apps/n8n/chart \
             -f deploy/kubernetes/apps/n8n/environments/prod/app.values.yaml
@@ -100,7 +167,20 @@ jobs:
           helm lint deploy/kubernetes/apps/ollama/chart \
             -f deploy/kubernetes/apps/ollama/environments/prod/app.values.yaml
 
-      - name: Render custom charts
+          helm lint deploy/kubernetes/vendor_charts/kube-prometheus-stack \
+            -f deploy/kubernetes/observability/environments/prod/kube-prometheus-stack.values.yaml \
+            --set alertmanager.smtp.auth_password=dummy
+
+          helm lint deploy/kubernetes/vendor_charts/loki \
+            -f deploy/kubernetes/observability/environments/prod/loki.values.yaml
+
+          helm lint deploy/kubernetes/vendor_charts/alloy \
+            -f deploy/kubernetes/observability/environments/prod/alloy.values.yaml
+
+      - name: Validate Helmfile composition
+        run: helmfile -f deploy/kubernetes/helmfile.yaml -e ci build >/dev/null
+
+      - name: Render charts
         run: |
           helm template n8n deploy/kubernetes/apps/n8n/chart \
             -f deploy/kubernetes/apps/n8n/environments/prod/app.values.yaml \
@@ -110,6 +190,29 @@ jobs:
             -f deploy/kubernetes/apps/ollama/environments/prod/app.values.yaml \
             >/tmp/ollama-rendered.yaml
 
+          helm template kube-prometheus-stack \
+            deploy/kubernetes/vendor_charts/kube-prometheus-stack \
+            --namespace observability \
+            -f deploy/kubernetes/observability/environments/prod/kube-prometheus-stack.values.yaml \
+            --set alertmanager.smtp.auth_password=dummy \
+            >/tmp/kube-prometheus-stack-rendered.yaml
+
+          helm template loki deploy/kubernetes/vendor_charts/loki \
+            --namespace observability \
+            --api-versions monitoring.coreos.com/v1/ServiceMonitor \
+            -f deploy/kubernetes/observability/environments/prod/loki.values.yaml \
+            >/tmp/loki-rendered.yaml
+
+          helm template alloy deploy/kubernetes/vendor_charts/alloy \
+            --namespace observability \
+            -f deploy/kubernetes/observability/environments/prod/alloy.values.yaml \
+            >/tmp/alloy-rendered.yaml
+
+      - name: Render full Kubernetes stack
+        run: |
+          helmfile -f deploy/kubernetes/helmfile.yaml -e ci template \
+            >/tmp/k8s-rendered.yaml
+
       - name: Validate rendered manifests
         run: |
           kubeconform \
@@ -117,7 +220,18 @@ jobs:
             -summary \
             -ignore-missing-schemas \
             /tmp/n8n-rendered.yaml \
-            /tmp/ollama-rendered.yaml
+            /tmp/ollama-rendered.yaml \
+            /tmp/kube-prometheus-stack-rendered.yaml \
+            /tmp/loki-rendered.yaml \
+            /tmp/alloy-rendered.yaml
+
+      - name: Validate full rendered stack
+        run: |
+          kubeconform \
+            -strict \
+            -summary \
+            -ignore-missing-schemas \
+            /tmp/k8s-rendered.yaml
 
   ansible:
     name: Ansible syntax
@@ -137,8 +251,21 @@ jobs:
       - name: Install Ansible
         run: |
           python -m pip install --upgrade pip
-          python -m pip install ansible-core
+          python -m pip install ansible-core==2.18.6
           ansible --version
+
+      - name: Install ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Lint bash scripts
+        run: shellcheck deploy/kubernetes/apps/postgres/scripts/*.sh
+
+      - name: Validate bash syntax
+        run: |
+          bash -n deploy/kubernetes/apps/postgres/scripts/backup-postgres.sh
+          bash -n deploy/kubernetes/apps/postgres/scripts/restore-postgres.sh
 
       - name: Install Ansible collections
         run: |

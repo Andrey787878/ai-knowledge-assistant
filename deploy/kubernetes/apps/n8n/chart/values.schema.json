@@ -6,6 +6,7 @@
     "image",
     "web",
     "worker",
+    "metrics",
     "postgres",
     "redis",
     "n8n",
@@ -126,6 +127,9 @@
         "probes": {
           "$ref": "#/$defs/probes"
         },
+        "strategy": {
+          "$ref": "#/$defs/strategy"
+        },
         "ingress": {
           "type": "object",
           "additionalProperties": false,
@@ -211,6 +215,52 @@
         }
       }
     },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "port",
+        "path",
+        "serviceMonitor"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "serviceMonitor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enabled",
+            "interval",
+            "scrapeTimeout"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "interval": {
+              "type": "string",
+              "minLength": 1
+            },
+            "scrapeTimeout": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
     "postgres": {
       "type": "object",
       "additionalProperties": false,
@@ -269,6 +319,7 @@
         "host",
         "editorBaseUrl",
         "webhookUrl",
+        "proxyHops",
         "timezone",
         "logLevel",
         "workerConcurrency"
@@ -295,6 +346,10 @@
           "type": "string",
           "minLength": 1,
           "pattern": "^https?://.+"
+        },
+        "proxyHops": {
+          "type": "integer",
+          "minimum": 0
         },
         "internalWebhookBaseUrl": {
           "type": "string",
@@ -488,6 +543,40 @@
     }
   },
   "$defs": {
+    "strategy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "RollingUpdate",
+            "Recreate"
+          ]
+        },
+        "rollingUpdate": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maxUnavailable": {
+              "anyOf": [
+                { "type": "integer", "minimum": 0 },
+                { "type": "string", "pattern": "^[0-9]+%?$" }
+              ]
+            },
+            "maxSurge": {
+              "anyOf": [
+                { "type": "integer", "minimum": 0 },
+                { "type": "string", "pattern": "^[0-9]+%?$" }
+              ]
+            }
+          }
+        }
+      }
+    },
     "probe": {
       "type": "object",
       "minProperties": 1
@@ -500,6 +589,9 @@
         "liveness"
       ],
       "properties": {
+        "startup": {
+          "$ref": "#/$defs/probe"
+        },
         "readiness": {
           "$ref": "#/$defs/probe"
         },

@@ -1,0 +1,19 @@
+---
+helmDefaults:
+  skipDeps: true
+
+releases:
+  - name: kube-prometheus-stack
+    namespace: {{ .Values.namespace | quote }}
+    createNamespace: false
+    chart: ../../vendor_charts/kube-prometheus-stack
+    wait: true
+    secrets:
+      {{- if eq .Environment.Name "prod" }}
+      - ../environments/prod/secrets.values.enc.yaml
+      {{- end }}
+    values:
+      {{- if eq .Environment.Name "ci" }}
+      - ../environments/ci/validation.values.yaml
+      {{- end }}
+      - ../environments/prod/kube-prometheus-stack.values.yaml
