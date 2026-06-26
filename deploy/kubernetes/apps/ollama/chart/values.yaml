@@ -28,6 +28,13 @@ service:
 
 ollama:
   replicas: 1
+  # Recreate stays the default because the model cache lives on a single RWO
+  # PVC. A rolling update would briefly require two pods to mount the same
+  # volume, which is not a valid contract for this single-node setup.
+  # Deploy-time alert noise is suppressed in observability via
+  # rollout:<service>_recently_finished and rollout:<service>_deploy_window.
+  strategy:
+    type: Recreate
   env:
     OLLAMA_HOST: 0.0.0.0:11434
     OLLAMA_KEEP_ALIVE: 5m

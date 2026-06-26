@@ -8,8 +8,10 @@ metadata:
     app.kubernetes.io/component: ollama
 spec:
   replicas: {{ .Values.ollama.replicas }}
+  {{- with .Values.ollama.strategy }}
   strategy:
-    type: Recreate
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "ollama.selectorLabels" . | nindent 6 }}
