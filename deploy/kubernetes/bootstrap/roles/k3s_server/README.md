@@ -28,6 +28,7 @@
   - `secrets-encryption`
   - `disable: [traefik]` (опционально)
   - `tls-san` (обязательно, как минимум один SAN для внешнего доступа к API)
+- Готовит `HelmChartConfig` для встроенного Traefik в `k3s_server_manifests_dir`, чтобы включить Prometheus metrics на отдельном entrypoint.
 - Скачивает install script `https://get.k3s.io` и запускает его с `INSTALL_K3S_SKIP_DOWNLOAD=true`.
 - Запускает install script с `INSTALL_K3S_EXEC="server ..."` и optional `k3s_server_extra_args`.
 - Гарантирует, что сервис `k3s` включен и запущен.
@@ -64,6 +65,9 @@
 - `k3s_secrets_encryption_enabled`
 - `k3s_server_tls_sans`
 - `k3s_server_extra_args`
+- `k3s_server_manifests_dir`
+- `k3s_traefik_metrics_enabled`
+- `k3s_traefik_metrics_port`
 - `k3s_wait_api_timeout`
 - `k3s_wait_node_ready_retries`
 - `k3s_wait_node_ready_delay`
