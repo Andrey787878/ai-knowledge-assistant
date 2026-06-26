@@ -1,0 +1,481 @@
+---
+helmDefaults:
+  skipDeps: true
+
+releases:
+  - name: observability-alert-rules
+    namespace: {{ .Values.namespace | quote }}
+    createNamespace: false
+    chart: ../../vendor_charts/raw
+    wait: true
+    values:
+      - resources:
+          - apiVersion: monitoring.coreos.com/v1
+            kind: PrometheusRule
+            metadata:
+              name: observability-alert-rules
+              labels:
+                release: kube-prometheus-stack
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              groups:
+                - name: sli-availability-alerts
+                  interval: 30s
+                  rules:
+                    - alert: N8nDown
+                      expr: |
+                        (
+                          sli:n8n_availability:ratio_5m == 0
+                        )
+                        unless on()
+                        (rollout:n8n_recently_finished or rollout:n8n_deploy_window or rollout:n8n_bootstrap_window)
+                      for: 5m
+                      labels:
+                        severity: critical
+                        service: n8n
+                      annotations:
+                        summary: n8n is unavailable.
+                        description: Blackbox probes for n8n have failed for the last 5 minutes outside an active rollout.
+                    - alert: WikiDown
+                      expr: |
+                        (
+                          sli:wiki_availability:ratio_5m == 0
+                        )
+                        unless on()
+                        (rollout:wiki_recently_finished or rollout:wiki_deploy_window or rollout:wiki_bootstrap_window)
+                      for: 5m
+                      labels:
+                        severity: critical
+                        service: wiki
+                      annotations:
+                        summary: Wiki is unavailable.
+                        description: Blackbox probes for Wiki.js have failed for the last 5 minutes outside an active rollout.
+                    - alert: OllamaDown
+                      expr: |
+                        (
+                          sli:ollama_availability:ratio_5m == 0
+                        )
+                        unless on()
+                        (rollout:ollama_recently_finished or rollout:ollama_deploy_window or rollout:ollama_bootstrap_window)
+                      for: 5m
+                      labels:
+                        severity: critical
+                        service: ollama
+                      annotations:
+                        summary: Ollama is unavailable.
+                        description: Blackbox probes for Ollama have failed for the last 5 minutes outside an active rollout.
+                    - alert: N8nAvailabilityDegraded
+                      expr: |
+                        (
+                          sli:n8n_availability:ratio_30m < {{ .Values.slo.n8n }} and sli:n8n_availability:ratio_5m > 0
+                        )
+                        unless on()
+                        rollout:n8n_burn_cooldown
+                      for: 15m
+                      labels:
+                        severity: warning
+                        service: n8n
+                      annotations:
+                        summary: n8n availability is below target.
+                        description: n8n 30 minute availability ratio is below 99.5%.
+                    - alert: WikiAvailabilityDegraded
+                      expr: |
+                        (
+                          sli:wiki_availability:ratio_30m < {{ .Values.slo.wiki }} and sli:wiki_availability:ratio_5m > 0
+                        )
+                        unless on()
+                        rollout:wiki_burn_cooldown
+                      for: 15m
+                      labels:
+                        severity: warning
+                        service: wiki
+                      annotations:
+                        summary: Wiki availability is below target.
+                        description: Wiki.js 30 minute availability ratio is below 99.5%.
+                    - alert: OllamaAvailabilityDegraded
+                      expr: |
+                        (
+                          sli:ollama_availability:ratio_30m < {{ .Values.slo.ollama }} and sli:ollama_availability:ratio_5m > 0
+                        )
+                        unless on()
+                        rollout:ollama_burn_cooldown
+                      for: 15m
+                      labels:
+                        severity: warning
+                        service: ollama
+                      annotations:
+                        summary: Ollama availability is below target.
+                        description: Ollama 30 minute availability ratio is below 99.0%.
+                - name: public-endpoint-alerts
+                  interval: 30s
+                  rules:
+                    - alert: N8nPublicEndpointDown
+                      expr: |
+                        (
+                          sli:n8n_public_availability:ratio_5m == 0
+                        )
+                        unless on()
+                        (rollout:n8n_recently_finished or rollout:n8n_deploy_window or rollout:n8n_bootstrap_window)
+                      for: 5m
+                      labels:
+                        severity: critical
+                        service: n8n
+                        signal: public-availability
+                      annotations:
+                        summary: n8n public endpoint is unavailable.
+                        description: HTTPS probe for n8n has failed for the last 5 minutes outside an active rollout.
+                    - alert: WikiPublicEndpointDown
+                      expr: |
+                        (
+                          sli:wiki_public_availability:ratio_5m == 0
+                        )
+                        unless on()
+                        (rollout:wiki_recently_finished or rollout:wiki_deploy_window or rollout:wiki_bootstrap_window)
+                      for: 5m
+                      labels:
+                        severity: critical
+                        service: wiki
+                        signal: public-availability
+                      annotations:
+                        summary: Wiki public endpoint is unavailable.
+                        description: HTTPS probe for Wiki.js has failed for the last 5 minutes outside an active rollout.
+                    - alert: N8nPublicLatencyP95High
+                      expr: |
+                        (quantile_over_time(0.95, probe_duration_seconds{job="blackbox-public-n8n",namespace="n8n",instance={{ .Values.public_probe_targets.n8n | quote }}}[30m]) > 2)
+                        unless on()
+                        rollout:n8n_burn_cooldown
+                      for: 10m
+                      labels:
+                        severity: warning
+                        service: n8n
+                        signal: public-latency
+                      annotations:
+                        summary: n8n public latency is elevated.
+                        description: n8n HTTPS probe p95 latency has been above 2 seconds for 30 minutes.
+                    - alert: WikiPublicLatencyP95High
+                      expr: |
+                        (quantile_over_time(0.95, probe_duration_seconds{job="blackbox-public-wiki",namespace="wiki",instance={{ .Values.public_probe_targets.wiki | quote }}}[30m]) > 2)
+                        unless on()
+                        rollout:wiki_burn_cooldown
+                      for: 10m
+                      labels:
+                        severity: warning
+                        service: wiki
+                        signal: public-latency
+                      annotations:
+                        summary: Wiki public latency is elevated.
+                        description: Wiki.js HTTPS probe p95 latency has been above 2 seconds for 30 minutes.
+                    - alert: N8nTLSCertificateExpiringSoon
+                      expr: (probe_ssl_earliest_cert_expiry{job="blackbox-public-n8n",namespace="n8n",instance={{ .Values.public_probe_targets.n8n | quote }}} - time()) < 14 * 24 * 3600
+                      for: 15m
+                      labels:
+                        severity: warning
+                        service: n8n
+                        signal: tls
+                      annotations:
+                        summary: n8n TLS certificate expires soon.
+                        description: The n8n public certificate will expire in less than 14 days.
+                    - alert: WikiTLSCertificateExpiringSoon
+                      expr: (probe_ssl_earliest_cert_expiry{job="blackbox-public-wiki",namespace="wiki",instance={{ .Values.public_probe_targets.wiki | quote }}} - time()) < 14 * 24 * 3600
+                      for: 15m
+                      labels:
+                        severity: warning
+                        service: wiki
+                        signal: tls
+                      annotations:
+                        summary: Wiki TLS certificate expires soon.
+                        description: The Wiki.js public certificate will expire in less than 14 days.
+                    - alert: N8nAvailabilityBurnRateFast
+                      expr: |
+                        (
+                          ((1 - sli:n8n_public_availability:ratio_5m) / (1 - {{ .Values.slo.n8n }})) > 14
+                          and
+                          ((1 - sli:n8n_public_availability:ratio_1h) / (1 - {{ .Values.slo.n8n }})) > 14
+                        )
+                        unless on()
+                        rollout:n8n_burn_cooldown
+                      for: 5m
+                      labels:
+                        severity: critical
+                        service: n8n
+                        signal: slo
+                      annotations:
+                        summary: n8n availability is burning error budget too fast.
+                        description: n8n public availability is consuming its 99.5% error budget at a fast-burn rate.
+                    - alert: N8nAvailabilityBurnRateSlow
+                      expr: |
+                        (
+                          ((1 - sli:n8n_public_availability:ratio_30m) / (1 - {{ .Values.slo.n8n }})) > 3
+                          and
+                          ((1 - sli:n8n_public_availability:ratio_6h) / (1 - {{ .Values.slo.n8n }})) > 3
+                        )
+                        unless on()
+                        rollout:n8n_burn_cooldown
+                      for: 15m
+                      labels:
+                        severity: warning
+                        service: n8n
+                        signal: slo
+                      annotations:
+                        summary: n8n availability is steadily burning error budget.
+                        description: n8n public availability is consuming its 99.5% error budget at a slow-burn rate.
+                    - alert: WikiAvailabilityBurnRateFast
+                      expr: |
+                        (
+                          ((1 - sli:wiki_public_availability:ratio_5m) / (1 - {{ .Values.slo.wiki }})) > 14
+                          and
+                          ((1 - sli:wiki_public_availability:ratio_1h) / (1 - {{ .Values.slo.wiki }})) > 14
+                        )
+                        unless on()
+                        rollout:wiki_burn_cooldown
+                      for: 5m
+                      labels:
+                        severity: critical
+                        service: wiki
+                        signal: slo
+                      annotations:
+                        summary: Wiki availability is burning error budget too fast.
+                        description: Wiki.js public availability is consuming its 99.5% error budget at a fast-burn rate.
+                    - alert: WikiAvailabilityBurnRateSlow
+                      expr: |
+                        (
+                          ((1 - sli:wiki_public_availability:ratio_30m) / (1 - {{ .Values.slo.wiki }})) > 3
+                          and
+                          ((1 - sli:wiki_public_availability:ratio_6h) / (1 - {{ .Values.slo.wiki }})) > 3
+                        )
+                        unless on()
+                        rollout:wiki_burn_cooldown
+                      for: 15m
+                      labels:
+                        severity: warning
+                        service: wiki
+                        signal: slo
+                      annotations:
+                        summary: Wiki availability is steadily burning error budget.
+                        description: Wiki.js public availability is consuming its 99.5% error budget at a slow-burn rate.
+                - name: sli-dependency-alerts
+                  interval: 30s
+                  rules:
+                    - alert: N8nMetricsTargetDown
+                      expr: sli:n8n_metrics_target:ratio_5m == 0 and sli:n8n_availability:ratio_5m > 0
+                      for: 5m
+                      labels:
+                        severity: warning
+                        service: n8n
+                      annotations:
+                        summary: n8n metrics target is down.
+                        description: Prometheus has failed to scrape n8n-web metrics for the last 5 minutes.
+                    - alert: PostgresDown
+                      expr: sli:postgres_availability:ratio_5m == 0
+                      for: 5m
+                      labels:
+                        severity: critical
+                        service: postgres
+                      annotations:
+                        summary: PostgreSQL metrics target is down.
+                        description: Prometheus has failed to scrape PostgreSQL metrics for the last 5 minutes.
+                    - alert: RedisDown
+                      expr: sli:redis_availability:ratio_5m == 0
+                      for: 5m
+                      labels:
+                        severity: critical
+                        service: redis
+                      annotations:
+                        summary: Redis metrics target is down.
+                        description: Prometheus has failed to scrape Redis metrics for the last 5 minutes.
+                    - alert: PostgresBackupMissing
+                      expr: absent(kube_cronjob_info{namespace="db",cronjob="postgres-backup"})
+                      for: 15m
+                      labels:
+                        severity: warning
+                        service: postgres
+                        signal: backup
+                      annotations:
+                        summary: PostgreSQL backup CronJob is missing.
+                        description: The postgres-backup CronJob is absent from the db namespace.
+                    - alert: PostgresBackupFailed
+                      expr: |
+                        (
+                          absent(kube_cronjob_status_last_successful_time{namespace="db",cronjob="postgres-backup"})
+                          and on()
+                          (count(kube_cronjob_status_last_schedule_time{namespace="db",cronjob="postgres-backup"}) > 0)
+                        )
+                        or
+                        (time() - max(kube_cronjob_status_last_successful_time{namespace="db",cronjob="postgres-backup"})) > 36 * 3600
+                      for: 15m
+                      labels:
+                        severity: critical
+                        service: postgres
+                        signal: backup
+                      annotations:
+                        summary: PostgreSQL backup is stale or failing.
+                        description: postgres-backup has been scheduled at least once but has not completed successfully in the last 36 hours.
+                - name: n8n-runtime-alerts
+                  interval: 30s
+                  rules:
+                    - alert: N8nWebReplicaUnavailable
+                      expr: (sum(kube_deployment_status_replicas_available{namespace="n8n",deployment="n8n-web"}) / clamp_min(sum(kube_deployment_spec_replicas{namespace="n8n",deployment="n8n-web"}), 1)) < 1
+                      for: 10m
+                      labels:
+                        severity: warning
+                        service: n8n
+                        component: web
+                      annotations:
+                        summary: n8n web deployment is missing ready replicas.
+                        description: n8n-web has fewer ready replicas than desired for 10 minutes.
+                    - alert: N8nWorkerReplicaUnavailable
+                      expr: (sum(kube_deployment_status_replicas_available{namespace="n8n",deployment="n8n-worker"}) / clamp_min(sum(kube_deployment_spec_replicas{namespace="n8n",deployment="n8n-worker"}), 1)) < 1
+                      for: 10m
+                      labels:
+                        severity: warning
+                        service: n8n
+                        component: worker
+                      annotations:
+                        summary: n8n worker deployment is missing ready replicas.
+                        description: n8n-worker has fewer ready replicas than desired for 10 minutes.
+                    - alert: N8nEventLoopLagHigh
+                      expr: avg_over_time(n8n_nodejs_eventloop_lag_seconds{job="n8n-web",namespace="n8n"}[10m]) > 0.2
+                      for: 10m
+                      labels:
+                        severity: warning
+                        service: n8n
+                        component: web
+                      annotations:
+                        summary: n8n event loop lag is elevated.
+                        description: Average n8n event loop lag has been above 200ms for 10 minutes.
+                    - alert: N8nFileDescriptorsHigh
+                      expr: max(n8n_process_open_fds{job="n8n-web",namespace="n8n"} / n8n_process_max_fds{job="n8n-web",namespace="n8n"}) > 0.8
+                      for: 15m
+                      labels:
+                        severity: warning
+                        service: n8n
+                        component: web
+                      annotations:
+                        summary: n8n is close to its file descriptor limit.
+                        description: n8n web process is using more than 80% of available file descriptors for 15 minutes.
+                    - alert: N8nPodRestartsTooOften
+                      expr: sum by (pod, container) (increase(kube_pod_container_status_restarts_total{namespace="n8n",pod=~"n8n-(web|worker)-.*"}[1h])) > 3
+                      for: 5m
+                      labels:
+                        severity: warning
+                        service: n8n
+                      annotations:
+                        summary: n8n pod is restarting too often.
+                        description: Pod {{`{{ $labels.pod }}`}} container {{`{{ $labels.container }}`}} restarted more than 3 times in the last hour.
+                - name: rollout-alerts
+                  interval: 30s
+                  rules:
+                    - alert: N8nRolloutStuck
+                      expr: rollout:n8n_active
+                      for: 15m
+                      labels:
+                        severity: warning
+                        service: n8n
+                      annotations:
+                        summary: n8n rollout is taking too long.
+                        description: n8n-web has not reached desired updated and available replicas for 15 minutes.
+                    - alert: WikiRolloutStuck
+                      expr: rollout:wiki_active
+                      for: 15m
+                      labels:
+                        severity: warning
+                        service: wiki
+                      annotations:
+                        summary: Wiki rollout is taking too long.
+                        description: wikijs has not reached desired updated and available replicas for 15 minutes.
+                    - alert: OllamaRolloutStuck
+                      expr: rollout:ollama_active
+                      for: 15m
+                      labels:
+                        severity: warning
+                        service: ollama
+                      annotations:
+                        summary: Ollama rollout is taking too long.
+                        description: ollama has not reached desired updated and available replicas for 15 minutes.
+                - name: sli-observability-alerts
+                  interval: 30s
+                  rules:
+                    - alert: PrometheusScrapeHealthDegraded
+                      expr: sli:prometheus_scrape_health:ratio_30m < 0.99
+                      for: 15m
+                      labels:
+                        severity: warning
+                      annotations:
+                        summary: Prometheus scrape health is below target.
+                        description: Prometheus scrape success ratio for {{`{{ $labels.job }}`}} in namespace {{`{{ $labels.namespace }}`}} is below 99% over 30 minutes.
+                    - alert: AlertmanagerNotificationsDown
+                      expr: sli:alertmanager_notification_success:ratio_5m == 0
+                      for: 5m
+                      labels:
+                        severity: critical
+                        service: alertmanager
+                      annotations:
+                        summary: Alertmanager is not delivering notifications.
+                        description: Alertmanager notification success ratio has been zero for the last 5 minutes.
+                    - alert: AlertmanagerNoMetrics
+                      expr: absent(alertmanager_notifications_total{job="observability-alertmanager",namespace="observability"})
+                      for: 5m
+                      labels:
+                        severity: critical
+                        service: alertmanager
+                      annotations:
+                        summary: Alertmanager is exposing no notification metrics.
+                        description: The alertmanager_notifications_total metric is absent for 5 minutes — Alertmanager may be down or not delivering anything.
+                    - alert: AlertmanagerNotificationsFailing
+                      expr: sli:alertmanager_notification_success:ratio_5m < 0.99 and sli:alertmanager_notification_success:ratio_5m > 0
+                      for: 10m
+                      labels:
+                        severity: warning
+                        service: alertmanager
+                      annotations:
+                        summary: Alertmanager notification delivery is below target.
+                        description: Alertmanager notification success ratio is below 99% over 5 minutes.
+                - name: ingress-alerts
+                  interval: 30s
+                  rules:
+                    # Ingress HTTP golden-signal alerts for the user-facing
+                    # n8n and wiki paths. They fire on 5xx ratio and p95
+                    # server-side latency derived from Traefik router metrics.
+                    # `unless on() rollout:*_active` suppresses rollout noise
+                    # consistently with the availability and burn-rate alerts.
+                    - alert: N8nIngress5xxHigh
+                      expr: sli:n8n_ingress_5xx:ratio5m > 0.05 unless on() rollout:n8n_burn_cooldown
+                      for: 10m
+                      labels:
+                        severity: warning
+                        service: n8n
+                        signal: ingress-errors
+                      annotations:
+                        summary: n8n ingress 5xx ratio is elevated.
+                        description: n8n is returning 5xx responses for more than 5% of ingress requests over the last 10 minutes.
+                    - alert: WikiIngress5xxHigh
+                      expr: sli:wiki_ingress_5xx:ratio5m > 0.05 unless on() rollout:wiki_burn_cooldown
+                      for: 10m
+                      labels:
+                        severity: warning
+                        service: wiki
+                        signal: ingress-errors
+                      annotations:
+                        summary: Wiki ingress 5xx ratio is elevated.
+                        description: Wiki.js is returning 5xx responses for more than 5% of ingress requests over the last 10 minutes.
+                    - alert: N8nIngressLatencyP95High
+                      expr: sli:n8n_ingress_latency:p95_5m > 1 unless on() rollout:n8n_burn_cooldown
+                      for: 10m
+                      labels:
+                        severity: warning
+                        service: n8n
+                        signal: ingress-latency
+                      annotations:
+                        summary: n8n ingress p95 latency is elevated.
+                        description: n8n server-side p95 latency at the ingress router is above 1 second for the last 10 minutes.
+                    - alert: WikiIngressLatencyP95High
+                      expr: sli:wiki_ingress_latency:p95_5m > 1 unless on() rollout:wiki_burn_cooldown
+                      for: 10m
+                      labels:
+                        severity: warning
+                        service: wiki
+                        signal: ingress-latency
+                      annotations:
+                        summary: Wiki ingress p95 latency is elevated.
+                        description: Wiki.js server-side p95 latency at the ingress router is above 1 second for the last 10 minutes.

@@ -13,6 +13,9 @@ kubeControllerManager:
 kubeEtcd:
   enabled: false
 
+kubeProxy:
+  enabled: false
+
 kubeScheduler:
   enabled: false
 
@@ -20,6 +23,9 @@ grafana:
   enabled: true
   fullnameOverride: observability-grafana
   defaultDashboardsEnabled: true
+  sidecar:
+    dashboards:
+      enabled: true
   additionalDataSources:
     - name: Loki
       type: loki
@@ -37,7 +43,7 @@ grafana:
     enabled: true
     ingressClassName: traefik
     annotations:
-      cert-manager.io/cluster-issuer: letsencrypt-prod
+      cert-manager.io/cluster-issuer: letsencrypt-staging
       traefik.ingress.kubernetes.io/router.middlewares: observability-https-redirect@kubernetescrd
     hosts:
       - grafana.poluyanov.net
@@ -82,7 +88,7 @@ alertmanager:
     enabled: true
     ingressClassName: traefik
     annotations:
-      cert-manager.io/cluster-issuer: letsencrypt-prod
+      cert-manager.io/cluster-issuer: letsencrypt-staging
       traefik.ingress.kubernetes.io/router.middlewares: observability-https-redirect@kubernetescrd
     hosts:
       - alertmanager.poluyanov.net
@@ -136,9 +142,42 @@ alertmanager:
       repeat_interval: 4h
       receiver: email-default
       routes:
+        # SLO history alerts (*AvailabilityDegraded, *BurnRateFast/Slow) are
+        # useful in the observability layer but noisy over email: they are
+        # computed on 30m/1h/6h windows and tend to fire (and then send
+        # resolved) as a tail after a rollout rather than signalling a
+        # current outage. Route them to the null receiver so they stay
+        # visible in Alertmanager/Grafana but never reach the inbox and do
+        # not generate resolved notifications.
+        - receiver: "null"
+          matchers:
+            - alertname =~ ".*AvailabilityDegraded"
+        - receiver: "null"
+          matchers:
+            - alertname =~ ".*BurnRateFast"
+        - receiver: "null"
+          matchers:
+            - alertname =~ ".*BurnRateSlow"
+        # PrometheusScrapeHealthDegraded is a 30m-window history signal over
+        # scrape quality per job/namespace. During bootstrap or a deploy it
+        # remembers a temporary scrape gap (e.g. n8n-web was down while its new
+        # pod started) and fires a warning + resolved tail. It is not an
+        # immediate incident requiring action: actual scrape failure of core
+        # targets is surfaced by *Down alerts and Prometheus self-alerts from
+        # kube-prometheus-stack. Route it to the null receiver so it stays
+        # visible in Alertmanager UI / Grafana but does not spam the inbox.
+        - receiver: "null"
+          matchers:
+            - alertname = "PrometheusScrapeHealthDegraded"
         - receiver: "null"
           matchers:
             - alertname = "Watchdog"
+        - receiver: "null"
+          matchers:
+            - alertname = "InfoInhibitor"
+        - receiver: "null"
+          matchers:
+            - severity = "info"
     receivers:
       - name: email-default
         email_configs:

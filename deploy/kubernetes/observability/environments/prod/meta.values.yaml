@@ -7,3 +7,15 @@ network_policy:
   kubernetes_api_service_cidr: 10.43.0.1/32
   node_cidr: 10.20.0.3/32
   external_cidr: 0.0.0.0/0
+
+# Availability SLO targets. Single source of truth for alert thresholds
+# (AvailabilityDegraded alerts and public endpoint burn-rate alerts). Error
+# budget for burn rates is derived as (1 - slo).
+slo:
+  n8n: 0.995
+  wiki: 0.995
+  ollama: 0.99
+
+public_probe_targets:
+  n8n: https://10.20.0.3/rest/settings
+  wiki: https://10.20.0.3/healthz

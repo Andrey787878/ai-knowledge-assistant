@@ -2,38 +2,23 @@
 
 ## Что это
 
-Observability-слой кластера: метрики Kubernetes, логи workload-ов, Prometheus, Alertmanager и Grafana.
+Этот каталог содержит весь observability-слой кластера как код: метрики Kubernetes и приложений, synthetic probes, routing alert-ов, три provisioned Grafana dashboard-а и log pipeline на базе `Loki` и `Alloy`.
 
-## Что ставится
+## Что разворачивается
 
-- `kube-prometheus-stack`
-- Prometheus Operator
-- Prometheus
-- Alertmanager
-- Grafana
-- kube-state-metrics
-- node-exporter
-- Loki
-- Alloy
-
-## Какие chart используются
-
-- `../vendor_charts/kube-prometheus-stack` (upstream `prometheus-community/kube-prometheus-stack` `86.2.3`)
-- `../vendor_charts/loki` (upstream `grafana/loki` `7.0.0`)
-- `../vendor_charts/alloy` (upstream `grafana/alloy` `1.10.0`)
+Через `helmfile` поднимаются `kube-prometheus-stack`, `Prometheus`, `Alertmanager`, `Grafana`, `kube-state-metrics`, `node-exporter`, `blackbox-exporter`, `Loki`, `Alloy` и отдельный `ServiceMonitor` для метрик `Traefik`. В результате кластер получает один связанный стек для метрик, алертинга, дашбордов и логов.
 
 ## Основные файлы
 
-- `helmfile.yaml` — точка входа
-- `releases/grafana-admin-secret.yaml` — SOPS-backed admin secret для Grafana
-- `releases/kube-prometheus-stack.yaml` — релиз monitoring stack
-- `releases/loki.yaml` — хранилище логов
-- `releases/alloy.yaml` — сбор логов Kubernetes pods
-- `releases/networkpolicy.yaml` — allow-list и default deny для observability
-- `environments/prod/kube-prometheus-stack.values.yaml` — параметры production
-- `environments/prod/secrets.values.enc.yaml` — production secrets
-- `environments/prod/meta.values.yaml` — namespace и общие labels
-- `network-policies.md` — матрица трафика, rollout, проверки и rollback
+`helmfile.yaml` остается точкой входа. `releases/recording-rules.yaml` считает SLI и rollout-сигналы. `releases/alert-rules.yaml` описывает symptom-level и operational alert-ы. `releases/dashboards-overview.yaml`, `releases/dashboards-n8n-runtime.yaml` и `releases/dashboards-public-endpoints.yaml` провиженят три дашборда Grafana. `releases/app-probes.yaml` и `releases/blackbox-exporter.yaml` задают synthetic probes, `releases/traefik-servicemonitor.yaml` подключает ingress metrics, `releases/loki.yaml` и `releases/alloy.yaml` собирают логи, `releases/networkpolicy.yaml` фиксирует allow-list модель сетевого доступа observability-контура.
+
+Production values лежат в `environments/prod/kube-prometheus-stack.values.yaml`, общие labels и служебные значения — в `environments/prod/meta.values.yaml`, secrets — в `environments/prod/secrets.values.enc.yaml`.
+
+## Что зафиксировано в этом слое
+
+Текущая версия observability-контурa держится на трех опорах. Первая — monitoring as code: rules, dashboards и routing не настраиваются вручную в UI. Вторая — high-signal alerting policy: в email уходят только actionable alerts, history-style warnings остаются в UI. Третья — разделение по ролям дашбордов: `Observability Overview` отвечает на вопрос “что сломано”, `n8n Runtime` — “почему ломается именно n8n”, `Public Endpoints / Edge` — “что видит пользователь снаружи”.
+
+Полное operational описание стека вынесено в `../../docs/kubernetes_deploy/monitoring.md`. Там зафиксированы компоненты стека, матрица alert routing, реализация четырех золотых сигналов, deploy/bootstrap suppression и места под скриншоты для финальной презентации. Набор SLI/SLO и логика вычисления recording rules описаны в `../../docs/kubernetes_deploy/sli-slo.md`.
 
 ## Как применять
 
@@ -67,7 +52,11 @@ Port-forward можно использовать для локальной пр�
 - SMTP app password для Alertmanager хранится в `environments/prod/secrets.values.enc.yaml` по ключу `alertmanager.smtp.auth_password`.
 - Loki хранит логи 7 дней на `local-path` PVC размером `10Gi`.
 - Alloy начинает читать новые строки после запуска и отправляет их в `loki-gateway`.
-- Blackbox напрямую проверяет ClusterIP-сервисы n8n, Wiki.js и Ollama.
+- Blackbox одновременно проверяет внутренние ClusterIP endpoints и публичные HTTPS endpoints `n8n` и `wiki`.
+- Traefik metrics scrape теперь идет через `ServiceMonitor` из `kube-system`, что дает базу для ingress-level HTTP alerts и dashboard panels.
 - NetworkPolicy применяются как explicit allow-list с namespace-wide default deny.
 - Перед изменением IP ноды или Service CIDR обновите `network_policy` в `meta.values.yaml`.
+- Во время rollout самого `blackbox-exporter` на single-node k3s может кратко срабатывать `TargetDown` по job `blackbox-exporter`, потому что hostNetwork port `9115` освобождается между старым и новым pod.
+- `AvailabilityDegraded`, `AvailabilityBurnRateFast` и `AvailabilityBurnRateSlow` после rollout могут еще некоторое время существовать как history-style сигналы, потому что считаются по окнам `30m`, `1h` и `6h`, а не только по текущему состоянию.
+- Email routing специально глушит `*AvailabilityDegraded`, `*AvailabilityBurnRateFast` и `*BurnRateSlow`: они остаются в Grafana и Alertmanager UI как SLO-history, но не шумят в почту.
 - Traces пока не входят в этот слой.

@@ -1,0 +1,724 @@
+---
+helmDefaults:
+  skipDeps: true
+
+releases:
+  - name: observability-dashboards-overview
+    namespace: {{ .Values.namespace | quote }}
+    createNamespace: false
+    chart: ../../vendor_charts/raw
+    wait: true
+    values:
+      - resources:
+          - apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: observability-overview-dashboard
+              labels:
+                grafana_dashboard: "1"
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            data:
+              observability-overview.json: |
+                {
+                  "annotations": {
+                    "list": [
+                      {
+                        "builtIn": 1,
+                        "datasource": {
+                          "type": "grafana",
+                          "uid": "-- Grafana --"
+                        },
+                        "enable": true,
+                        "hide": true,
+                        "iconColor": "rgba(0, 211, 255, 1)",
+                        "name": "Annotations & Alerts",
+                        "target": {
+                          "limit": 100,
+                          "matchAny": false,
+                          "tags": [],
+                          "type": "dashboard"
+                        },
+                        "type": "dashboard"
+                      }
+                    ]
+                  },
+                  "editable": true,
+                  "fiscalYearStartMonth": 0,
+                  "graphTooltip": 0,
+                  "links": [],
+                  "panels": [
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "decimals": 1,
+                          "max": 1,
+                          "min": 0,
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "red", "value": 0 },
+                              { "color": "yellow", "value": 0.99 },
+                              { "color": "green", "value": 0.995 }
+                            ]
+                          },
+                          "unit": "percentunit"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 4, "w": 3, "x": 0, "y": 0 },
+                      "id": 1,
+                      "options": {
+                        "colorMode": "background",
+                        "graphMode": "none",
+                        "justifyMode": "center",
+                        "orientation": "auto",
+                        "reduceOptions": {
+                          "calcs": ["lastNotNull"],
+                          "fields": "",
+                          "values": false
+                        },
+                        "textMode": "value"
+                      },
+                      "targets": [
+                        {
+                          "expr": "sli:n8n_public_availability:ratio_5m",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "n8n User Path",
+                      "type": "stat"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "decimals": 1,
+                          "max": 1,
+                          "min": 0,
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "red", "value": 0 },
+                              { "color": "yellow", "value": 0.99 },
+                              { "color": "green", "value": 0.995 }
+                            ]
+                          },
+                          "unit": "percentunit"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 4, "w": 3, "x": 3, "y": 0 },
+                      "id": 2,
+                      "options": {
+                        "colorMode": "background",
+                        "graphMode": "none",
+                        "justifyMode": "center",
+                        "orientation": "auto",
+                        "reduceOptions": {
+                          "calcs": ["lastNotNull"],
+                          "fields": "",
+                          "values": false
+                        },
+                        "textMode": "value"
+                      },
+                      "targets": [
+                        {
+                          "expr": "sli:wiki_public_availability:ratio_5m",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "wiki User Path",
+                      "type": "stat"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "decimals": 1,
+                          "max": 1,
+                          "min": 0,
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "red", "value": 0 },
+                              { "color": "yellow", "value": 0.98 },
+                              { "color": "green", "value": 0.99 }
+                            ]
+                          },
+                          "unit": "percentunit"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 4, "w": 3, "x": 6, "y": 0 },
+                      "id": 3,
+                      "options": {
+                        "colorMode": "background",
+                        "graphMode": "none",
+                        "justifyMode": "center",
+                        "orientation": "auto",
+                        "reduceOptions": {
+                          "calcs": ["lastNotNull"],
+                          "fields": "",
+                          "values": false
+                        },
+                        "textMode": "value"
+                      },
+                      "targets": [
+                        {
+                          "expr": "sli:ollama_availability:ratio_5m",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "ollama Availability",
+                      "type": "stat"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "decimals": 1,
+                          "max": 1,
+                          "min": 0,
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "red", "value": 0 },
+                              { "color": "yellow", "value": 0.99 },
+                              { "color": "green", "value": 1 }
+                            ]
+                          },
+                          "unit": "percentunit"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 4, "w": 3, "x": 9, "y": 0 },
+                      "id": 4,
+                      "options": {
+                        "colorMode": "background",
+                        "graphMode": "none",
+                        "justifyMode": "center",
+                        "orientation": "auto",
+                        "reduceOptions": {
+                          "calcs": ["lastNotNull"],
+                          "fields": "",
+                          "values": false
+                        },
+                        "textMode": "value"
+                      },
+                      "targets": [
+                        {
+                          "expr": "sli:postgres_availability:ratio_5m",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "postgres Availability",
+                      "type": "stat"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "decimals": 1,
+                          "max": 1,
+                          "min": 0,
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "red", "value": 0 },
+                              { "color": "yellow", "value": 0.99 },
+                              { "color": "green", "value": 1 }
+                            ]
+                          },
+                          "unit": "percentunit"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 4, "w": 3, "x": 12, "y": 0 },
+                      "id": 5,
+                      "options": {
+                        "colorMode": "background",
+                        "graphMode": "none",
+                        "justifyMode": "center",
+                        "orientation": "auto",
+                        "reduceOptions": {
+                          "calcs": ["lastNotNull"],
+                          "fields": "",
+                          "values": false
+                        },
+                        "textMode": "value"
+                      },
+                      "targets": [
+                        {
+                          "expr": "sli:redis_availability:ratio_5m",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "redis Availability",
+                      "type": "stat"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "decimals": 0,
+                          "max": 1,
+                          "min": 0,
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "red", "value": 0 },
+                              { "color": "yellow", "value": 0.99 },
+                              { "color": "green", "value": 1 }
+                            ]
+                          },
+                          "unit": "percentunit"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 4, "w": 3, "x": 15, "y": 0 },
+                      "id": 6,
+                      "options": {
+                        "colorMode": "background",
+                        "graphMode": "none",
+                        "justifyMode": "center",
+                        "orientation": "auto",
+                        "reduceOptions": {
+                          "calcs": ["lastNotNull"],
+                          "fields": "",
+                          "values": false
+                        },
+                        "textMode": "value"
+                      },
+                      "targets": [
+                        {
+                          "expr": "max(up{job=\"observability-alertmanager\",namespace=\"observability\"}) or vector(0)",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "Alertmanager Health",
+                      "type": "stat"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "color": {
+                            "mode": "thresholds"
+                          },
+                          "decimals": 0,
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "green", "value": 0 },
+                              { "color": "red", "value": 1 }
+                            ]
+                          }
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 4, "w": 3, "x": 18, "y": 0 },
+                      "id": 7,
+                      "options": {
+                        "colorMode": "background",
+                        "graphMode": "none",
+                        "justifyMode": "center",
+                        "orientation": "auto",
+                        "reduceOptions": {
+                          "calcs": ["lastNotNull"],
+                          "fields": "",
+                          "values": false
+                        },
+                        "textMode": "value"
+                      },
+                      "targets": [
+                        {
+                          "expr": "sum(ALERTS{alertstate=\"firing\",severity=\"critical\"}) or vector(0)",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "Active Critical",
+                      "type": "stat"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "color": {
+                            "mode": "thresholds"
+                          },
+                          "decimals": 0,
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "green", "value": 0 },
+                              { "color": "yellow", "value": 1 },
+                              { "color": "red", "value": 5 }
+                            ]
+                          }
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 4, "w": 3, "x": 21, "y": 0 },
+                      "id": 8,
+                      "options": {
+                        "colorMode": "background",
+                        "graphMode": "none",
+                        "justifyMode": "center",
+                        "orientation": "auto",
+                        "reduceOptions": {
+                          "calcs": ["lastNotNull"],
+                          "fields": "",
+                          "values": false
+                        },
+                        "textMode": "value"
+                      },
+                      "targets": [
+                        {
+                          "expr": "sum(ALERTS{alertstate=\"firing\",severity=\"warning\",alertname!~\".*AvailabilityDegraded|.*BurnRateFast|.*BurnRateSlow|PrometheusScrapeHealthDegraded|.*PublicLatencyP95High|.*Ingress5xxHigh|.*IngressLatencyP95High\"}) or vector(0)",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "Actionable Warning",
+                      "type": "stat"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "custom": {
+                            "drawStyle": "line",
+                            "fillOpacity": 8,
+                            "lineInterpolation": "linear",
+                            "lineWidth": 2,
+                            "showPoints": "never",
+                            "spanNulls": true
+                          },
+                          "max": 1,
+                          "min": 0,
+                          "unit": "percentunit"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+                      "id": 9,
+                      "options": {
+                        "legend": {
+                          "calcs": ["lastNotNull"],
+                          "displayMode": "table",
+                          "placement": "bottom",
+                          "showLegend": true
+                        },
+                        "tooltip": {
+                          "mode": "multi",
+                          "sort": "desc"
+                        }
+                      },
+                      "targets": [
+                        {
+                          "expr": "sli:n8n_public_availability:ratio_30m",
+                          "legendFormat": "n8n",
+                          "refId": "A"
+                        },
+                        {
+                          "expr": "sli:wiki_public_availability:ratio_30m",
+                          "legendFormat": "wiki",
+                          "refId": "B"
+                        },
+                        {
+                          "expr": "sli:ollama_availability:ratio_30m",
+                          "legendFormat": "ollama",
+                          "refId": "C"
+                        }
+                      ],
+                      "title": "Application Availability 30m",
+                      "type": "timeseries"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "custom": {
+                            "drawStyle": "line",
+                            "fillOpacity": 8,
+                            "lineInterpolation": "linear",
+                            "lineWidth": 2,
+                            "showPoints": "never",
+                            "spanNulls": true
+                          },
+                          "max": 1,
+                          "min": 0,
+                          "unit": "percentunit"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+                      "id": 10,
+                      "options": {
+                        "legend": {
+                          "calcs": ["lastNotNull"],
+                          "displayMode": "table",
+                          "placement": "bottom",
+                          "showLegend": true
+                        },
+                        "tooltip": {
+                          "mode": "multi",
+                          "sort": "desc"
+                        }
+                      },
+                      "targets": [
+                        {
+                          "expr": "sli:postgres_availability:ratio_30m",
+                          "legendFormat": "postgres",
+                          "refId": "A"
+                        },
+                        {
+                          "expr": "sli:redis_availability:ratio_30m",
+                          "legendFormat": "redis",
+                          "refId": "B"
+                        },
+                        {
+                          "expr": "avg_over_time(up{job=\"observability-alertmanager\",namespace=\"observability\"}[30m])",
+                          "legendFormat": "alertmanager",
+                          "refId": "C"
+                        }
+                      ],
+                      "title": "Dependencies Health 30m",
+                      "type": "timeseries"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "custom": {
+                            "drawStyle": "line",
+                            "fillOpacity": 6,
+                            "lineInterpolation": "linear",
+                            "lineWidth": 2,
+                            "showPoints": "never",
+                            "spanNulls": true
+                          },
+                          "max": 1,
+                          "min": 0,
+                          "unit": "percentunit"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 12 },
+                      "id": 13,
+                      "options": {
+                        "legend": {
+                          "calcs": ["lastNotNull", "min"],
+                          "displayMode": "table",
+                          "placement": "bottom",
+                          "showLegend": true
+                        },
+                        "tooltip": {
+                          "mode": "single",
+                          "sort": "desc"
+                        }
+                      },
+                      "targets": [
+                        {
+                          "expr": "sli:prometheus_scrape_health:ratio_30m",
+                          "legendFormat": "{{`{{ namespace }}`}}/{{`{{ job }}`}}",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "Core Target Scrape Health 30m",
+                      "type": "timeseries"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "custom": {
+                            "drawStyle": "bars",
+                            "fillOpacity": 70,
+                            "lineInterpolation": "linear",
+                            "lineWidth": 1,
+                            "showPoints": "never",
+                            "spanNulls": true
+                          },
+                          "min": 0,
+                          "unit": "short"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 20 },
+                      "id": 15,
+                      "options": {
+                        "legend": {
+                          "calcs": ["lastNotNull", "max"],
+                          "displayMode": "table",
+                          "placement": "bottom",
+                          "showLegend": true
+                        },
+                        "tooltip": {
+                          "mode": "single",
+                          "sort": "desc"
+                        }
+                      },
+                      "targets": [
+                        {
+                          "expr": "sum by (namespace) (increase(kube_pod_container_status_restarts_total{container!=\"\",container!=\"POD\",namespace=~\"n8n|wiki|ollama|db|observability\",pod=~\"n8n-(web|worker)-.*|redis-master-0|wikijs-.*|ollama-.*|postgres-postgresql-0|observability-(prometheus|grafana|operator)-.*|alertmanager-observability-alertmanager-0|loki-0|alloy-.*|blackbox-exporter-.*|kube-prometheus-stack-kube-state-metrics-.*\"}[6h]))",
+                          "legendFormat": "{{`{{ namespace }}`}}",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "Restarts 6h by Namespace",
+                      "type": "timeseries"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "drawStyle": "line",
+                          "lineInterpolation": "linear",
+                          "lineWidth": 2,
+                          "fillOpacity": 10,
+                          "stacking": { "group": "A", "mode": "none" },
+                          "thresholdsStyle": { "mode": "off" },
+                          "unit": "reqps"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
+                      "id": 16,
+                      "options": {
+                        "legend": { "calcs": ["lastNotNull", "mean"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+                        "tooltip": { "mode": "multi", "sort": "none" }
+                      },
+                      "targets": [
+                        {
+                          "expr": "sli:n8n_ingress_requests:rate5m",
+                          "legendFormat": "n8n",
+                          "refId": "A"
+                        },
+                        {
+                          "expr": "sli:wiki_ingress_requests:rate5m",
+                          "legendFormat": "wiki",
+                          "refId": "B"
+                        }
+                      ],
+                      "title": "Ingress Request Rate",
+                      "type": "timeseries"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "drawStyle": "line",
+                          "lineInterpolation": "linear",
+                          "lineWidth": 2,
+                          "fillOpacity": 10,
+                          "stacking": { "group": "A", "mode": "none" },
+                          "thresholdsStyle": { "mode": "line" },
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "green", "value": null },
+                              { "color": "red", "value": 0.05 }
+                            ]
+                          },
+                          "unit": "percentunit",
+                          "min": 0,
+                          "max": 0.2
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
+                      "id": 17,
+                      "options": {
+                        "legend": { "calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+                        "tooltip": { "mode": "multi", "sort": "none" }
+                      },
+                      "targets": [
+                        {
+                          "expr": "sli:n8n_ingress_5xx:ratio5m",
+                          "legendFormat": "n8n",
+                          "refId": "A"
+                        },
+                        {
+                          "expr": "sli:wiki_ingress_5xx:ratio5m",
+                          "legendFormat": "wiki",
+                          "refId": "B"
+                        }
+                      ],
+                      "title": "Ingress 5xx Ratio",
+                      "type": "timeseries"
+                    }
+                  ],
+                  "refresh": "30s",
+                  "schemaVersion": 39,
+                  "tags": ["observability", "overview"],
+                  "templating": {
+                    "list": [
+                      {
+                        "current": {
+                          "selected": true,
+                          "text": "default",
+                          "value": "default"
+                        },
+                        "hide": 0,
+                        "label": "Data source",
+                        "name": "datasource",
+                        "query": "prometheus",
+                        "regex": "",
+                        "type": "datasource"
+                      }
+                    ]
+                  },
+                  "time": {
+                    "from": "now-6h",
+                    "to": "now"
+                  },
+                  "timezone": "",
+                  "title": "Observability Overview",
+                  "uid": "observability-overview",
+                  "version": 1,
+                  "weekStart": ""
+                }

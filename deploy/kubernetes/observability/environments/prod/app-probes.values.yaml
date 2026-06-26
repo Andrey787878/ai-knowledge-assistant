@@ -15,3 +15,14 @@ blackbox:
       url: http://ollama-svc.ollama.svc.cluster.local:11434/api/version
       app: ollama
       namespace: ollama
+  publicTargets:
+    n8n:
+      url: https://10.20.0.3/rest/settings
+      app: n8n
+      namespace: n8n
+      module: http_2xx_n8n_public
+    wiki:
+      url: https://10.20.0.3/healthz
+      app: wiki
+      namespace: wiki
+      module: http_2xx_wiki_public

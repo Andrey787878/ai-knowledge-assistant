@@ -241,11 +241,32 @@ releases:
                           kubernetes.io/metadata.name: n8n
                       podSelector:
                         matchLabels:
+                          app.kubernetes.io/name: n8n
+                          app.kubernetes.io/component: web
+                  ports:
+                    - protocol: TCP
+                      port: 5678
+                - to:
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: n8n
+                      podSelector:
+                        matchLabels:
                           app.kubernetes.io/instance: redis
                           app.kubernetes.io/name: redis
                   ports:
                     - protocol: TCP
                       port: 9121
+                - to:
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: kube-system
+                      podSelector:
+                        matchLabels:
+                          app.kubernetes.io/name: traefik
+                  ports:
+                    - protocol: TCP
+                      port: 9101
                 - to:
                     - namespaceSelector:
                         matchLabels:
@@ -278,6 +299,8 @@ releases:
                       port: 10250
                     - protocol: TCP
                       port: 10249
+                    - protocol: TCP
+                      port: 9115
                     - protocol: TCP
                       port: 9100
 
@@ -530,6 +553,29 @@ releases:
                   ports:
                     - protocol: TCP
                       port: 11434
+                - to:
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: kube-system
+                      podSelector:
+                        matchLabels:
+                          app.kubernetes.io/name: traefik
+                  ports:
+                    - protocol: TCP
+                      port: 443
+                - to:
+                    - ipBlock:
+                        cidr: {{ .Values.network_policy.external_cidr | quote }}
+                        except:
+                          - 10.0.0.0/8
+                          - 100.64.0.0/10
+                          - 127.0.0.0/8
+                          - 169.254.0.0/16
+                          - 172.16.0.0/12
+                          - 192.168.0.0/16
+                  ports:
+                    - protocol: TCP
+                      port: 443
 
           - apiVersion: networking.k8s.io/v1
             kind: NetworkPolicy

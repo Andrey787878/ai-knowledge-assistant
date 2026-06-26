@@ -53,10 +53,12 @@ NetworkPolicy после маршрутизации через Service.
 | Prometheus | Redis exporter | `9121/tcp` | Метрики Redis |
 | Prometheus | k3s-нода | `9100`, `10250`, `10249/tcp` | node-exporter, kubelet, kube-proxy |
 | Prometheus | CoreDNS | `9153/tcp` | Метрики DNS |
+| Prometheus | Traefik (kube-system) | `9101/tcp` | Метрики встроенного Traefik ingestion controller |
 | Prometheus | Kubernetes API | `443`, `6443/tcp` | Обнаружение targets |
 | Blackbox Exporter | n8n web | `5678/tcp` | Внутренняя HTTP health-проверка |
 | Blackbox Exporter | Wiki.js | `3000/tcp` | Внутренняя HTTP health-проверка |
 | Blackbox Exporter | Ollama | `11434/tcp` | Внутренняя HTTP health-проверка |
+| Blackbox Exporter | Public endpoints (`n8n.poluyanov.net`, `wiki.poluyanov.net`) | `443/tcp` | Публичные HTTPS probes: доступность, latency, TLS-сертификаты |
 | Alloy | Loki gateway | `8080/tcp` | Отправка логов |
 | Alloy | Kubernetes API | `443`, `6443/tcp` | Обнаружение pod-ов |
 | Loki gateway | Loki | `3100/tcp` | Запись и чтение логов |
@@ -67,10 +69,16 @@ NetworkPolicy после маршрутизации через Service.
 | kube-state-metrics | Kubernetes API | `443`, `6443/tcp` | Чтение объектов кластера |
 | Все observability pod-ы | CoreDNS | `53/udp,tcp` | Разрешение имён |
 
-Внешний egress разрешён только Alertmanager на `587/tcp`. Из диапазона
-исключены RFC1918, carrier-grade NAT и link-local сети. Стандартная
-NetworkPolicy не умеет разрешать FQDN, поэтому доступ ограничивается selector-ом
-Alertmanager и конкретным портом SMTP.
+Внешний egress разрешён двум компонентам:
+
+- Alertmanager → SMTP `587/tcp` (отправка email-уведомлений);
+- Blackbox Exporter → public endpoints `443/tcp` (публичные HTTPS probes
+  `n8n.poluyanov.net`, `wiki.poluyanov.net`).
+
+Из диапазона `external_cidr` (`0.0.0.0/0`) исключены RFC1918, carrier-grade NAT,
+loopback и link-local сети: только реальные публичные адреса. Стандартная
+NetworkPolicy не умеет разрешать FQDN, поэтому доступ ограничивается pod
+selector-ом компонента, CIDR-egress и конкретным портом.
 
 ## Проверки Blackbox
 
@@ -87,8 +95,31 @@ PostgreSQL и Redis не проверяются Blackbox. Для них испо
 которые отдают не только доступность процесса, но и профильные метрики СУБД.
 
 Внутренние probes не проверяют публичный DNS, TLS-сертификаты, Security Group и
-маршрут Traefik. Такие проверки следует добавлять отдельными edge probes, чтобы
-не смешивать доступность приложения и внешнего периметра в одном сигнале.
+маршрут Traefik. Для этого существую публичные HTTPS probes в том же релизе
+`app-probes`, раздетые только `signal: public-availability` и не пересекающиеся
+с внутренней проверкой по сетевому уровню.
+
+### Контракты публичных probes
+
+Алертинг публичной доступности и TLS ожидает следующие фиксированные контракты:
+
+- Public probe URLs (`app-probes.values.yaml` → `blackbox.publicTargets`):
+  - `https://n8n.poluyanov.net/rest/settings` — публичный n8n endpoint,
+    отдаёт `200` без авторизации (известный публичный settings endpoint n8n).
+  - `https://wiki.poluyanov.net/healthz` — публичный healthz Wiki.js,
+    отдаёт `200`.
+- Static `namespace:` лейбл на `Probe.staticConfig.labels` (n8n/wiki/ollama)
+  используется в recording/alert rules и dashboards. Важно: это работает только
+  пока `prometheus.prometheusSpec.enforcedNamespaceLabel` у Prometheus НЕ задан
+  (см. `kube-prometheus-stack.values.yaml`). Если включить `enforcedNamespaceLabel`,
+  operator перезатрёт static-лейбл и recording-rule`ы по `namespace="n8n"`/`"wiki"`
+  перестанут совпадать — перед включением надо пересобрать имена job/namespace
+  через relabeling.
+- Job-лейбл ServiceMonitor/Probe: Prometheus Operator ставит `job` = имя
+  ServiceMonitor/Probe-ресурса, а не имя底层 Service. В частности:
+  - `app-probes` → `job="blackbox-n8n"` (Probe-имя), не `n8n-web-svc`;
+  - `apps/n8n` ServiceMonitor → `job="n8n-web"` (Stateful name SM), не `n8n-web-svc`
+    (Service). Recording/alert/dashboard ссылаются на `job="n8n-web"`.
 
 ## Межпространственные разрешения
 

@@ -14,6 +14,9 @@ releases:
             kind: Middleware
             metadata:
               name: https-redirect
+              labels:
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
             spec:
               redirectScheme:
                 scheme: https

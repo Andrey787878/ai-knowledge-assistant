@@ -36,6 +36,28 @@ releases:
                     http:
                       preferred_ip_protocol: ip4
                       valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+                  http_2xx_n8n_public:
+                    prober: http
+                    timeout: 5s
+                    http:
+                      preferred_ip_protocol: ip4
+                      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+                      headers:
+                        Host: n8n.poluyanov.net
+                      tls_config:
+                        insecure_skip_verify: true
+                        server_name: n8n.poluyanov.net
+                  http_2xx_wiki_public:
+                    prober: http
+                    timeout: 5s
+                    http:
+                      preferred_ip_protocol: ip4
+                      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+                      headers:
+                        Host: wiki.poluyanov.net
+                      tls_config:
+                        insecure_skip_verify: true
+                        server_name: wiki.poluyanov.net
 
           - apiVersion: apps/v1
             kind: Deployment
@@ -47,6 +69,8 @@ releases:
                 app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
             spec:
               replicas: 1
+              strategy:
+                type: Recreate
               selector:
                 matchLabels:
                   app.kubernetes.io/name: blackbox-exporter
@@ -56,6 +80,8 @@ releases:
                     app.kubernetes.io/name: blackbox-exporter
                     app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
                 spec:
+                  hostNetwork: true
+                  dnsPolicy: ClusterFirstWithHostNet
                   serviceAccountName: blackbox-exporter
                   automountServiceAccountToken: false
                   securityContext:
@@ -70,6 +96,7 @@ releases:
                       imagePullPolicy: IfNotPresent
                       args:
                         - --config.file=/etc/blackbox_exporter/blackbox.yml
+                        - --web.listen-address=0.0.0.0:9115
                       ports:
                         - name: http
                           containerPort: 9115
