@@ -1,6 +1,6 @@
-# Этап B (single-node k3s): документация Terraform + Ansible bootstrap + Helmfile
+# Этапы B/C (single-node k3s): документация Terraform + Ansible bootstrap + Helmfile + CI/observability
 
-Единая точка входа в документацию этапа B.
+Единая точка входа в документацию этапов B и C.
 
 ## Назначение
 
@@ -23,11 +23,14 @@
 
 ## Сеть и безопасность
 
-![Схема сети этапа B](./diagrams/network-topology.png)
-
 - [Сеть и NetworkPolicy](./network.md)
 - [Ingress TLS и ACME](./ingress-tls-acme.md)
 - [Ранбук по сертификатам](./certificates-runbook.md)
+
+## Observability и SLA
+
+- [SLI и SLO](./sli-slo.md)
+- [Monitoring, alerting и dashboards](./monitoring.md)
 
 ## Данные
 

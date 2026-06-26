@@ -11,7 +11,20 @@
 
 ## Схема сети
 
-![Схема сети Ansible VM](./diagrams/network-topology.png)
+<p align="center">
+  <a href="./diagrams/network-topology.png">
+    <img src="./diagrams/network-topology.png" alt="Схема сети Ansible VM" width="920">
+  </a>
+</p>
+
+<p align="center">
+  <a href="./diagrams/network-topology.png">
+    <img src="https://img.shields.io/badge/Open-full_size-1f6feb?style=for-the-badge" alt="Open full size">
+  </a>
+  <a href="./README.md">
+    <img src="https://img.shields.io/badge/Back-stage_A-2ea043?style=for-the-badge" alt="Back to stage A docs">
+  </a>
+</p>
 
 ## Источники правил (код)
 

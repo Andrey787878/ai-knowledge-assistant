@@ -20,8 +20,6 @@
 
 ## Сеть и безопасность
 
-![Схема сети этапа A](./diagrams/network-topology.png)
-
 - [Сеть Ansible-деплоя](./network.md)
 - [Edge TLS и ACME HTTP-01](./edge-tls-acme.md)
 - [Ранбук по сертификатам](./certificates-runbook.md)

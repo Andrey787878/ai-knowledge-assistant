@@ -1,15 +1,24 @@
+[![CI](https://github.com/Andrey787878/ai-knowledge-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/Andrey787878/ai-knowledge-assistant/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/Andrey787878/ai-knowledge-assistant?style=flat-square)](./LICENSE)
+[![Docs](https://img.shields.io/badge/docs-entry_point-1f6feb?style=flat-square)](./docs/README.md)
+[![Stage_A](https://img.shields.io/badge/stage-A_4_VM-2ea043?style=flat-square)](./docs/ansible_vm_deploy/README.md)
+[![Stage_B_C](https://img.shields.io/badge/stage-B%2BC_k3s_CI/CD_observability-7c3aed?style=flat-square)](./docs/kubernetes_deploy/README.md)
+
 # Internal AI Knowledge Assistant
+
+**Быстрые ссылки:** [Документация](./docs/README.md) • [Этап A](./docs/ansible_vm_deploy/README.md) • [Этапы B + C](./docs/kubernetes_deploy/README.md)
 
 ## Devops/SRE-кейс
 
-Проект показывает не только запуск приложения, а полный инфраструктурный контур вокруг него: cloud-сеть, деплой, TLS, секреты, изоляция сервисов, backup/restore, smoke-проверки, runbook'и и документация.
+Проект демонстрирует не только запуск приложения, а полный инфраструктурный контур вокруг него: cloud-сеть, деплой, TLS, секреты, изоляция сервисов, backup/restore, smoke-проверки, runbook'и и документация.
 
-Реализованы два варианта деплоя одной системы:
+Реализованы два инфраструктурных контура и отдельный Этап C, который добавляет к Этапу B CI/CD и observability:
 
-| Контур | Модель                         | Основной стек                                                                    |
-| ------ | ------------------------------ | -------------------------------------------------------------------------------- |
-| Этап A | 4 VM в Yandex Cloud            | Terraform, Ansible, Docker Compose, Nginx, firewalld, Ansible Vault              |
-| Этап B | single-node k3s в Yandex Cloud | Terraform, Ansible bootstrap, Kubernetes, Helmfile, Traefik, SOPS, NetworkPolicy |
+| Контур | Модель                            | Основной стек                                                                                                  |
+| ------ | --------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Этап A | 4 VM в Yandex Cloud               | Terraform, Ansible, Docker Compose, Nginx, firewalld, Ansible Vault                                            |
+| Этап B | single-node k3s в Yandex Cloud    | Terraform, Ansible bootstrap, Kubernetes, Helmfile, Traefik, SOPS, NetworkPolicy                               |
+| Этап C | CI и observability поверх Этапа B | GitHub Actions CI, kube-prometheus-stack, Alertmanager, Grafana, Loki, Alloy, blackbox probes, SLI/SLO, alerts |
 
 ## Зачем этот проект
 
@@ -58,11 +67,16 @@ Wiki.js выступает единым централизованным ист�
 ## Что реализовано
 
 - `2` воспроизводимых контура деплоя: VM-контур и Kubernetes-контур.
+- `1` Этап C, который добавляет к Этапу B CI и observability.
 - `4` VM в Этапе A: `wiki`, `db`, `n8n`, `ollama`.
 - `1` публичная VM в Этапе A: только `wiki` имеет public IP и выполняет роль edge/bastion.
 - `7` Helmfile-слоев в Этапе B: `platform`, `observability`, `postgres`, `redis`, `wiki`, `ollama`, `n8n`.
+- `1` GitHub Actions CI workflow с `5` независимыми job: repository sanity, secret scan, Terraform, Helm, Ansible syntax.
 - `5` n8n workflow: `agent_query_main`, `memory_read`, `memory_write`, `agent_chat_ui`, `agent_smoke_e2e`.
 - `2` собственных Helm-чарта: `n8n` и `ollama`.
+- `3` provisioned Grafana dashboard в observability-слое: `Observability Overview`, `n8n Runtime`, `Public Endpoints / Edge`.
+- `6` групп alerting-правил: internal availability, public endpoints, dependencies, `n8n` runtime, self-monitoring, ingress HTTP.
+- `2` публичных synthetic HTTPS probe и `3` внутренних blackbox probe для `n8n`, `wiki`, `ollama`.
 - Локально сохраненные сторонние Helm-чарты: `postgresql`, `redis`, `wiki`, `cert-manager`, `kube-prometheus-stack`, `loki`, `alloy`, `raw`.
 - Backup/restore PostgreSQL на обоих этапах с проверкой целостности и явным подтверждением восстановления.
 
@@ -72,7 +86,20 @@ Wiki.js выступает единым централизованным ист�
 
 ### Схема
 
-![Схема сети этапа A](./docs/ansible_vm_deploy/diagrams/network-topology.png)
+<p align="center">
+  <a href="./docs/ansible_vm_deploy/diagrams/network-topology.png">
+    <img src="./docs/ansible_vm_deploy/diagrams/network-topology.png" alt="Схема сети этапа A" width="920">
+  </a>
+</p>
+
+<p align="center">
+  <a href="./docs/ansible_vm_deploy/diagrams/network-topology.png">
+    <img src="https://img.shields.io/badge/Open-full_size-1f6feb?style=for-the-badge" alt="Open full size">
+  </a>
+  <a href="./docs/ansible_vm_deploy/README.md">
+    <img src="https://img.shields.io/badge/Docs-stage_A-2ea043?style=for-the-badge" alt="Stage A docs">
+  </a>
+</p>
 
 Что сделано:
 
@@ -101,7 +128,20 @@ Wiki.js выступает единым централизованным ист�
 
 ### Схема
 
-![Схема сети этапа B](./docs/kubernetes_deploy/diagrams/network-topology.png)
+<p align="center">
+  <a href="./docs/kubernetes_deploy/diagrams/network-topology.png">
+    <img src="./docs/kubernetes_deploy/diagrams/network-topology.png" alt="Схема сети этапа B" width="920">
+  </a>
+</p>
+
+<p align="center">
+  <a href="./docs/kubernetes_deploy/diagrams/network-topology.png">
+    <img src="https://img.shields.io/badge/Open-full_size-1f6feb?style=for-the-badge" alt="Open full size">
+  </a>
+  <a href="./docs/kubernetes_deploy/README.md">
+    <img src="https://img.shields.io/badge/Docs-stage_B%2BC-7c3aed?style=for-the-badge" alt="Stage B/C docs">
+  </a>
+</p>
 
 Что сделано:
 
@@ -127,6 +167,30 @@ Wiki.js выступает единым централизованным ист�
 | Platform      | `deploy/kubernetes/platform`      |
 | Applications  | `deploy/kubernetes/apps`          |
 | Документация  | `docs/kubernetes_deploy`          |
+
+## Этап C: CI и observability поверх Этапа B
+
+Этап C не создает новый инфраструктурный контур и не дублирует Этап B. Он развивает уже собранный Kubernetes-контур в двух направлениях: добавляет CI-проверки для инфраструктурного кода и добавляет рабочий observability-слой для эксплуатации кластера и приложений.
+
+Что добавлено в Этапе C:
+
+- GitHub Actions CI для YAML, workflow JSON, secret scan, Terraform, Helm/Helmfile/kubeconform и Ansible syntax-check;
+- `kube-prometheus-stack` с Prometheus, Alertmanager и Grafana;
+- `Loki` и `Alloy` для централизованного сбора pod logs;
+- blackbox probes для внутренней и публичной доступности;
+- Traefik ingress metrics для user-facing HTTP golden signals;
+- recording rules, alert rules и routing в Alertmanager;
+- `3` provisioned dashboard, которые приезжают из репозитория без ручного импорта;
+- operational документация по SLI/SLO, alerting и post-rollout проверкам.
+
+Ключевые директории:
+
+| Область        | Путь                                       |
+| -------------- | ------------------------------------------ |
+| CI             | `.github/workflows/ci.yml`                 |
+| Helmfile layer | `deploy/kubernetes/observability`          |
+| Alerting/SLI   | `deploy/kubernetes/observability/releases` |
+| Документация   | `docs/kubernetes_deploy`                   |
 
 ## Сеть и безопасность
 
@@ -179,6 +243,22 @@ Wiki.js выступает единым централизованным ист�
 - runbook'и по сети, сертификатам, backup/restore и операциям;
 - архитектурные схемы для обоих этапов.
 
+Дополнительно в observability-слое реализованы:
+
+- `3` dashboard для overview, runtime и public edge-path;
+- SLI/SLO слой для internal availability, public availability, ingress latency/error rate и dependency health;
+- Alertmanager routing, в котором actionable alerting отделен от SLO-history warning-сигналов;
+- self-monitoring для Prometheus scrape health и доставки уведомлений.
+
+Отдельно в CI уже реализованы:
+
+- `yamllint` для `.github` и `deploy`;
+- валидация `n8n` workflow JSON;
+- `gitleaks` secret scan;
+- `terraform fmt`, `terraform validate`, `tflint`;
+- `helm lint`, `helm template`, `helmfile build/template`, `kubeconform`;
+- `shellcheck`, `bash -n` и `ansible-playbook --syntax-check` для VM и k3s bootstrap playbook'ов.
+
 ## Структура репозитория
 
 ```text
@@ -195,7 +275,7 @@ deploy/
 
 docs/
   ansible_vm_deploy/     # документация этапа A
-  kubernetes_deploy/     # документация этапа B
+  kubernetes_deploy/     # документация этапов B и C
 
 n8n/
   workflows/             # workflow ассистента, памяти, UI и smoke
@@ -205,19 +285,5 @@ n8n/
 
 - [Единая точка входа в документацию](./docs/README.md)
 - [Этап A: Terraform + Ansible + Docker Compose](./docs/ansible_vm_deploy/README.md)
-- [Этап B: Terraform + Ansible bootstrap + Helmfile](./docs/kubernetes_deploy/README.md)
+- [Этапы B/C: Terraform + k3s bootstrap + Helmfile + CI/observability](./docs/kubernetes_deploy/README.md)
 - [n8n workflows](./n8n/workflows/README.md)
-
-## Дальнейшее развитие
-
-Следующий этап - довести Kubernetes-контур до более production-like платформы.
-
-План развития:
-
-- multi-node Kubernetes вместо single-node k3s;
-- отказоустойчивость для PostgreSQL и Redis;
-- observability stack: metrics, logs, tracing, alerting;
-- CI/CD с проверками Terraform, Ansible, Helm и Kubernetes manifests;
-- GitOps-доставка через Argo CD или Flux;
-- SRE-практики: SLI/SLO, error budgets, incident playbooks;
-- policy/security checks для инфраструктурного кода.

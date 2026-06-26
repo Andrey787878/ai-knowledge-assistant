@@ -22,7 +22,6 @@
 
 ```bash
 export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/config-k3s}"
-
 cd deploy/kubernetes
 helmfile -e prod build > /tmp/k3s-build.yaml
 helmfile -e prod sync
@@ -147,6 +146,8 @@ helmfile -e prod destroy
 
 - [Индекс Kubernetes-документации](../../docs/kubernetes_deploy/README.md)
 - [Сеть](../../docs/kubernetes_deploy/network.md)
+- [SLI и SLO](../../docs/kubernetes_deploy/sli-slo.md)
+- [Monitoring, alerting и dashboards](../../docs/kubernetes_deploy/monitoring.md)
 - [Ingress TLS и ACME](../../docs/kubernetes_deploy/ingress-tls-acme.md)
 - [Ранбук по сертификатам](../../docs/kubernetes_deploy/certificates-runbook.md)
 - [Резервное копирование и восстановление PostgreSQL](../../docs/kubernetes_deploy/backup-restore.md)

@@ -10,7 +10,20 @@
 
 ## Схема сети
 
-![Схема сети Kubernetes (Этап B)](./diagrams/network-topology.png)
+<p align="center">
+  <a href="./diagrams/network-topology.png">
+    <img src="./diagrams/network-topology.png" alt="Схема сети Kubernetes (Этап B)" width="920">
+  </a>
+</p>
+
+<p align="center">
+  <a href="./diagrams/network-topology.png">
+    <img src="https://img.shields.io/badge/Open-full_size-1f6feb?style=for-the-badge" alt="Open full size">
+  </a>
+  <a href="./README.md">
+    <img src="https://img.shields.io/badge/Back-stage_B%2BC-7c3aed?style=for-the-badge" alt="Back to stage B/C docs">
+  </a>
+</p>
 
 ## Источники правил (код)
 
