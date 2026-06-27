@@ -220,13 +220,27 @@
   tags: [github_runner, install]
 
 - name: Check helm-secrets plugin presence
-  ansible.builtin.command: "{{ github_runner_tool_install_dir }}/helm plugin list"
+  ansible.builtin.shell: |
+    set -euo pipefail
+    sudo -u {{ github_runner_user | quote }} -H bash -lc '
+      HOME={{ github_runner_home | quote }} \
+      {{ github_runner_tool_install_dir | quote }}/helm plugin list
+    '
   register: github_runner_helm_plugins
   changed_when: false
   failed_when: false
+  args:
+    executable: /bin/bash
   tags: [github_runner, install]
 
 - name: Install helm-secrets plugin
-  ansible.builtin.command: "{{ github_runner_tool_install_dir }}/helm plugin install https://github.com/jkroepke/helm-secrets --version v{{ github_runner_helm_secrets_version }}"
+  ansible.builtin.shell: |
+    set -euo pipefail
+    sudo -u {{ github_runner_user | quote }} -H bash -lc '
+      HOME={{ github_runner_home | quote }} \
+      {{ github_runner_tool_install_dir | quote }}/helm plugin install https://github.com/jkroepke/helm-secrets --version v{{ github_runner_helm_secrets_version | quote }}
+    '
   when: "'secrets' not in (github_runner_helm_plugins.stdout | default(''))"
+  args:
+    executable: /bin/bash
   tags: [github_runner, install]
