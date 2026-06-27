@@ -61,7 +61,7 @@ helm plugin list
 
 ```bash
 cd deploy/kubernetes
-helmfile -e prod build > /tmp/k8s-stage-b-build.yaml
+helmfile -e prod build > /tmp/k3s-stage-b-build.yaml
 helmfile -e prod sync
 ```
 
@@ -69,7 +69,7 @@ helmfile -e prod sync
 
 ```bash
 cd deploy/kubernetes/apps/n8n
-helmfile -e prod build > /tmp/k8s-n8n-build.yaml
+helmfile -e prod build > /tmp/k3s-n8n-build.yaml
 helmfile -e prod sync
 ```
 
