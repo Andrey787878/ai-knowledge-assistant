@@ -25,11 +25,16 @@ fi
 scope="$1"
 repo_root="$(git rev-parse --show-toplevel)"
 port_forward_pids=()
+port_forward_logs=()
 
 cleanup() {
   local pid
+  local logfile
   for pid in "${port_forward_pids[@]:-}"; do
     kill "${pid}" >/dev/null 2>&1 || true
+  done
+  for logfile in "${port_forward_logs[@]:-}"; do
+    rm -f "${logfile}" >/dev/null 2>&1 || true
   done
 }
 trap cleanup EXIT
@@ -64,12 +69,22 @@ start_port_forward() {
   local local_port="$3"
   local remote_port="$4"
   local logfile
+  local pid
 
   logfile="$(mktemp)"
+  port_forward_logs+=("${logfile}")
   kubectl -n "${namespace}" port-forward "${resource}" \
     "${local_port}:${remote_port}" >"${logfile}" 2>&1 &
-  port_forward_pids+=("$!")
+  pid="$!"
+  port_forward_pids+=("${pid}")
+
   sleep 2
+
+  if ! kill -0 "${pid}" >/dev/null 2>&1; then
+    echo "error: port-forward failed for ${resource} in namespace ${namespace}" >&2
+    cat "${logfile}" >&2 || true
+    return 1
+  fi
 }
 
 rollout_deployment() {
@@ -129,8 +144,9 @@ smoke_redis() {
 
 smoke_wiki() {
   rollout_deployment wiki wikijs
-  kubectl -n wiki get ingress >/dev/null
-  start_port_forward wiki svc/wikijs 18082 3000
+  kubectl -n wiki get ingress wikijs >/dev/null
+  kubectl -n wiki get svc wikijs >/dev/null
+  start_port_forward wiki svc/wikijs 18082 80
   wait_http_ok "http://127.0.0.1:18082/healthz"
 }
 
@@ -145,6 +161,7 @@ smoke_n8n() {
   rollout_deployment n8n n8n-web
   rollout_deployment n8n n8n-worker
   kubectl -n n8n get ingress n8n-web-ingress >/dev/null
+  kubectl -n n8n get svc n8n-web-svc >/dev/null
   kubectl -n n8n get job n8n-import-workflows >/dev/null
   start_port_forward n8n svc/n8n-web-svc 18081 80
   wait_http_ok "http://127.0.0.1:18081/rest/settings"
