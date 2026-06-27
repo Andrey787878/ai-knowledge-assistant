@@ -47,7 +47,7 @@ jobs:
         id: detect
         run: |
           result="$(
-            .github/scripts/cd/detect-k3s-scopes.sh \
+            bash .github/scripts/cd/detect-k3s-scopes.sh \
               --base-sha "${{ github.event.before }}" \
               --head-sha "${{ github.sha }}"
           )"
@@ -69,8 +69,8 @@ jobs:
         if: steps.detect.outputs.no_deploy != 'true'
         run: |
           for scope in ${{ steps.detect.outputs.scopes }}; do
-            .github/scripts/cd/deploy-k3s-scope.sh "${scope}"
-            .github/scripts/cd/smoke-k3s-scope.sh "${scope}"
+            bash .github/scripts/cd/deploy-k3s-scope.sh "${scope}"
+            bash .github/scripts/cd/smoke-k3s-scope.sh "${scope}"
           done
 
       - name: Write deploy summary
