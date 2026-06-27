@@ -1,12 +1,15 @@
 name: CD k3s auto
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: k3s-prod-deploy
@@ -15,6 +18,12 @@ concurrency:
 jobs:
   deploy:
     name: Deploy changed k3s scopes
+    if: >-
+      ${{
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.event == 'push'
+      }}
     runs-on:
       - self-hosted
       - linux
@@ -34,6 +43,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
       - name: Verify runner tooling
@@ -48,8 +58,7 @@ jobs:
         run: |
           result="$(
             bash .github/scripts/cd/detect-k3s-scopes.sh \
-              --base-sha "${{ github.event.before }}" \
-              --head-sha "${{ github.sha }}"
+              --head-sha "${{ github.event.workflow_run.head_sha }}"
           )"
           echo "${result}"
           printf '%s\n' "${result}" >> "${GITHUB_OUTPUT}"
@@ -62,7 +71,7 @@ jobs:
             echo
             echo "No Kubernetes deploy scopes changed."
             echo
-            echo "Ref: \`${GITHUB_SHA}\`"
+            echo "Ref: \`${{ github.event.workflow_run.head_sha }}\`"
           } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Deploy changed scopes
@@ -81,6 +90,6 @@ jobs:
             echo
             echo "Changed scopes: \`${{ steps.detect.outputs.scopes }}\`"
             echo
-            echo "Ref: \`${GITHUB_SHA}\`"
+            echo "Ref: \`${{ github.event.workflow_run.head_sha }}\`"
             echo "Mode: changed scopes"
           } >> "${GITHUB_STEP_SUMMARY}"

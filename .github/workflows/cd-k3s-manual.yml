@@ -1,9 +1,6 @@
-name: CD k3s full
+name: CD k3s manual
 
 on:
-  push:
-    branches:
-      - feature/cd
   workflow_dispatch:
     inputs:
       mode:
@@ -41,6 +38,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: k3s-prod-deploy
@@ -48,7 +46,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Full k3s deploy
+    name: Manual k3s deploy
     runs-on:
       - self-hosted
       - linux
@@ -64,9 +62,9 @@ jobs:
     env:
       KUBECONFIG: /home/github-runner/.kube/config
       SOPS_AGE_KEY_FILE: /home/github-runner/.config/sops/age/keys.txt
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Require explicit production confirmation
-        if: github.event_name == 'workflow_dispatch'
         run: |
           if [[ "${{ inputs.confirm_prod }}" != "DEPLOY" ]]; then
             echo "error: confirm_prod must be exactly DEPLOY" >&2
@@ -76,8 +74,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.sha }}
+          ref: ${{ inputs.ref }}
           fetch-depth: 0
+
+      - name: Verify selected ref has successful CI
+        run: |
+          bash .github/scripts/cd/verify-ci-success.sh \
+            --workflow ci.yml \
+            --ref "${{ inputs.ref }}" \
+            --sha "$(git rev-parse HEAD)"
 
       - name: Verify runner tooling
         run: |
@@ -89,16 +94,6 @@ jobs:
       - name: Resolve deploy scopes
         id: resolve
         run: |
-          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
-            {
-              echo "scopes=all"
-              echo "no_deploy=false"
-              echo "mode=full"
-              echo "ref=${GITHUB_SHA}"
-            } >> "${GITHUB_OUTPUT}"
-            exit 0
-          fi
-
           mode="${{ inputs.mode }}"
 
           if [[ "${mode}" == "full" ]]; then
@@ -136,7 +131,7 @@ jobs:
         if: steps.resolve.outputs.no_deploy == 'true'
         run: |
           {
-            echo "## k3s CD full"
+            echo "## k3s CD manual"
             echo
             echo "Mode: changed"
             echo "No Kubernetes deploy scopes changed for ref \`${{ steps.resolve.outputs.ref }}\`."
@@ -154,7 +149,7 @@ jobs:
         if: steps.resolve.outputs.no_deploy != 'true'
         run: |
           {
-            echo "## k3s CD full"
+            echo "## k3s CD manual"
             echo
             echo "Mode: \`${{ steps.resolve.outputs.mode }}\`"
             echo "Scopes: \`${{ steps.resolve.outputs.scopes }}\`"
