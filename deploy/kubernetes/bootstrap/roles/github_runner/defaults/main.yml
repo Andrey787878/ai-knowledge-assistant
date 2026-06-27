@@ -41,7 +41,6 @@ github_runner_registration_token: ""
 github_runner_labels: []
 github_runner_runner_name: "{{ inventory_hostname }}"
 github_runner_replace_existing: false
-github_runner_no_log: true
 
 # Service.
 github_runner_service_name: "github-actions-runner"

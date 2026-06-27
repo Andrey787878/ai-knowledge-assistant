@@ -12,8 +12,8 @@ resource "yandex_vpc_security_group" "k3s_sg" {
 
   ingress {
     description = "Kubernetes API access from admin CIDRs and runner private IP"
-    protocol       = "TCP"
-    port           = 6443
+    protocol    = "TCP"
+    port        = 6443
     v4_cidr_blocks = distinct(concat(
       var.kube_api_allowed_cidrs,
       var.runner_enabled ? ["${local.runner_spec.private_ip}/32"] : []

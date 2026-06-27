@@ -36,7 +36,7 @@
   args:
     creates: "{{ github_runner_install_dir }}/.runner"
     executable: /bin/bash
-  no_log: "{{ github_runner_no_log }}"
+  no_log: true
   tags: [github_runner, configure]
 
 - name: Ship kubeconfig to runner
@@ -58,7 +58,7 @@
         owner: "{{ github_runner_user }}"
         group: "{{ github_runner_group }}"
         mode: "0600"
-      no_log: "{{ github_runner_no_log }}"
+      no_log: true
 
     - name: Read k3s kubeconfig from k3s host
       ansible.builtin.slurp:

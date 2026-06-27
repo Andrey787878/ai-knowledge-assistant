@@ -56,7 +56,7 @@
   when:
     - github_runner_replace_existing | bool
       or not github_runner_registration_marker.stat.exists
-  no_log: "{{ github_runner_no_log }}"
+  no_log: true
   tags: [github_runner, validation]
 
 - name: Validate apt tuning values
@@ -97,5 +97,5 @@
       a valid absolute github_runner_sops_age_key_file path so the runner can
       decrypt SOPS-encrypted Helm values during CD.
   when: github_runner_kubeconfig_enabled | bool
-  no_log: "{{ github_runner_no_log }}"
+  no_log: true
   tags: [github_runner, validation]

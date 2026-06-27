@@ -42,14 +42,14 @@ jobs:
 
       - name: Validate n8n workflow JSON
         run: |
-          node -e '
+          node -e "
             const fs = require("fs");
             const dir = "n8n/workflows";
             for (const file of fs.readdirSync(dir).filter((name) => name.endsWith(".json"))) {
-              JSON.parse(fs.readFileSync(`${dir}/${file}`, "utf8"));
-              console.log(`ok ${file}`);
+              JSON.parse(fs.readFileSync(\`${dir}/\${file}\`, "utf8"));
+              console.log(\`ok \${file}\`);
             }
-          '
+          "
 
       - name: Check local-only files are not committed
         run: |
