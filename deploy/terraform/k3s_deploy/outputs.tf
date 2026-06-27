@@ -23,17 +23,27 @@ output "kube_api_endpoint" {
   value       = "https://${try(yandex_compute_instance.k3s.network_interface[0].nat_ip_address, yandex_compute_instance.k3s.network_interface[0].ip_address)}:6443"
 }
 
+output "runner_private_ip" {
+  description = "Private IP of runner VM (when runner_enabled)."
+  value       = local.runner_private_ip
+}
+
+output "runner_public_ip" {
+  description = "Public IP of runner VM (when runner_enabled and NAT on)."
+  value       = local.runner_public_ip
+}
+
+output "runner_vm_id" {
+  description = "Yandex Cloud VM ID for runner node (when runner_enabled)."
+  value       = local.runner_vm_id
+}
+
+output "runner_security_group_id" {
+  description = "Security group ID attached to runner VM (when runner_enabled)."
+  value       = local.runner_sg_id
+}
+
 output "ansible_inventory_yaml" {
-  description = "Generated inventory for k3s bootstrap."
-  value = trimspace(<<-YAML
-    ---
-    all:
-      children:
-        k3s_hosts:
-          hosts:
-            k3s:
-              ansible_host: ${try(yandex_compute_instance.k3s.network_interface[0].nat_ip_address, yandex_compute_instance.k3s.network_interface[0].ip_address)}
-              private_ip: ${yandex_compute_instance.k3s.network_interface[0].ip_address}
-    YAML
-  )
+  description = "Generated inventory for k3s and runner bootstrap (github_runners group present only when runner_enabled)."
+  value       = local.ansible_inventory_yaml
 }

@@ -13,6 +13,12 @@
 # platform_id  = "standard-v4a"
 # preemptible  = false
 
+# Stage B can provision an optional GitHub Actions self-hosted runner VM
+# in the same subnet. The runner hosts the k3s CD workflows and follows the
+# same preemptible policy as the k3s VM by default.
+# Set to false to keep the original single-node k3s scenario only.
+# runner_enabled = true
+
 # Optional: override VM sizing and networking.
 # vm_specs = {
 #   k3s_vm = {
@@ -24,9 +30,18 @@
 #     disk_type     = "network-ssd"
 #     nat           = true
 #   }
+#   runner_vm = {
+#     private_ip    = "10.20.0.4"
+#     cores         = 2
+#     memory        = 4
+#     core_fraction = 100
+#     disk_size_gb  = 12
+#     disk_type     = "network-ssd"
+#     nat           = true
+#   }
 # }
 
-# Required: admin source CIDR(s) for SSH to k3s VM (22/tcp).
+# Required: admin source CIDR(s) for SSH to k3s and runner VMs (22/tcp).
 firewall_admin_ssh_sources = [
   "198.51.100.0/32"
 ]

@@ -69,9 +69,20 @@ variable "platform_id" {
 }
 
 variable "preemptible" {
-  description = "Whether VM should be preemptible."
+  description = "Whether k3s VM should be preemptible."
   type        = bool
   default     = true
+}
+
+variable "runner_enabled" {
+  description = "Create a GitHub Actions self-hosted runner VM in the same subnet."
+  type        = bool
+  default     = true
+
+  validation {
+    condition     = var.runner_enabled ? contains(keys(var.vm_specs), "runner_vm") : true
+    error_message = "vm_specs must define a runner_vm entry when runner_enabled is true."
+  }
 }
 
 variable "vm_specs" {
@@ -93,6 +104,15 @@ variable "vm_specs" {
       memory        = 16
       core_fraction = 100
       disk_size_gb  = 80
+      disk_type     = "network-ssd"
+      nat           = true
+    }
+    runner_vm = {
+      private_ip    = "10.20.0.4"
+      cores         = 2
+      memory        = 4
+      core_fraction = 100
+      disk_size_gb  = 12
       disk_type     = "network-ssd"
       nat           = true
     }
