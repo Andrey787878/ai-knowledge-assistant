@@ -286,9 +286,9 @@ jobs:
 
       - name: Validate GitHub workflows
         run: |
-          actionlint .github/workflows/ci.yml
-          actionlint .github/workflows/cd-k3s-auto.yml
-          actionlint .github/workflows/cd-k3s-manual.yml
+          actionlint -config-file actionlint.yaml .github/workflows/ci.yml
+          actionlint -config-file actionlint.yaml .github/workflows/cd-k3s-auto.yml
+          actionlint -config-file actionlint.yaml .github/workflows/cd-k3s-manual.yml
 
       - name: Install Ansible collections
         run: |
