@@ -22,8 +22,8 @@
 Поверх этого же контура Stage C добавляет:
 
 - self-hosted runner VM для GitHub Actions CD;
-- auto deploy changed scopes on `main`;
-- manual full/scope/changed deploy;
+- CI-gated auto deploy changed scopes for commits already landed in `main`;
+- manual full/scope/changed deploy with CI precheck for selected ref;
 - post-deploy smoke checks по scope.
 
 ## Быстрый старт
@@ -85,8 +85,10 @@ helmfile -e prod sync
 
 Тот же принцип использует GitHub CD:
 
-- `cd-k3s-auto.yml` — измененные scopes после push в `main`;
-- `cd-k3s-manual.yml` — `full`, `scope`, `changed`.
+- `cd-k3s-auto.yml` — измененные scopes после успешного `CI` на коммите в
+  `main`;
+- `cd-k3s-manual.yml` — `full`, `scope`, `changed`, но только для ref с
+  успешным `CI`.
 
 ## Проверка после деплоя
 

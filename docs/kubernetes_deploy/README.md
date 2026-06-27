@@ -17,7 +17,7 @@
 
 - CI для валидации инфраструктурного кода;
 - CD для деплоя через helmfile;
-- observability для наблюдаемости ситсемы.
+- observability для наблюдаемости системы.
 
 ## Запуск и приемка
 
@@ -40,11 +40,15 @@ CD работает через отдельную VM `runner`, которая с
 bootstrap-ится ролью `github_runner` и регистрируется как self-hosted GitHub
 Actions runner с labels `self-hosted, linux, x64, k3s, prod, deploy, stage-b`.
 
-`cd-k3s-auto.yml` запускается на push в `main` и выкатывает только измененные
-Helmfile-слои. `cd-k3s-manual.yml` поддерживает три режима:
+`cd-k3s-auto.yml` запускается только после успешного `CI` для коммита,
+который уже попал в `main`, и выкатывает только измененные Helmfile-слои.
+`cd-k3s-manual.yml` поддерживает три режима:
 `full`, `scope`, `changed`. После deploy workflow выполняет scope-aware smoke
 checks для `platform`, `observability`, `postgres`, `redis`, `wiki`, `ollama`
 и `n8n`.
+
+Ручной deploy тоже не обходит quality gate: перед выкладкой workflow проверяет,
+что для выбранного `ref` существует успешный `CI` run.
 
 Режим `changed` здесь считается best-effort режимом: он вычисляет scope из
 git diff относительно выбранного `ref` и полезен для повторного частичного

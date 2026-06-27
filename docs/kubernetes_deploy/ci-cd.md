@@ -27,9 +27,10 @@ self-hosted runner.
 
 - рабочие изменения вносятся через feature-ветки и Pull Request;
 - ветка `main` используется как production source of truth;
-- auto deploy запускается после merge или прямого push в `main`;
+- production auto deploy запускается только для коммита, который уже попал в
+  `main` и успешно прошел `CI`;
 - ручной deploy используется для full re-apply, точечного scope deploy и
-  controlled rerun.
+  controlled rerun, но тоже не обходит quality gate.
 
 Если branch protection для `main` еще не включен в настройках GitHub, этот
 документ предполагает именно такую целевую модель.
@@ -150,23 +151,34 @@ Workflow:
 
 Trigger:
 
-- `push` в `main`
+- `workflow_run` после завершения `.github/workflows/ci.yml`
 
 Логика auto deploy:
 
-1. workflow checkout-ит репозиторий с полной историей;
-2. script `detect-k3s-scopes.sh` вычисляет, какие Kubernetes-слои реально
+1. `CI` завершается для конкретного коммита;
+2. auto deploy стартует только если:
+   - `CI` завершился со статусом `success`;
+   - `head_branch == main`;
+   - исходное событие было именно `push`;
+3. workflow checkout-ит точный `head_sha` из завершившегося `CI`;
+4. script `detect-k3s-scopes.sh` вычисляет, какие Kubernetes-слои реально
    изменились;
-3. если изменения не затрагивают `deploy/kubernetes`, deploy gracefully
+5. если изменения не затрагивают `deploy/kubernetes`, deploy gracefully
    пропускается;
-4. для каждого вычисленного scope выполняются:
+6. для каждого вычисленного scope выполняются:
    - `deploy-k3s-scope.sh`
    - `smoke-k3s-scope.sh`
-5. итог пишется в `GITHUB_STEP_SUMMARY`.
+7. итог пишется в `GITHUB_STEP_SUMMARY`.
 
 Главная идея здесь в том, что обычное изменение, например, только в
 `deploy/kubernetes/apps/wiki`, не должно каждый раз прогонять полный re-apply
 всего кластера.
+
+Такая схема важна по двум причинам:
+
+- зеленый `CI` на feature-ветке сам по себе не может задеплоить production;
+- CD привязан именно к тому коммиту, который уже принят как новый state ветки
+  `main`.
 
 ## Manual deploy flow
 
@@ -187,6 +199,17 @@ Manual deploy поддерживает три режима:
 Дополнительно ручной workflow требует явного подтверждения через input
 `confirm_prod=DEPLOY`. Это простой, но полезный предохранитель от случайного
 ручного выката в production.
+
+Перед самим deploy manual workflow делает отдельный precheck:
+
+- проверяет через GitHub Actions API, что для выбранного `ref`/`sha` существует
+  успешный `push`-run workflow `CI`;
+- если такого run нет, workflow останавливается с понятной ошибкой до любого
+  обращения к кластеру.
+
+Это означает, что manual path не является bypass-механизмом для quality gate.
+Он просто дает оператору более явный контроль над тем, какой именно уже
+провалидированный ref нужно выкатить.
 
 `changed` mode стоит воспринимать как convenience-режим, а не как самый
 строгий operational path. Он полезен, когда diff хорошо понятен и нужно быстро
@@ -234,6 +257,7 @@ CD работает не по сервисам в общем смысле, а п
 - `.github/scripts/cd/detect-k3s-scopes.sh`
 - `.github/scripts/cd/deploy-k3s-scope.sh`
 - `.github/scripts/cd/smoke-k3s-scope.sh`
+- `.github/scripts/cd/verify-ci-success.sh`
 
 Такой подход выбран сознательно. Сложная логика остается не в YAML workflow, а
 в обычных скриптах, которые можно:
@@ -242,6 +266,9 @@ CD работает не по сервисам в общем смысле, а п
 - lint-ить через `shellcheck`;
 - проверять через `bash -n`;
 - переиспользовать локально при troubleshooting.
+
+Отдельный `verify-ci-success.sh` здесь особенно важен: логика проверки quality
+gate живет не в ad-hoc YAML expression, а в явном скрипте с понятным fail path.
 
 ## Post-deploy smoke checks
 
@@ -258,7 +285,23 @@ CD работает не по сервисам в общем смысле, а п
 - `ollama` проверяет `/api/version`.
 
 Это не заменяет полноценный e2e acceptance, но хорошо закрывает operational
-уровень "релиз применился и базовый контракт сервиса жив".
+контракт “release применился и базово отвечает”.
+
+## Guardrails и safety model
+
+В production path сейчас есть несколько сознательных предохранителей:
+
+- auto deploy стартует только после успешного `CI` для коммита в `main`;
+- manual deploy требует `confirm_prod=DEPLOY`;
+- manual deploy отдельно проверяет успешный `CI` для выбранного `ref`;
+- deploy выполняется только на self-hosted runner с нужным label-set;
+- workflow использует `concurrency`, чтобы не запускать два production deploy
+  одновременно;
+- каждый scope после применения проходит свой smoke path.
+
+Это не делает систему “неубиваемой”, но хорошо снижает шанс случайного unsafe
+deploy и делает путь выпуска достаточно предсказуемым для single-node k3s
+контура.
 
 ## Concurrency и production safety
 
@@ -312,8 +355,12 @@ Rollback как отдельная автоматика в этот докуме
 
 - скриншот списка GitHub Actions workflow с `ci`, `cd-k3s-auto`,
   `cd-k3s-manual`;
-- скриншот успешного `cd-k3s-auto` run с summary по scope;
+- скриншот успешного `cd-k3s-auto` run с summary по scope и ссылкой на
+  завершившийся `CI`;
 - скриншот manual workflow dispatch с режимами `full`, `scope`, `changed`;
+- скриншот failed manual precheck, где deploy остановлен из-за отсутствия
+  успешного `CI` для выбранного `ref` (опционально, но очень хорошо объясняет
+  guardrails);
 - скриншот self-hosted runner labels в GitHub UI;
 - при желании скриншот environment `production` и branch protection для `main`.
 
