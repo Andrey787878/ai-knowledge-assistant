@@ -1,0 +1,50 @@
+---
+# Inbound TCP rules for the k3s host (applied by the firewall role).
+firewall_tcp_rules:
+  - port: 22
+    sources: "{{ firewall_admin_ssh_sources }}"
+    description: "SSH access from admin CIDRs"
+  - port: 6443
+    sources: "{{ k3s_api_allowed_cidrs_effective }}"
+    description: "Kubernetes API from admin CIDRs"
+  - port: 80
+    sources: "{{ edge_http_cidrs }}"
+    description: "HTTP for ACME HTTP-01 and redirect"
+  - port: 443
+    sources: "{{ edge_allowed_client_cidrs }}"
+    description: "HTTPS to edge ingress"
+
+# k3s-specific firewall CIDR source pools.
+# Keep defaults empty in git. Set real values in:
+# inventories/cloud/group_vars/k3s_hosts/zz-local.yml (gitignored)
+kube_api_allowed_cidrs: []
+edge_allowed_client_cidrs: []
+
+# Effective Kubernetes API allow-list for the host firewall. This keeps the
+# public admin CIDRs from zz-local.yml and automatically adds private /32
+# addresses of hosts from the github_runners inventory group when that group
+# exists.
+k3s_api_allowed_cidrs_effective: >-
+  {{
+    (
+      kube_api_allowed_cidrs
+      + (
+          groups['github_runners'] | default([])
+          | map('extract', hostvars, 'private_ip')
+          | map('regex_replace', '$', '/32')
+          | list
+        )
+    ) | unique
+  }}
+
+# Enable Kubernetes secrets encryption at rest in k3s datastore.
+# Enabled by default for Stage B bootstrap.
+k3s_secrets_encryption_enabled: true
+
+# Include public ansible_host into k3s API certificate SAN list.
+# This allows kubectl from local machine against https://<ansible_host>:6443.
+k3s_server_tls_sans:
+  - "{{ ansible_host }}"
+
+# Optional extra CLI args passed to INSTALL_K3S_EXEC (in addition to `server`).
+k3s_server_extra_args: []

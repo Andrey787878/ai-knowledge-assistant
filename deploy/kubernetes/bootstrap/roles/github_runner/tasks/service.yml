@@ -1,0 +1,23 @@
+---
+- name: Render github runner systemd unit
+  ansible.builtin.template:
+    src: github-actions-runner.service.j2
+    dest: "/etc/systemd/system/{{ github_runner_service_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart github runner service
+  tags: [github_runner, service]
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: ansible_service_mgr | default('systemd') == 'systemd'
+  tags: [github_runner, service]
+
+- name: Enable and start github runner service
+  ansible.builtin.systemd:
+    name: "{{ github_runner_service_name }}"
+    enabled: true
+    state: started
+  tags: [github_runner, service]

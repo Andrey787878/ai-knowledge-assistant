@@ -1,0 +1,18 @@
+# Local-only overrides for k3s_hosts (copy to zz-local.yml, gitignored).
+# Loaded after k3s_hosts/main.yml.
+
+# Required: admin CIDR(s) for Kubernetes API access (6443/tcp).
+kube_api_allowed_cidrs:
+  - 198.51.100.10/32
+
+# Required: CIDR(s) allowed to access HTTPS on ingress (443/tcp).
+edge_allowed_client_cidrs:
+  - 198.51.100.0/24
+
+# Optional: override API certificate SAN list for k3s.
+# k3s_server_tls_sans:
+#   - 198.51.100.10
+
+# Optional: override HTTP-01 / redirect CIDRs (80/tcp). Defaults to 0.0.0.0/0.
+# edge_http_cidrs:
+#   - 0.0.0.0/0

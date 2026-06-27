@@ -1,0 +1,101 @@
+---
+- name: Validate supported OS family
+  ansible.builtin.assert:
+    that:
+      - ansible_os_family in github_runner_supported_os_families
+    fail_msg: "Unsupported OS family for github_runner role: {{ ansible_os_family }}"
+  tags: [github_runner, validation]
+
+- name: Validate runner install settings
+  ansible.builtin.assert:
+    that:
+      - github_runner_version is string
+      - github_runner_version | trim | length > 0
+      - github_runner_download_base_url is string
+      - github_runner_download_base_url | trim | length > 0
+      - github_runner_install_dir is string
+      - github_runner_install_dir | trim | length > 0
+      - github_runner_install_dir is match('^/')
+      - github_runner_user is string
+      - github_runner_user | trim | length > 0
+      - github_runner_group is string
+      - github_runner_group | trim | length > 0
+      - github_runner_service_name is string
+      - github_runner_service_name | trim | length > 0
+      - github_runner_arch_map is mapping
+      - ansible_architecture in github_runner_arch_map
+      - github_runner_tool_arch_map is mapping
+      - ansible_architecture in github_runner_tool_arch_map
+    fail_msg: "Invalid github_runner install settings."
+  tags: [github_runner, validation]
+
+- name: Detect existing runner registration marker
+  ansible.builtin.stat:
+    path: "{{ github_runner_install_dir }}/.runner"
+  register: github_runner_registration_marker
+  changed_when: false
+  tags: [github_runner, validation]
+
+- name: Validate registration settings when registration is required
+  ansible.builtin.assert:
+    that:
+      - github_runner_repo_url is string
+      - github_runner_repo_url | trim | length > 0
+      - github_runner_repo_url is match('^https://github\\.com/[^/]+/[^/]+/?$')
+      - github_runner_registration_token is string
+      - github_runner_registration_token | trim | length > 0
+      - github_runner_labels is sequence
+      - github_runner_labels | length > 0
+      - (github_runner_labels | select('string') | list | length) == (github_runner_labels | length)
+      - github_runner_runner_name is string
+      - github_runner_runner_name | trim | length > 0
+    fail_msg: >-
+      Invalid github_runner registration settings. Required: github_runner_repo_url
+      (https://github.com/<owner>/<repo>), github_runner_registration_token and a
+      non-empty github_runner_labels list of strings.
+  when:
+    - github_runner_replace_existing | bool
+      or not github_runner_registration_marker.stat.exists
+  no_log: "{{ github_runner_no_log }}"
+  tags: [github_runner, validation]
+
+- name: Validate apt tuning values
+  ansible.builtin.assert:
+    that:
+      - github_runner_apt_cache_valid_time | int >= 0
+      - github_runner_apt_lock_timeout | int > 0
+      - github_runner_apt_update_cache_retries | int > 0
+      - github_runner_apt_update_cache_retry_max_delay | int > 0
+    fail_msg: "Apt timing values must be positive integers (cache_valid_time >= 0)."
+  tags: [github_runner, validation]
+
+- name: Validate kubeconfig settings when enabled
+  ansible.builtin.assert:
+    that:
+      - github_runner_k3s_kubeconfig_path is string
+      - github_runner_k3s_kubeconfig_path | trim | length > 0
+      - github_runner_kubeconfig_dest is string
+      - github_runner_kubeconfig_dest | trim | length > 0
+      - github_runner_kubeconfig_dest is match('^/')
+      - groups['k3s_hosts'] | default([]) | length > 0
+    fail_msg: >-
+      github_runner_kubeconfig_enabled requires a k3s_hosts group in inventory
+      and valid kubeconfig source/destination paths.
+  when: github_runner_kubeconfig_enabled | bool
+  tags: [github_runner, validation]
+
+- name: Validate SOPS age key settings when kubeconfig enabled
+  ansible.builtin.assert:
+    that:
+      - github_runner_sops_age_key is string
+      - github_runner_sops_age_key | trim | length > 0
+      - github_runner_sops_age_key_file is string
+      - github_runner_sops_age_key_file | trim | length > 0
+      - github_runner_sops_age_key_file is match('^/')
+    fail_msg: >-
+      github_runner_kubeconfig_enabled requires github_runner_sops_age_key and
+      a valid absolute github_runner_sops_age_key_file path so the runner can
+      decrypt SOPS-encrypted Helm values during CD.
+  when: github_runner_kubeconfig_enabled | bool
+  no_log: "{{ github_runner_no_log }}"
+  tags: [github_runner, validation]

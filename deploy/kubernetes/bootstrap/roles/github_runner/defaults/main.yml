@@ -1,0 +1,85 @@
+---
+github_runner_supported_os_families:
+  - Debian
+
+github_runner_enabled: true
+
+# Runner version and download.
+github_runner_version: "2.317.0"
+github_runner_download_base_url: "https://github.com/actions/runner/releases/download"
+github_runner_download_timeout: 120
+github_runner_download_retries: 5
+github_runner_download_retry_delay: 10
+
+# GitHub runner archive arch naming.
+github_runner_arch_map:
+  x86_64: x64
+  amd64: x64
+  aarch64: arm64
+  arm64: arm64
+  armv7l: arm
+  armv6l: arm
+
+# Generic linux arch naming for CD tooling (kubectl/helm/helmfile/sops/age).
+github_runner_tool_arch_map:
+  x86_64: amd64
+  amd64: amd64
+  aarch64: arm64
+  arm64: arm64
+
+# Install layout.
+github_runner_install_dir: "/opt/github-runner"
+github_runner_home: "/home/github-runner"
+
+# System user/group.
+github_runner_user: "github-runner"
+github_runner_group: "github-runner"
+
+# Registration.
+github_runner_repo_url: ""
+github_runner_registration_token: ""
+github_runner_labels: []
+github_runner_runner_name: "{{ inventory_hostname }}"
+github_runner_replace_existing: false
+github_runner_no_log: true
+
+# Service.
+github_runner_service_name: "github-actions-runner"
+
+# Kubernetes access tooling installed on the runner for CD.
+github_runner_kubeconfig_enabled: false
+github_runner_k3s_kubeconfig_path: "/etc/rancher/k3s/k3s.yaml"
+github_runner_kubeconfig_dest: "/home/github-runner/.kube/config"
+# When empty, the k3s private IP is resolved from the k3s_hosts group at runtime.
+github_runner_k3s_api_host: ""
+
+# SOPS/age secret material for Helmfile deploys with encrypted values.
+github_runner_sops_age_key: ""
+github_runner_sops_age_key_file: "/home/github-runner/.config/sops/age/keys.txt"
+
+# CD tool versions (match CI where possible).
+github_runner_kubectl_version: "v1.30.0"
+github_runner_helm_version: "v3.20.0"
+github_runner_helmfile_version: "0.170.1"
+github_runner_sops_version: "3.10.2"
+github_runner_age_version: "v1.2.1"
+github_runner_helm_secrets_version: "4.6.11"
+
+github_runner_tool_install_dir: "/usr/local/bin"
+
+# Packages installed via apt as runner dependencies.
+github_runner_packages:
+  - curl
+  - tar
+  - jq
+  - git
+
+# Apt tuning.
+github_runner_apt_cache_valid_time: 3600
+github_runner_apt_lock_timeout: 300
+github_runner_apt_update_cache_retries: 5
+github_runner_apt_update_cache_retry_max_delay: 30
+
+# Verify.
+github_runner_verify_service_retries: 20
+github_runner_verify_service_delay: 5

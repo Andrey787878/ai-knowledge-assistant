@@ -28,37 +28,45 @@
     fail_msg: "Firewall apt timing values must be positive integers (cache_valid_time >= 0)."
   tags: [firewall, validation]
 
-- name: Validate mandatory CIDR lists
+- name: Validate firewall_tcp_rules is a non-empty list
   ansible.builtin.assert:
     that:
-      - firewall_admin_ssh_sources is sequence
-      - kube_api_allowed_cidrs is sequence
-      - edge_http_cidrs is sequence
-      - edge_allowed_client_cidrs is sequence
-      - firewall_admin_ssh_sources | length > 0
-      - kube_api_allowed_cidrs | length > 0
-      - edge_http_cidrs | length > 0
-      - edge_allowed_client_cidrs | length > 0
+      - firewall_tcp_rules is sequence
+      - firewall_tcp_rules | length > 0
     fail_msg: >-
-      CIDR variables must be non-empty lists:
-      firewall_admin_ssh_sources, kube_api_allowed_cidrs,
-      edge_http_cidrs, edge_allowed_client_cidrs.
+      firewall_tcp_rules must be a non-empty list. Define it per host group in
+      group_vars/<group>/main.yml.
   tags: [firewall, validation]
 
-- name: Validate CIDR format in all firewall source lists
+- name: Validate each firewall TCP rule structure
   ansible.builtin.assert:
     that:
-      - item is string
-      - item | trim | length > 0
-      - item is match('^((25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})\\.){3}(25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})/(3[0-2]|[12]?[0-9])$')
-    fail_msg: "Invalid CIDR entry: {{ item }}"
-  loop: >-
-    {{
-      firewall_admin_ssh_sources
-      + kube_api_allowed_cidrs
-      + edge_http_cidrs
-      + edge_allowed_client_cidrs
-    }}
+      - item.port is defined
+      - item.port | string | trim | length > 0
+      - item.sources is defined
+      - item.sources is sequence
+      - item.sources | length > 0
+      - item.description is defined
+      - item.description is string
+      - item.description | trim | length > 0
+    fail_msg: >-
+      Invalid firewall_tcp_rules entry: each rule needs a non-empty port,
+      a non-empty sources list and a non-empty description string.
+  loop: "{{ firewall_tcp_rules }}"
   loop_control:
-    label: "{{ item }}"
+    label: "{{ item.port | default('?') }}/tcp"
+  tags: [firewall, validation]
+
+- name: Validate CIDR format in all firewall rule sources
+  ansible.builtin.assert:
+    that:
+      - source is string
+      - source | trim | length > 0
+      - source is match('^((25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})\\.){3}(25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})/(3[0-2]|[12]?[0-9])$')
+    fail_msg: "Invalid CIDR entry: {{ source }}"
+  loop: "{{ firewall_tcp_rules | subelements('sources') }}"
+  loop_control:
+    label: "{{ item.0.port }}/tcp <- {{ item.1 }}"
+  vars:
+    source: '{{ item.1 }}'
   tags: [firewall, validation]

@@ -1,0 +1,91 @@
+---
+- name: Resolve k3s API host from k3s_hosts group when not set
+  ansible.builtin.set_fact:
+    github_runner_k3s_api_host: "{{ hostvars[groups['k3s_hosts'][0]]['private_ip'] }}"
+  when:
+    - github_runner_kubeconfig_enabled | bool
+    - github_runner_k3s_api_host | trim | length == 0
+  changed_when: false
+  tags: [github_runner, configure]
+
+- name: Remove existing runner registration when replace_existing
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ github_runner_install_dir }}/.runner"
+    - "{{ github_runner_install_dir }}/.credentials"
+    - "{{ github_runner_install_dir }}/.credentials_rsaparams"
+  when: github_runner_replace_existing | bool
+  notify: Restart github runner service
+  tags: [github_runner, configure]
+
+- name: Register runner (idempotent via .runner marker)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    sudo -u {{ github_runner_user | quote }} -H bash -lc '
+      cd {{ github_runner_install_dir | quote }}
+      ./config.sh \
+        --url {{ github_runner_repo_url | quote }} \
+        --token {{ github_runner_registration_token | quote }} \
+        --labels {{ (github_runner_labels | join(",")) | quote }} \
+        --name {{ github_runner_runner_name | quote }} \
+        --unattended \
+        --replace
+    '
+  args:
+    creates: "{{ github_runner_install_dir }}/.runner"
+    executable: /bin/bash
+  no_log: "{{ github_runner_no_log }}"
+  tags: [github_runner, configure]
+
+- name: Ship kubeconfig to runner
+  when: github_runner_kubeconfig_enabled | bool
+  tags: [github_runner, configure]
+  block:
+    - name: Ensure runner SOPS age key directory exists
+      ansible.builtin.file:
+        path: "{{ github_runner_sops_age_key_file | dirname }}"
+        state: directory
+        owner: "{{ github_runner_user }}"
+        group: "{{ github_runner_group }}"
+        mode: "0700"
+
+    - name: Ship SOPS age private key to runner
+      ansible.builtin.copy:
+        content: "{{ github_runner_sops_age_key | trim }}\n"
+        dest: "{{ github_runner_sops_age_key_file }}"
+        owner: "{{ github_runner_user }}"
+        group: "{{ github_runner_group }}"
+        mode: "0600"
+      no_log: "{{ github_runner_no_log }}"
+
+    - name: Read k3s kubeconfig from k3s host
+      ansible.builtin.slurp:
+        path: "{{ github_runner_k3s_kubeconfig_path }}"
+      delegate_to: "{{ groups['k3s_hosts'][0] }}"
+      register: github_runner_k3s_kubeconfig_raw
+      run_once: true
+
+    - name: Ensure runner kubeconfig directory exists
+      ansible.builtin.file:
+        path: "{{ github_runner_kubeconfig_dest | dirname }}"
+        state: directory
+        owner: "{{ github_runner_user }}"
+        group: "{{ github_runner_group }}"
+        mode: "0700"
+
+    - name: Render kubeconfig for runner (private API endpoint)
+      ansible.builtin.copy:
+        content: >-
+          {{
+            (github_runner_k3s_kubeconfig_raw.content | b64decode)
+            | regex_replace(
+              '(?m)^(\s*server:\s*)https://[^:]+:6443\s*$',
+              '\1https://' ~ github_runner_k3s_api_host ~ ':6443'
+            )
+          }}
+        dest: "{{ github_runner_kubeconfig_dest }}"
+        owner: "{{ github_runner_user }}"
+        group: "{{ github_runner_group }}"
+        mode: "0600"

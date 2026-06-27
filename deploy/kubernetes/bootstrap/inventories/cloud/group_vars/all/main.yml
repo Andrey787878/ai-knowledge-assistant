@@ -9,32 +9,8 @@ ansible_ssh_private_key_file: >-
   }}
 ansible_python_interpreter: /usr/bin/python3
 
-# CIDR list allowed to access SSH on k3s VM (22/tcp).
+# Shared admin SSH CIDR list (used by k3s_hosts and github_runners for 22/tcp).
 # Keep defaults empty in git. Set real values in:
 # inventories/cloud/group_vars/all/zz-local.yml (gitignored)
 # or in vault overrides.
 firewall_admin_ssh_sources: []
-
-# CIDR list allowed to access Kubernetes API on k3s VM (6443/tcp).
-# Keep defaults empty in git. Set real values in:
-# inventories/cloud/group_vars/all/zz-local.yml (gitignored)
-# or in vault overrides.
-kube_api_allowed_cidrs: []
-
-# CIDR list allowed to access HTTPS ingress on k3s VM (443/tcp).
-# Keep defaults empty in git. Set real values in:
-# inventories/cloud/group_vars/all/zz-local.yml (gitignored)
-# or in vault overrides.
-edge_allowed_client_cidrs: []
-
-# Enable Kubernetes secrets encryption at rest in k3s datastore.
-# Enabled by default for Stage B bootstrap.
-k3s_secrets_encryption_enabled: true
-
-# Include public ansible_host into k3s API certificate SAN list.
-# This allows kubectl from local machine against https://<ansible_host>:6443.
-k3s_server_tls_sans:
-  - "{{ ansible_host }}"
-
-# Optional extra CLI args passed to INSTALL_K3S_EXEC (in addition to `server`).
-k3s_server_extra_args: []

@@ -1,0 +1,111 @@
+---
+- name: Verify github runner service is active
+  ansible.builtin.command: systemctl is-active {{ github_runner_service_name }}
+  register: github_runner_service_status
+  changed_when: false
+  retries: "{{ github_runner_verify_service_retries }}"
+  delay: "{{ github_runner_verify_service_delay }}"
+  until:
+    - github_runner_service_status.rc == 0
+    - github_runner_service_status.stdout | trim == "active"
+  tags: [github_runner, verify]
+
+- name: Assert github runner service is active
+  ansible.builtin.assert:
+    that:
+      - github_runner_service_status.stdout | trim == "active"
+    fail_msg: "github runner service '{{ github_runner_service_name }}' is not active."
+  tags: [github_runner, verify]
+
+- name: Verify github runner service is enabled
+  ansible.builtin.command: systemctl is-enabled {{ github_runner_service_name }}
+  register: github_runner_service_enabled
+  changed_when: false
+  tags: [github_runner, verify]
+
+- name: Assert github runner service is enabled (survives reboot)
+  ansible.builtin.assert:
+    that:
+      - github_runner_service_enabled.stdout | trim == "enabled"
+    fail_msg: "github runner service '{{ github_runner_service_name }}' is not enabled."
+  tags: [github_runner, verify]
+
+- name: Verify runner registration marker exists
+  ansible.builtin.stat:
+    path: "{{ github_runner_install_dir }}/.runner"
+  register: github_runner_registered_marker
+  tags: [github_runner, verify]
+
+- name: Assert runner is registered
+  ansible.builtin.assert:
+    that:
+      - github_runner_registered_marker.stat.exists
+    fail_msg: "Runner registration marker .runner not found in {{ github_runner_install_dir }}."
+  tags: [github_runner, verify]
+
+- name: Verify runner credentials exist
+  ansible.builtin.stat:
+    path: "{{ github_runner_install_dir }}/.credentials"
+  register: github_runner_credentials_marker
+  tags: [github_runner, verify]
+
+- name: Assert runner credentials exist
+  ansible.builtin.assert:
+    that:
+      - github_runner_credentials_marker.stat.exists
+    fail_msg: "Runner credentials marker .credentials not found in {{ github_runner_install_dir }}."
+  tags: [github_runner, verify]
+
+- name: Verify kubeconfig presence when enabled
+  ansible.builtin.stat:
+    path: "{{ github_runner_kubeconfig_dest }}"
+  register: github_runner_kubeconfig_stat
+  when: github_runner_kubeconfig_enabled | bool
+  tags: [github_runner, verify]
+
+- name: Assert kubeconfig is present when enabled
+  ansible.builtin.assert:
+    that:
+      - github_runner_kubeconfig_stat.stat.exists
+      - github_runner_kubeconfig_stat.stat.size | int > 0
+    fail_msg: "Runner kubeconfig missing or empty: {{ github_runner_kubeconfig_dest }}"
+  when: github_runner_kubeconfig_enabled | bool
+  tags: [github_runner, verify]
+
+- name: Verify SOPS age key presence when kubeconfig enabled
+  ansible.builtin.stat:
+    path: "{{ github_runner_sops_age_key_file }}"
+  register: github_runner_sops_age_key_stat
+  when: github_runner_kubeconfig_enabled | bool
+  tags: [github_runner, verify]
+
+- name: Assert SOPS age key is present when kubeconfig enabled
+  ansible.builtin.assert:
+    that:
+      - github_runner_sops_age_key_stat.stat.exists
+      - github_runner_sops_age_key_stat.stat.size | int > 0
+      - github_runner_sops_age_key_stat.stat.mode == "0600"
+    fail_msg: >-
+      Runner SOPS age key missing, empty or incorrectly permissioned:
+      {{ github_runner_sops_age_key_file }}
+  when: github_runner_kubeconfig_enabled | bool
+  tags: [github_runner, verify]
+
+- name: Verify kubectl can reach k3s API when kubeconfig enabled
+  ansible.builtin.command: >-
+    {{ github_runner_tool_install_dir }}/kubectl
+    --kubeconfig {{ github_runner_kubeconfig_dest }}
+    get nodes
+  register: github_runner_kubectl_nodes
+  changed_when: false
+  when: github_runner_kubeconfig_enabled | bool
+  tags: [github_runner, verify]
+
+- name: Assert kubectl sees at least one Ready node
+  ansible.builtin.assert:
+    that:
+      - github_runner_kubectl_nodes.rc == 0
+      - "'Ready' in (github_runner_kubectl_nodes.stdout | default(''))"
+    fail_msg: "kubectl from runner cannot reach the k3s API or no Ready node found."
+  when: github_runner_kubeconfig_enabled | bool
+  tags: [github_runner, verify]

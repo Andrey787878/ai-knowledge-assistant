@@ -1,0 +1,26 @@
+# Local-only runner secrets (copy to zz-local.yml, gitignored).
+# Loaded after github_runners/main.yml.
+#
+# GitHub Actions runner registration token.
+# Obtain it from: repo Settings -> Actions -> Runners -> New self-hosted runner.
+# The token is short-lived (~1h). Bootstrap reads it ONCE at registration time;
+# after registration the runner stores a long-lived credential in .credentials
+# and the token is no longer needed.
+#
+# Rotation: re-run bootstrap with github_runner_replace_existing: true and a
+# fresh token, or remove the runner in GitHub UI and bootstrap again.
+github_runner_registration_token: "REPLACE_WITH_REGISTRATION_TOKEN"
+
+# SOPS/age private key used by helmfile + helm-secrets on the runner.
+# Copy the full AGE-SECRET-KEY-... value from your local keys.txt or dedicated
+# CD key material. Keep this file local-only and gitignored.
+github_runner_sops_age_key: |
+  AGE-SECRET-KEY-REPLACE-WITH-RUNNER-KEY
+
+# Optional: force re-registration (removes existing .runner/.credentials first).
+# github_runner_replace_existing: false
+
+# Optional: override shared SSH admin CIDRs for the runner (defaults shared
+# from group_vars/all/zz-local.yml).
+# firewall_admin_ssh_sources:
+#   - 198.51.100.10/32

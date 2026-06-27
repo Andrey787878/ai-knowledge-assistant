@@ -1,0 +1,232 @@
+---
+- name: Resolve runner and tool architectures
+  ansible.builtin.set_fact:
+    github_runner_arch: "{{ github_runner_arch_map[ansible_architecture] }}"
+    github_runner_tool_arch: "{{ github_runner_tool_arch_map[ansible_architecture] }}"
+  changed_when: false
+  tags: [github_runner, install]
+
+- name: Build runner artifact URLs
+  ansible.builtin.set_fact:
+    github_runner_archive_url: "{{ github_runner_download_base_url }}/v{{ github_runner_version }}/actions-runner-linux-{{ github_runner_arch }}-{{ github_runner_version }}.tar.gz"
+    github_runner_archive_download_path: "/tmp/actions-runner-{{ github_runner_version }}.tar.gz"
+  changed_when: false
+  tags: [github_runner, install]
+
+- name: Install runner dependencies
+  ansible.builtin.apt:
+    name: "{{ github_runner_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: '{{ github_runner_apt_cache_valid_time }}'
+    lock_timeout: '{{ github_runner_apt_lock_timeout }}'
+    update_cache_retries: '{{ github_runner_apt_update_cache_retries }}'
+    update_cache_retry_max_delay: '{{ github_runner_apt_update_cache_retry_max_delay }}'
+  tags: [github_runner, install]
+
+- name: Ensure runner system group exists
+  ansible.builtin.group:
+    name: "{{ github_runner_group }}"
+    state: present
+  tags: [github_runner, install]
+
+- name: Ensure runner system user exists
+  ansible.builtin.user:
+    name: "{{ github_runner_user }}"
+    group: "{{ github_runner_group }}"
+    system: true
+    create_home: true
+    home: "{{ github_runner_home }}"
+    shell: /bin/bash
+  tags: [github_runner, install]
+
+- name: Ensure runner install directory exists
+  ansible.builtin.file:
+    path: "{{ github_runner_install_dir }}"
+    state: directory
+    owner: "{{ github_runner_user }}"
+    group: "{{ github_runner_group }}"
+    mode: "0755"
+  tags: [github_runner, install]
+
+- name: Stat installed runner version marker
+  ansible.builtin.stat:
+    path: "{{ github_runner_install_dir }}/.installed_version"
+  register: github_runner_version_marker
+  tags: [github_runner, install]
+
+- name: Read installed runner version marker
+  ansible.builtin.slurp:
+    path: "{{ github_runner_install_dir }}/.installed_version"
+  register: github_runner_version_marker_content
+  when: github_runner_version_marker.stat.exists
+  changed_when: false
+  tags: [github_runner, install]
+
+- name: Determine whether runner archive must be (re)extracted
+  ansible.builtin.set_fact:
+    github_runner_needs_extract: >-
+      {{
+        not github_runner_version_marker.stat.exists
+        or ((github_runner_version_marker_content.content | default('') | b64decode | trim) != github_runner_version)
+      }}
+  changed_when: false
+  tags: [github_runner, install]
+
+- name: Download GitHub Actions runner archive
+  ansible.builtin.get_url:
+    url: "{{ github_runner_archive_url }}"
+    dest: "{{ github_runner_archive_download_path }}"
+    mode: "0644"
+    owner: root
+    group: root
+    timeout: "{{ github_runner_download_timeout }}"
+  register: github_runner_archive_download_result
+  retries: "{{ github_runner_download_retries }}"
+  delay: "{{ github_runner_download_retry_delay }}"
+  until: github_runner_archive_download_result is succeeded
+  when: github_runner_needs_extract | bool
+  tags: [github_runner, install]
+
+- name: Extract runner archive
+  ansible.builtin.unarchive:
+    src: "{{ github_runner_archive_download_path }}"
+    dest: "{{ github_runner_install_dir }}"
+    remote_src: true
+    owner: "{{ github_runner_user }}"
+    group: "{{ github_runner_group }}"
+  when: github_runner_needs_extract | bool
+  notify: Restart github runner service
+  tags: [github_runner, install]
+
+- name: Write installed runner version marker
+  ansible.builtin.copy:
+    content: "{{ github_runner_version }}\n"
+    dest: "{{ github_runner_install_dir }}/.installed_version"
+    owner: "{{ github_runner_user }}"
+    group: "{{ github_runner_group }}"
+    mode: "0644"
+  when: github_runner_needs_extract | bool
+  tags: [github_runner, install]
+
+- name: Ensure runner install directory ownership is consistent
+  ansible.builtin.file:
+    path: "{{ github_runner_install_dir }}"
+    state: directory
+    owner: "{{ github_runner_user }}"
+    group: "{{ github_runner_group }}"
+    recurse: true
+  tags: [github_runner, install]
+
+- name: Install kubectl
+  ansible.builtin.get_url:
+    url: "https://dl.k8s.io/release/{{ github_runner_kubectl_version }}/bin/linux/{{ github_runner_tool_arch }}/kubectl"
+    dest: "{{ github_runner_tool_install_dir }}/kubectl"
+    mode: "0755"
+    owner: root
+    group: root
+    timeout: "{{ github_runner_download_timeout }}"
+  register: github_runner_kubectl_download
+  retries: "{{ github_runner_download_retries }}"
+  delay: "{{ github_runner_download_retry_delay }}"
+  until: github_runner_kubectl_download is succeeded
+  tags: [github_runner, install]
+
+- name: Download helm archive
+  ansible.builtin.get_url:
+    url: "https://get.helm.sh/helm-{{ github_runner_helm_version }}-linux-{{ github_runner_tool_arch }}.tar.gz"
+    dest: "/tmp/helm-{{ github_runner_helm_version }}.tar.gz"
+    mode: "0644"
+    owner: root
+    group: root
+    timeout: "{{ github_runner_download_timeout }}"
+  register: github_runner_helm_download
+  retries: "{{ github_runner_download_retries }}"
+  delay: "{{ github_runner_download_retry_delay }}"
+  until: github_runner_helm_download is succeeded
+  tags: [github_runner, install]
+
+- name: Install helm binary
+  ansible.builtin.unarchive:
+    src: "/tmp/helm-{{ github_runner_helm_version }}.tar.gz"
+    dest: "{{ github_runner_tool_install_dir }}"
+    remote_src: true
+    extra_opts:
+      - "--strip-components=1"
+      - "linux-{{ github_runner_tool_arch }}/helm"
+    creates: "{{ github_runner_tool_install_dir }}/helm"
+  tags: [github_runner, install]
+
+- name: Download helmfile archive
+  ansible.builtin.get_url:
+    url: "https://github.com/helmfile/helmfile/releases/download/v{{ github_runner_helmfile_version }}/helmfile_{{ github_runner_helmfile_version }}_linux_{{ github_runner_tool_arch }}.tar.gz"
+    dest: "/tmp/helmfile-{{ github_runner_helmfile_version }}.tar.gz"
+    mode: "0644"
+    owner: root
+    group: root
+    timeout: "{{ github_runner_download_timeout }}"
+  register: github_runner_helmfile_download
+  retries: "{{ github_runner_download_retries }}"
+  delay: "{{ github_runner_download_retry_delay }}"
+  until: github_runner_helmfile_download is succeeded
+  tags: [github_runner, install]
+
+- name: Install helmfile binary
+  ansible.builtin.unarchive:
+    src: "/tmp/helmfile-{{ github_runner_helmfile_version }}.tar.gz"
+    dest: "{{ github_runner_tool_install_dir }}"
+    remote_src: true
+    creates: "{{ github_runner_tool_install_dir }}/helmfile"
+  tags: [github_runner, install]
+
+- name: Install sops binary
+  ansible.builtin.get_url:
+    url: "https://github.com/getsops/sops/releases/download/v{{ github_runner_sops_version }}/sops-v{{ github_runner_sops_version }}.linux.{{ github_runner_tool_arch }}"
+    dest: "{{ github_runner_tool_install_dir }}/sops"
+    mode: "0755"
+    owner: root
+    group: root
+    timeout: "{{ github_runner_download_timeout }}"
+  register: github_runner_sops_download
+  retries: "{{ github_runner_download_retries }}"
+  delay: "{{ github_runner_download_retry_delay }}"
+  until: github_runner_sops_download is succeeded
+  tags: [github_runner, install]
+
+- name: Download age archive
+  ansible.builtin.get_url:
+    url: "https://github.com/FiloSottile/age/releases/download/{{ github_runner_age_version }}/age-{{ github_runner_age_version }}-linux-{{ github_runner_tool_arch }}.tar.gz"
+    dest: "/tmp/age-{{ github_runner_age_version }}.tar.gz"
+    mode: "0644"
+    owner: root
+    group: root
+    timeout: "{{ github_runner_download_timeout }}"
+  register: github_runner_age_download
+  retries: "{{ github_runner_download_retries }}"
+  delay: "{{ github_runner_download_retry_delay }}"
+  until: github_runner_age_download is succeeded
+  tags: [github_runner, install]
+
+- name: Install age binaries
+  ansible.builtin.unarchive:
+    src: "/tmp/age-{{ github_runner_age_version }}.tar.gz"
+    dest: "{{ github_runner_tool_install_dir }}"
+    remote_src: true
+    extra_opts:
+      - "--strip-components=1"
+      - "age/age"
+      - "age/age-keygen"
+    creates: "{{ github_runner_tool_install_dir }}/age"
+  tags: [github_runner, install]
+
+- name: Check helm-secrets plugin presence
+  ansible.builtin.command: "{{ github_runner_tool_install_dir }}/helm plugin list"
+  register: github_runner_helm_plugins
+  changed_when: false
+  failed_when: false
+  tags: [github_runner, install]
+
+- name: Install helm-secrets plugin
+  ansible.builtin.command: "{{ github_runner_tool_install_dir }}/helm plugin install https://github.com/jkroepke/helm-secrets --version v{{ github_runner_helm_secrets_version }}"
+  when: "'secrets' not in (github_runner_helm_plugins.stdout | default(''))"
+  tags: [github_runner, install]

@@ -1,0 +1,19 @@
+[Unit]
+Description=GitHub Actions self-hosted runner ({{ github_runner_runner_name }})
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ github_runner_user }}
+Group={{ github_runner_group }}
+WorkingDirectory={{ github_runner_install_dir }}
+Environment=SOPS_AGE_KEY_FILE={{ github_runner_sops_age_key_file }}
+ExecStart={{ github_runner_install_dir }}/run.sh
+KillSignal=SIGINT
+Restart=always
+RestartSec=5
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target
