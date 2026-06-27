@@ -90,6 +90,15 @@ rollout_daemonset() {
   kubectl -n "${namespace}" rollout status "daemonset/${name}" --timeout=10m
 }
 
+wait_pods_ready() {
+  local namespace="$1"
+  local selector="$2"
+  kubectl -n "${namespace}" wait \
+    --for=condition=Ready pod \
+    -l "${selector}" \
+    --timeout=10m
+}
+
 smoke_platform() {
   kubectl get namespace db observability n8n wiki ollama >/dev/null
   rollout_deployment cert-manager cert-manager
@@ -99,8 +108,8 @@ smoke_platform() {
 }
 
 smoke_observability() {
-  rollout_statefulset observability observability-prometheus
-  rollout_statefulset observability alertmanager-observability-alertmanager
+  wait_pods_ready observability "operator.prometheus.io/name=observability-prometheus"
+  wait_pods_ready observability "alertmanager=observability-alertmanager"
   rollout_deployment observability observability-grafana
   rollout_statefulset observability loki
   rollout_daemonset observability alloy
