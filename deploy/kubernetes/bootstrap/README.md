@@ -98,8 +98,11 @@ cp inventories/cloud/hosts.yml.example inventories/cloud/hosts.yml
 - `ansible_host` - публичный IP VM `k3s`.
 - `private_ip` - внутренний IP VM `k3s`.
 - при наличии runner:
-  - `ansible_host` - публичный IP VM `runner`;
+  - `ansible_host` - внутренний IP VM `runner`;
   - `private_ip` - внутренний IP VM `runner`.
+
+`github_runners` при этом должны лежать внутри inventory group
+`private_hosts`: именно она добавляет `ProxyJump` через публичный `k3s`.
 
 <a id="step-2"></a>
 
@@ -114,7 +117,7 @@ cp -n inventories/cloud/group_vars/all/zz-local.yml.example inventories/cloud/gr
 Что заполняем:
 
 - `inventories/cloud/group_vars/all/zz-local.yml`:
-  - `firewall_admin_ssh_sources` для `22/tcp`.
+  - `firewall_admin_ssh_sources` для `22/tcp` на публичном `k3s`.
   - `kube_api_allowed_cidrs` для внешнего admin-доступа к `6443/tcp`.
   - `edge_allowed_client_cidrs` для `443/tcp`.
   - при необходимости локально переопределить `k3s_secrets_encryption_enabled` (по умолчанию уже `true` в `group_vars/all/main.yml`).
@@ -131,8 +134,11 @@ SG-правило на `k3s:6443` по private IP runner VM. На уровне h
 - `inventories/cloud/group_vars/github_runners/zz-local.yml`:
   - `github_runner_registration_token`;
   - `github_runner_sops_age_key`;
-  - при ротации runner: `github_runner_replace_existing: true`;
-  - при необходимости override для SSH source CIDR runner host.
+  - при ротации runner: `github_runner_replace_existing: true`.
+
+Для runner не нужно отдельно задавать SSH CIDR: host firewall и cloud SG
+разрешают `22/tcp` только от private IP `k3s`, а администраторский доступ идет
+через `ProxyJump`.
 
 По умолчанию `edge_http_cidrs` задается в роли firewall как `0.0.0.0/0`
 (нужно для HTTP-01 challenge и HTTP->HTTPS redirect).
@@ -328,3 +334,9 @@ bash scripts/pull_kubeconfig.sh \
 
   Если для этого хоста использовался другой ключ (например `ansible_deploy`),
   передайте его через `--identity`.
+
+`UNREACHABLE` на `github_runners` при прямом SSH:
+
+- причина: runner private-only и не должен быть доступен напрямую;
+- фикс: убедиться, что runner расположен в inventory group `private_hosts`,
+  а `k3s` доступен по своему публичному `ansible_host`.

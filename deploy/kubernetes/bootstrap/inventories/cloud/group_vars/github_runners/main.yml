@@ -1,9 +1,21 @@
 ---
 # Inbound TCP rules for the runner host (SSH only, applied by firewall role).
+# The runner is private-only and accepts SSH only from the k3s node, which
+# acts as the jump host for Ansible and manual maintenance.
+runner_ssh_source_cidrs: >-
+  {{
+    (
+      groups['k3s_hosts'] | default([])
+      | map('extract', hostvars, 'private_ip')
+      | map('regex_replace', '$', '/32')
+      | list
+    )
+  }}
+
 firewall_tcp_rules:
   - port: 22
-    sources: "{{ firewall_admin_ssh_sources }}"
-    description: "SSH access from admin CIDRs"
+    sources: "{{ runner_ssh_source_cidrs }}"
+    description: "SSH access from k3s jump host"
 
 # GitHub Actions self-hosted runner configuration (non-secret).
 # Secret values (registration token and SOPS age key) live in zz-local.yml

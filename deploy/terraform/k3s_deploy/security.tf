@@ -48,10 +48,10 @@ resource "yandex_vpc_security_group" "runner_sg" {
   network_id  = yandex_vpc_network.main.id
 
   ingress {
-    description    = "SSH access to runner VM from admin CIDRs"
+    description    = "SSH access to runner VM from k3s private IP"
     protocol       = "TCP"
     port           = 22
-    v4_cidr_blocks = var.firewall_admin_ssh_sources
+    v4_cidr_blocks = ["${local.k3s_spec.private_ip}/32"]
   }
 
   egress {

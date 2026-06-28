@@ -9,7 +9,9 @@ ansible_ssh_private_key_file: >-
   }}
 ansible_python_interpreter: /usr/bin/python3
 
-# Shared admin SSH CIDR list (used by k3s_hosts and github_runners for 22/tcp).
+# Shared admin SSH CIDR list for the public k3s host (22/tcp).
+# Private hosts such as the optional runner are reached through ProxyJump and
+# do not open SSH directly to these CIDRs.
 # Keep defaults empty in git. Set real values in:
 # inventories/cloud/group_vars/all/zz-local.yml (gitignored)
 # or in vault overrides.

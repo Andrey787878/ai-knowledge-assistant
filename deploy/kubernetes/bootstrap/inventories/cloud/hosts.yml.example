@@ -11,8 +11,10 @@
 # - private_ip: internal address used by firewall/service checks
 #
 # The github_runners group is only present when Terraform creates the runner VM
-# (runner_enabled = true). When the runner is disabled the group is absent and
-# the second play in playbooks/site.yml is skipped.
+# (runner_enabled = true). The runner stays private-only and is reached through
+# the public k3s host via the private_hosts ProxyJump group. When the runner is
+# disabled both private_hosts/github_runners are absent and the second play in
+# playbooks/site.yml is skipped.
 all:
   children:
     k3s_hosts:
@@ -20,8 +22,10 @@ all:
         k3s:
           ansible_host: 198.51.100.10
           private_ip: 10.20.0.3
-    github_runners:
-      hosts:
-        runner:
-          ansible_host: 198.51.100.11
-          private_ip: 10.20.0.4
+    private_hosts:
+      children:
+        github_runners:
+          hosts:
+            runner:
+              ansible_host: 10.20.0.4
+              private_ip: 10.20.0.4

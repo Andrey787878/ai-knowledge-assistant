@@ -20,7 +20,5 @@ github_runner_sops_age_key: |
 # Optional: force re-registration (removes existing .runner/.credentials first).
 # github_runner_replace_existing: false
 
-# Optional: override shared SSH admin CIDRs for the runner (defaults shared
-# from group_vars/all/zz-local.yml).
-# firewall_admin_ssh_sources:
-#   - 198.51.100.10/32
+# Runner SSH ingress is derived automatically from the k3s private IP and does
+# not need local CIDR overrides in the default topology.

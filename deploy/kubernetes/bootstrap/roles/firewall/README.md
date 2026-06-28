@@ -41,7 +41,7 @@
 firewall_tcp_rules:
   - port: 22
     sources: "{{ firewall_admin_ssh_sources }}"
-    description: "SSH access from admin CIDRs"
+    description: "SSH access to public k3s host"
 ```
 
 Каждое правило:
@@ -65,7 +65,7 @@ firewall_tcp_rules:
 
 `inventories/cloud/group_vars/github_runners/main.yml`:
 
-- `22` от `firewall_admin_ssh_sources`
+- `22` только от private `/32` адресов из inventory group `k3s_hosts`
 
 Egress на host firewall: default outgoing `allow`. Внешний perimeter
 ограничивается cloud Security Group (см. Terraform README).
@@ -84,7 +84,7 @@ Egress на host firewall: default outgoing `allow`. Внешний perimeter
 - `firewall_default_incoming_policy` - default incoming policy.
 - `firewall_default_outgoing_policy` - default outgoing policy.
 - `firewall_tcp_rules` - список inbound TCP-правил (port/sources/description).
-- `firewall_admin_ssh_sources` - общий CIDR-лист для `22/tcp` (shared).
+- `firewall_admin_ssh_sources` - CIDR-лист для `22/tcp` на публичном `k3s`.
 - `kube_api_allowed_cidrs` - CIDR-ы для `6443/tcp` (k3s).
 - `edge_http_cidrs` - CIDR-ы для `80/tcp` (k3s).
 - `edge_allowed_client_cidrs` - CIDR-ы для `443/tcp` (k3s).

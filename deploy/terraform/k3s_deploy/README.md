@@ -4,7 +4,7 @@ Terraform инфраструктура для деплоя в Stage B:
 
 - `k3s` — single-node Kubernetes (public subnet, public IP).
 - `runner` — optional self-hosted GitHub Actions runner
-  (private workload VM for k3s CD).
+  (private-only workload VM for k3s CD).
 
 ## Структура
 
@@ -37,12 +37,13 @@ state хранится удаленно, а не локально.
 
 - VPC network,
 - 1 subnet для `k3s` и `runner`,
+- NAT Gateway + route table (`0.0.0.0/0`) для private egress из subnet,
 - 1 VM `k3s`,
 - optional 1 VM `runner`,
 - security group `k3s-single-node-sg`,
 - optional security group `k3s-runner-sg`,
 - outputs с private/public IP, kube API endpoint и готовым YAML inventory
-  для `k3s_hosts` и `github_runners`.
+  для `k3s_hosts` и `private_hosts/github_runners`.
 
 ## Сетевой контракт (cloud SG)
 
@@ -58,7 +59,7 @@ Egress: `ANY -> 0.0.0.0/0`.
 
 `runner`:
 
-- `22/tcp` от `firewall_admin_ssh_sources`,
+- `22/tcp` только от private IP `k3s`,
 - egress `80/tcp` в интернет для `apt update` и Ubuntu package metadata,
 - egress `443/tcp` в интернет для GitHub Actions API и download-ов,
 - egress `53/tcp` и `53/udp` для DNS,
@@ -75,6 +76,14 @@ ingress на `k3s:6443` разрешается не только для внеш
 private IP runner VM. Это intentional least-privilege решение: runner не
 получает доступ к API "со всего subnet", а только со своего фиксированного
 внутреннего адреса.
+
+Runner также не открывается наружу по SSH: доступ к нему идет через `k3s` как
+jump host (`ProxyJump`) по той же модели, что private VM в этапе A.
+
+Private internet egress для runner обеспечивается не через public IP, а через
+Yandex Cloud NAT Gateway + route table на subnet. Это нужно для `apt`,
+GitHub Actions downloads, `helmfile`, `sops` и прочих внешних зависимостей
+CD-контура.
 
 ## Предусловия
 
@@ -123,9 +132,14 @@ terraform output k3s_private_ip
 terraform output k3s_public_ip
 terraform output kube_api_endpoint
 terraform output runner_private_ip
-terraform output runner_public_ip
 terraform output -raw ansible_inventory_yaml
 ```
+
+Ожидаемое поведение:
+
+- `k3s_public_ip` заполнен;
+- `ansible_inventory_yaml` содержит `k3s_hosts` и, при включенном runner,
+  `private_hosts -> github_runners`.
 
 Генерация inventory для Kubernetes bootstrap:
 

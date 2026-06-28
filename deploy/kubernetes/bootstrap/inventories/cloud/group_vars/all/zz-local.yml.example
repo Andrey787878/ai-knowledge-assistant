@@ -1,8 +1,9 @@
 # Local-only overrides (copy to zz-local.yml and set real CIDR values).
 # zz-local.yml is gitignored and loaded after main.yml.
 #
-# Shared admin SSH CIDR list used by every host group for the 22/tcp rule.
-# Required for the firewall role on both k3s and runner hosts.
+# Shared admin SSH CIDR list for the public k3s host.
+# Private hosts are reached through ProxyJump via k3s and do not need direct
+# admin SSH CIDRs.
 
 firewall_admin_ssh_sources:
   - 198.51.100.10/32

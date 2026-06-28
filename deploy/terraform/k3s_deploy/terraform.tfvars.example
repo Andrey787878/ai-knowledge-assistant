@@ -37,11 +37,13 @@
 #     core_fraction = 100
 #     disk_size_gb  = 12
 #     disk_type     = "network-ssd"
-#     nat           = true
+#     nat           = false
 #   }
 # }
 
-# Required: admin source CIDR(s) for SSH to k3s and runner VMs (22/tcp).
+# Required: admin source CIDR(s) for SSH to the public k3s VM (22/tcp).
+# The private runner VM is reached through k3s via ProxyJump and is therefore
+# not opened directly to admin CIDRs.
 firewall_admin_ssh_sources = [
   "198.51.100.0/32"
 ]

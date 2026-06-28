@@ -3,6 +3,8 @@
 Роль для установки и настройки self-hosted GitHub Actions runner
 на отдельной VM в этапе B. Runner работает как systemd service,
 перезапускается после reboot и используется для k3s CD.
+VM runner предполагается private-only: доступ к ней идет через публичный `k3s`
+как jump host, а не напрямую из Интернета.
 
 ## Структура роли
 
@@ -81,6 +83,10 @@ CD workflow использует runs-on: `[self-hosted, linux, x64, k3s, prod, 
 Runner деплоит в cluster через kubeconfig. Bootstrap берёт `/etc/rancher/k3s/k3s.yaml`
 с k3s host, заменяет server на private IP k3s и кладёт в
 `/home/github-runner/.kube/config` (owner `github-runner`, mode `0600`).
+
+SSH-доступ к runner для bootstrap и ручной диагностики тоже идет через `k3s`:
+inventory group `private_hosts` добавляет `ProxyJump`, а firewall runner хоста
+разрешает `22/tcp` только от private IP `k3s`.
 
 Используется admin kubeconfig (CD bootstrap shortcut). Альтернатива —
 отдельный service account + cluster-admin binding.

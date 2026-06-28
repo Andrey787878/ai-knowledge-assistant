@@ -114,7 +114,7 @@ variable "vm_specs" {
       core_fraction = 100
       disk_size_gb  = 12
       disk_type     = "network-ssd"
-      nat           = true
+      nat           = false
     }
   }
 }

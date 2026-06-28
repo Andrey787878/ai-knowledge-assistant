@@ -28,11 +28,6 @@ output "runner_private_ip" {
   value       = local.runner_private_ip
 }
 
-output "runner_public_ip" {
-  description = "Public IP of runner VM (when runner_enabled and NAT on)."
-  value       = local.runner_public_ip
-}
-
 output "runner_vm_id" {
   description = "Yandex Cloud VM ID for runner node (when runner_enabled)."
   value       = local.runner_vm_id
@@ -44,6 +39,6 @@ output "runner_security_group_id" {
 }
 
 output "ansible_inventory_yaml" {
-  description = "Generated inventory for k3s and runner bootstrap (github_runners group present only when runner_enabled)."
+  description = "Generated inventory for k3s and runner bootstrap (runner rendered under private_hosts/github_runners when enabled)."
   value       = local.ansible_inventory_yaml
 }
