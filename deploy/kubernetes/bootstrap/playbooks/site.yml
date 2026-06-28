@@ -6,3 +6,11 @@
     - common
     - firewall
     - k3s_server
+
+- name: Bootstrap GitHub Actions self-hosted runner
+  hosts: github_runners
+  become: true
+  roles:
+    - common
+    - firewall
+    - github_runner

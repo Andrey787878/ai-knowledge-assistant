@@ -1,0 +1,7 @@
+---
+- name: Restart github runner service
+  ansible.builtin.systemd:
+    name: "{{ github_runner_service_name }}"
+    state: restarted
+    daemon_reload: true
+  when: ansible_service_mgr | default('systemd') == 'systemd'

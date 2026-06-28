@@ -1,0 +1,6 @@
+self-hosted-runner:
+  labels:
+    - k3s
+    - prod
+    - deploy
+    - stage-b

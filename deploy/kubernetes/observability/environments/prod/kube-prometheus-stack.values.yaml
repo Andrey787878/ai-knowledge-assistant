@@ -43,7 +43,7 @@ grafana:
     enabled: true
     ingressClassName: traefik
     annotations:
-      cert-manager.io/cluster-issuer: letsencrypt-staging
+      cert-manager.io/cluster-issuer: letsencrypt-prod
       traefik.ingress.kubernetes.io/router.middlewares: observability-https-redirect@kubernetescrd
     hosts:
       - grafana.poluyanov.net
@@ -88,7 +88,7 @@ alertmanager:
     enabled: true
     ingressClassName: traefik
     annotations:
-      cert-manager.io/cluster-issuer: letsencrypt-staging
+      cert-manager.io/cluster-issuer: letsencrypt-prod
       traefik.ingress.kubernetes.io/router.middlewares: observability-https-redirect@kubernetescrd
     hosts:
       - alertmanager.poluyanov.net

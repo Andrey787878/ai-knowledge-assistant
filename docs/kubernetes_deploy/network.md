@@ -43,11 +43,14 @@
   - `deploy/kubernetes/observability/releases/networkpolicy.yaml`
   - `deploy/kubernetes/observability/network-policies.md`
 
-## Сетевые зоны и trust boundary
+## Сетевые зоны и границы доверия
 
-- одна VM `k3s` (по умолчанию subnet `10.20.0.0/24`) с public IP,
-- внешний вход только через `80/443` edge-порты и ограниченный `6443`,
-- основная изоляция сервисов реализована внутри кластера через NetworkPolicy.
+- одна VM `k3s` (по умолчанию subnet `10.20.0.0/24`) с public IP;
+- одна private-only VM `runner` в той же subnet без публичного IP;
+- внешний вход только через `80/443` edge-порты и ограниченный `6443`;
+- основная изоляция сервисов реализована внутри кластера через NetworkPolicy;
+- private egress для runner обеспечивается через `NAT Gateway + route table`,
+  а не через отдельный публичный IP.
 
 ## Многоуровневые сетевые контроли
 
@@ -60,6 +63,14 @@
 - `80/tcp` из `edge_http_cidrs` (по умолчанию `0.0.0.0/0`)
 - `443/tcp` из `edge_allowed_client_cidrs`
 - egress: `ANY -> 0.0.0.0/0`
+
+`runner_sg`:
+
+- `22/tcp` только от private IP `k3s`-ноды;
+- `6443/tcp` egress только к private IP `k3s`;
+- `80/tcp`, `443/tcp`, `53/tcp`, `53/udp` egress для bootstrap, GitHub Actions,
+  registry и DNS;
+- входа извне из интернета нет.
 
 ### Host firewall (UFW, bootstrap)
 
@@ -89,6 +100,7 @@
 - SSH к ноде: только `firewall_admin_ssh_sources`.
 - Kubernetes API (`6443`): только `kube_api_allowed_cidrs`.
 - Ограничения продублированы в SG и UFW.
+- SSH к runner идет не напрямую, а через `ProxyJump` на публичный `k3s`.
 
 ### Пользовательский доступ
 
@@ -150,6 +162,7 @@
 
 - прямой ingress в app pods извне (вход только через Traefik и разрешенные internal selectors),
 - pod-to-pod потоки, не описанные в `allow` policy,
+- прямой SSH к runner извне,
 - произвольный Internet egress для большинства приложений.
 
 Примечание: pull container images выполняется node-level компонентами (`container runtime`/`kubelet`) и не ограничивается Kubernetes NetworkPolicy.

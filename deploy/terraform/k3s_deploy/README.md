@@ -1,8 +1,10 @@
 # Terraform инфраструктура для Этапа B
 
-Terraform инфраструктура для деплоя в 1 VM:
+Terraform инфраструктура для деплоя в Stage B:
 
 - `k3s` — single-node Kubernetes (public subnet, public IP).
+- `runner` — optional self-hosted GitHub Actions runner
+  (private-only workload VM for k3s CD).
 
 ## Структура
 
@@ -34,21 +36,54 @@ state хранится удаленно, а не локально.
 ## Какие ресурсы создаются
 
 - VPC network,
-- 1 subnet для `k3s`,
-- 1 VM (`k3s`),
-- 1 security group (`k3s-single-node-sg`),
-- outputs с private/public IP, kube API endpoint и готовым YAML inventory.
+- 1 subnet для `k3s` и `runner`,
+- NAT Gateway + route table (`0.0.0.0/0`) для private egress из subnet,
+- 1 VM `k3s`,
+- optional 1 VM `runner`,
+- security group `k3s-single-node-sg`,
+- optional security group `k3s-runner-sg`,
+- outputs с private/public IP, kube API endpoint и готовым YAML inventory
+  для `k3s_hosts` и `private_hosts/github_runners`.
 
 ## Сетевой контракт (cloud SG)
 
 `k3s`:
 
 - `22/tcp` от `firewall_admin_ssh_sources`,
-- `6443/tcp` от `kube_api_allowed_cidrs`,
+- `6443/tcp` от `kube_api_allowed_cidrs` и от private IP runner VM
+  (`10.20.0.4/32` в дефолтной схеме, если runner включен),
 - `80/tcp` от `edge_http_cidrs` (ACME HTTP-01 + redirect),
 - `443/tcp` от `edge_allowed_client_cidrs`.
 
 Egress: `ANY -> 0.0.0.0/0`.
+
+`runner`:
+
+- `22/tcp` только от private IP `k3s`,
+- egress `80/tcp` в интернет для `apt update` и Ubuntu package metadata,
+- egress `443/tcp` в интернет для GitHub Actions API и download-ов,
+- egress `53/tcp` и `53/udp` для DNS,
+- egress `6443/tcp` только к private IP `k3s` для `kubectl`/`helmfile`.
+
+`runner` включается только при `runner_enabled = true`. Это separate VM,
+которая живет в том же Stage B контуре, но не совмещается с control-plane
+нодой `k3s`. По умолчанию runner использует тот же `preemptible` флаг, что и
+основная `k3s` VM: модель дешевле по стоимости, но CD-контур становится
+best-effort и зависит от доступности runner в момент запуска workflow.
+
+Для доступа runner к Kubernetes API используется отдельное узкое правило:
+ingress на `k3s:6443` разрешается не только для внешних admin CIDR, но и для
+private IP runner VM. Это intentional least-privilege решение: runner не
+получает доступ к API "со всего subnet", а только со своего фиксированного
+внутреннего адреса.
+
+Runner также не открывается наружу по SSH: доступ к нему идет через `k3s` как
+jump host (`ProxyJump`) по той же модели, что private VM в этапе A.
+
+Private internet egress для runner обеспечивается не через public IP, а через
+Yandex Cloud NAT Gateway + route table на subnet. Это нужно для `apt`,
+GitHub Actions downloads, `helmfile`, `sops` и прочих внешних зависимостей
+CD-контура.
 
 ## Предусловия
 
@@ -69,8 +104,9 @@ cd deploy/terraform/k3s_deploy
 cp -n backend.hcl.example backend.hcl
 cp -n terraform.tfvars.example terraform.tfvars
 
-# При необходимости: заполните terraform.tfvars своими CIDR/IP
-# (firewall_admin_ssh_sources, kube_api_allowed_cidrs, edge_allowed_client_cidrs)
+# При необходимости: заполните terraform.tfvars своими CIDR/IP и runner flags
+# (firewall_admin_ssh_sources, kube_api_allowed_cidrs,
+#  edge_allowed_client_cidrs, runner_enabled, vm_specs.runner_vm)
 
 # Передайте S3 backend credentials (YC Object Storage)
 export AWS_ACCESS_KEY_ID="<access_key_id>"
@@ -95,8 +131,15 @@ cd deploy/terraform/k3s_deploy
 terraform output k3s_private_ip
 terraform output k3s_public_ip
 terraform output kube_api_endpoint
+terraform output runner_private_ip
 terraform output -raw ansible_inventory_yaml
 ```
+
+Ожидаемое поведение:
+
+- `k3s_public_ip` заполнен;
+- `ansible_inventory_yaml` содержит `k3s_hosts` и, при включенном runner,
+  `private_hosts -> github_runners`.
 
 Генерация inventory для Kubernetes bootstrap:
 
@@ -116,6 +159,9 @@ unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY \
 
 - [Kubernetes bootstrap (Ansible)](../../kubernetes/bootstrap/README.md)
 - [Индекс Этапа B](../../../docs/kubernetes_deploy/README.md)
+
+Runner после bootstrap используется как self-hosted GitHub Actions executor
+для `cd-k3s-auto.yml` и `cd-k3s-manual.yml`.
 
 ## Удаление инфраструктуры
 

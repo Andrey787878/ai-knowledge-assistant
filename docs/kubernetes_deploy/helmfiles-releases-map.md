@@ -200,7 +200,7 @@ Values:
 
 ```bash
 cd deploy/kubernetes
-helmfile -e prod build > /tmp/k8s-stage-build.yaml
+helmfile -e prod build > /tmp/k3s-stage-build.yaml
 helmfile -e prod sync
 ```
 

@@ -1,0 +1,157 @@
+name: CD k3s manual
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Deploy mode
+        required: true
+        type: choice
+        options:
+          - full
+          - scope
+          - changed
+      scope:
+        description: Scope for mode=scope
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - platform
+          - observability
+          - postgres
+          - redis
+          - wiki
+          - ollama
+          - n8n
+      ref:
+        description: Git ref to deploy
+        required: true
+        default: main
+        type: string
+      confirm_prod:
+        description: Type DEPLOY to confirm production deploy
+        required: true
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: k3s-prod-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Manual k3s deploy
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - k3s
+      - prod
+      - deploy
+    environment: production
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      KUBECONFIG: /home/github-runner/.kube/config
+      SOPS_AGE_KEY_FILE: /home/github-runner/.config/sops/age/keys.txt
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Require explicit production confirmation
+        run: |
+          if [[ "${{ inputs.confirm_prod }}" != "DEPLOY" ]]; then
+            echo "error: confirm_prod must be exactly DEPLOY" >&2
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+
+      - name: Verify selected ref has successful CI
+        run: |
+          bash .github/scripts/cd/verify-ci-success.sh \
+            --workflow ci.yml \
+            --ref "${{ inputs.ref }}" \
+            --sha "$(git rev-parse HEAD)"
+
+      - name: Verify runner tooling
+        run: |
+          kubectl version --client
+          helm version
+          helmfile --version
+          sops --version
+
+      - name: Resolve deploy scopes
+        id: resolve
+        run: |
+          mode="${{ inputs.mode }}"
+
+          if [[ "${mode}" == "full" ]]; then
+            {
+              echo "scopes=all"
+              echo "no_deploy=false"
+              echo "mode=full"
+              echo "ref=${{ inputs.ref }}"
+            } >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          if [[ "${mode}" == "scope" ]]; then
+            {
+              echo "scopes=${{ inputs.scope }}"
+              echo "no_deploy=false"
+              echo "mode=scope"
+              echo "ref=${{ inputs.ref }}"
+            } >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          result="$(
+            bash .github/scripts/cd/detect-k3s-scopes.sh \
+              --head-sha "$(git rev-parse HEAD)"
+          )"
+          echo "${result}"
+          {
+            printf '%s\n' "${result}"
+            echo "mode=changed"
+            echo "ref=${{ inputs.ref }}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Skip deploy when changed mode has no scopes
+        if: steps.resolve.outputs.no_deploy == 'true'
+        run: |
+          {
+            echo "## k3s CD manual"
+            echo
+            echo "Mode: changed"
+            echo "No Kubernetes deploy scopes changed for ref \`${{ steps.resolve.outputs.ref }}\`."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Deploy resolved scopes
+        if: steps.resolve.outputs.no_deploy != 'true'
+        run: |
+          for scope in ${{ steps.resolve.outputs.scopes }}; do
+            bash .github/scripts/cd/deploy-k3s-scope.sh "${scope}"
+            bash .github/scripts/cd/smoke-k3s-scope.sh "${scope}"
+          done
+
+      - name: Write deploy summary
+        if: steps.resolve.outputs.no_deploy != 'true'
+        run: |
+          {
+            echo "## k3s CD manual"
+            echo
+            echo "Mode: \`${{ steps.resolve.outputs.mode }}\`"
+            echo "Scopes: \`${{ steps.resolve.outputs.scopes }}\`"
+            echo "Ref: \`${{ steps.resolve.outputs.ref }}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"

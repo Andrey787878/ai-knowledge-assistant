@@ -1,4 +1,4 @@
-# Этап B (single-node k3s): Kubernetes runbook
+# Этапы B и C (single-node k3s): руководство по Kubernetes-деплою
 
 Единая точка запуска для Kubernetes-этапа (k3s + Helmfile).
 
@@ -8,7 +8,8 @@
 
 ## Назначение
 
-Этот этап разворачивает кластерный слой на single-node k3s:
+Этот этап разворачивает кластерный слой на single-node k3s и служит точкой
+входа для дальнейшего CD-контура:
 
 - `platform` (cert-manager, ClusterIssuer, namespaces)
 - `observability` (Prometheus, Alertmanager, Grafana, Loki, Alloy)
@@ -17,6 +18,13 @@
 - `apps/wiki`
 - `apps/ollama`
 - `apps/n8n`
+
+Поверх этого же контура этап C добавляет:
+
+- self-hosted runner VM для GitHub Actions CD;
+- автоматический деплой измененных scope для коммитов, которые уже попали в `main` и прошли `CI`;
+- ручной деплой `full` / `scope` / `changed` с проверкой успешного `CI` для выбранного `ref`;
+- проверки после деплоя по каждому scope.
 
 ## Быстрый старт
 
@@ -64,7 +72,7 @@ helm plugin list
 
 ```bash
 cd deploy/kubernetes
-helmfile -e prod build > /tmp/k8s-stage-build.yaml
+helmfile -e prod build > /tmp/k3s-stage-build.yaml
 helmfile -e prod sync
 ```
 
@@ -74,6 +82,13 @@ helmfile -e prod sync
 cd deploy/kubernetes/apps/n8n
 helmfile -e prod sync
 ```
+
+Тот же принцип использует GitHub CD:
+
+- `cd-k3s-auto.yml` — измененные scopes после успешного `CI` на коммите в
+  `main`;
+- `cd-k3s-manual.yml` — `full`, `scope`, `changed`, но только для ref с
+  успешным `CI`.
 
 ## Проверка после деплоя
 
@@ -145,6 +160,7 @@ helmfile -e prod destroy
 ## Связанная документация
 
 - [Индекс Kubernetes-документации](../../docs/kubernetes_deploy/README.md)
+- [CI/CD для этапов B+C](../../docs/kubernetes_deploy/ci-cd.md)
 - [Сеть](../../docs/kubernetes_deploy/network.md)
 - [SLI и SLO](../../docs/kubernetes_deploy/sli-slo.md)
 - [Monitoring, alerting и dashboards](../../docs/kubernetes_deploy/monitoring.md)

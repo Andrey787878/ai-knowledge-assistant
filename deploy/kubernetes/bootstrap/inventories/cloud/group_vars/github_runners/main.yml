@@ -1,0 +1,39 @@
+---
+# Inbound TCP rules for the runner host (SSH only, applied by firewall role).
+# The runner is private-only and accepts SSH only from the k3s node, which
+# acts as the jump host for Ansible and manual maintenance.
+runner_ssh_source_cidrs: >-
+  {{
+    (
+      groups['k3s_hosts'] | default([])
+      | map('extract', hostvars, 'private_ip')
+      | map('regex_replace', '$', '/32')
+      | list
+    )
+  }}
+
+firewall_tcp_rules:
+  - port: 22
+    sources: "{{ runner_ssh_source_cidrs }}"
+    description: "SSH access from k3s jump host"
+
+# GitHub Actions self-hosted runner configuration (non-secret).
+# Secret values (registration token and SOPS age key) live in zz-local.yml
+# (gitignored).
+github_runner_enabled: true
+github_runner_repo_url: "https://github.com/Andrey787878/ai-knowledge-assistant"
+github_runner_labels:
+  - self-hosted
+  - linux
+  - x64
+  - k3s
+  - prod
+  - deploy
+  - stage-b
+github_runner_runner_name: runner
+
+# Kubernetes access model for CD: ship a kubeconfig to the runner so the CD
+# workflows can use kubectl/helmfile against the k3s API.
+github_runner_kubeconfig_enabled: true
+github_runner_k3s_kubeconfig_path: "/etc/rancher/k3s/k3s.yaml"
+github_runner_kubeconfig_dest: "/home/github-runner/.kube/config"

@@ -1,0 +1,95 @@
+name: CD k3s auto
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: k3s-prod-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy changed k3s scopes
+    if: >-
+      ${{
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.event == 'push'
+      }}
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - k3s
+      - prod
+      - deploy
+    environment: production
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      KUBECONFIG: /home/github-runner/.kube/config
+      SOPS_AGE_KEY_FILE: /home/github-runner/.config/sops/age/keys.txt
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - name: Verify runner tooling
+        run: |
+          kubectl version --client
+          helm version
+          helmfile --version
+          sops --version
+
+      - name: Detect changed scopes
+        id: detect
+        run: |
+          result="$(
+            bash .github/scripts/cd/detect-k3s-scopes.sh \
+              --head-sha "${{ github.event.workflow_run.head_sha }}"
+          )"
+          echo "${result}"
+          printf '%s\n' "${result}" >> "${GITHUB_OUTPUT}"
+
+      - name: Skip deploy when no Kubernetes scope changed
+        if: steps.detect.outputs.no_deploy == 'true'
+        run: |
+          {
+            echo "## k3s CD auto"
+            echo
+            echo "No Kubernetes deploy scopes changed."
+            echo
+            echo "Ref: \`${{ github.event.workflow_run.head_sha }}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Deploy changed scopes
+        if: steps.detect.outputs.no_deploy != 'true'
+        run: |
+          for scope in ${{ steps.detect.outputs.scopes }}; do
+            bash .github/scripts/cd/deploy-k3s-scope.sh "${scope}"
+            bash .github/scripts/cd/smoke-k3s-scope.sh "${scope}"
+          done
+
+      - name: Write deploy summary
+        if: steps.detect.outputs.no_deploy != 'true'
+        run: |
+          {
+            echo "## k3s CD auto"
+            echo
+            echo "Changed scopes: \`${{ steps.detect.outputs.scopes }}\`"
+            echo
+            echo "Ref: \`${{ github.event.workflow_run.head_sha }}\`"
+            echo "Mode: changed scopes"
+          } >> "${GITHUB_STEP_SUMMARY}"

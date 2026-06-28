@@ -22,96 +22,44 @@
       outgoing={{ firewall_default_outgoing_policy }}.
   tags: [firewall, verify]
 
-- name: Assert required TCP ports are present in ufw rules
+- name: Assert expected TCP ports are present in ufw rules
   ansible.builtin.assert:
     that:
-      - (firewall_ufw_status.stdout | lower) is search(item ~ '/tcp')
-    fail_msg: "Expected UFW rule for TCP port {{ item }} not found."
-  loop:
-    - '22'
-    - '6443'
-    - '80'
-    - '443'
+      - (firewall_ufw_status.stdout | lower) is search(rule.port | string ~ '/tcp')
+    fail_msg: "Expected UFW rule for TCP port {{ rule.port }} not found."
+  loop: "{{ firewall_tcp_rules }}"
   loop_control:
-    label: "{{ item }}/tcp"
+    label: "{{ rule.port }}/tcp"
+  vars:
+    rule: '{{ item }}'
   tags: [firewall, verify]
 
-- name: Assert SSH rules contain expected source CIDRs
-  ansible.builtin.assert:
-    that:
-      - >-
-        (firewall_ufw_status.stdout | lower) is search(
-          '(?im)^\\s*22/tcp\\s+allow in\\s+.*('
-          ~ (item | regex_escape)
-          ~ '|'
-          ~ ((item | regex_replace('/32$', '')) | regex_escape)
-          ~ ')\\s*$'
-        )
-    fail_msg: "Missing expected SSH rule source for 22/tcp: {{ item }}"
-  loop: "{{ firewall_admin_ssh_sources }}"
-  loop_control:
-    label: "22/tcp <- {{ item }}"
-  tags: [firewall, verify]
-
-- name: Assert Kubernetes API rules contain expected source CIDRs
-  ansible.builtin.assert:
-    that:
-      - >-
-        (firewall_ufw_status.stdout | lower) is search(
-          '(?im)^\\s*6443/tcp\\s+allow in\\s+.*('
-          ~ (item | regex_escape)
-          ~ '|'
-          ~ ((item | regex_replace('/32$', '')) | regex_escape)
-          ~ ')\\s*$'
-        )
-    fail_msg: "Missing expected Kubernetes API rule source for 6443/tcp: {{ item }}"
-  loop: "{{ kube_api_allowed_cidrs }}"
-  loop_control:
-    label: "6443/tcp <- {{ item }}"
-  tags: [firewall, verify]
-
-- name: Assert HTTP rules contain expected source CIDRs
+- name: Assert each firewall TCP rule source is present in ufw
   ansible.builtin.assert:
     that:
       - >-
         (
-          item == '0.0.0.0/0'
-          and
-          (firewall_ufw_status.stdout | lower) is search('(?im)^\\s*80/tcp\\s+allow in\\s+anywhere\\s*$')
+          source == '0.0.0.0/0'
+          and (firewall_ufw_status.stdout | lower) is search(
+            '(?im)^\\s*' ~ (rule.port | string) ~ '/tcp\\s+allow in\\s+anywhere\\s*$'
+          )
         )
         or
         (
-          item != '0.0.0.0/0'
-          and
-          (
-            (firewall_ufw_status.stdout | lower) is search(
-              '(?im)^\\s*80/tcp\\s+allow in\\s+.*('
-              ~ (item | regex_escape)
-              ~ '|'
-              ~ ((item | regex_replace('/32$', '')) | regex_escape)
-              ~ ')\\s*$'
-            )
+          source != '0.0.0.0/0'
+          and (firewall_ufw_status.stdout | lower) is search(
+            '(?im)^\\s*' ~ (rule.port | string) ~ '/tcp\\s+allow in\\s+.*('
+            ~ (source | regex_escape)
+            ~ '|'
+            ~ ((source | regex_replace('/32$', '')) | regex_escape)
+            ~ ')\\s*$'
           )
         )
-    fail_msg: "Missing expected HTTP rule source for 80/tcp: {{ item }}"
-  loop: "{{ edge_http_cidrs }}"
+    fail_msg: "Missing expected UFW rule for {{ rule.port }}/tcp from {{ source }}"
+  loop: "{{ firewall_tcp_rules | subelements('sources') }}"
   loop_control:
-    label: "80/tcp <- {{ item }}"
-  tags: [firewall, verify]
-
-- name: Assert HTTPS rules contain expected source CIDRs
-  ansible.builtin.assert:
-    that:
-      - >-
-        (firewall_ufw_status.stdout | lower) is search(
-          '(?im)^\\s*443/tcp\\s+allow in\\s+.*('
-          ~ (item | regex_escape)
-          ~ '|'
-          ~ ((item | regex_replace('/32$', '')) | regex_escape)
-          ~ ')\\s*$'
-        )
-    fail_msg: "Missing expected HTTPS rule source for 443/tcp: {{ item }}"
-  loop: "{{ edge_allowed_client_cidrs }}"
-  loop_control:
-    label: "443/tcp <- {{ item }}"
+    label: "{{ rule.port }}/tcp <- {{ source }}"
+  vars:
+    rule: '{{ item.0 }}'
+    source: '{{ item.1 }}'
   tags: [firewall, verify]

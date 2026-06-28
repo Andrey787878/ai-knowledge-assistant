@@ -8,7 +8,7 @@ Observability-контур собирается в `deploy/kubernetes/observabil
 
 Архитектурно слой разделен на три части. `recording-rules.yaml` считает стабильные SLI и rollout-сигналы. `alert-rules.yaml` строит поверх них symptom-level алерты. `dashboards-*.yaml` провиженят в Grafana три экрана: общий обзор, runtime `n8n` и внешний пользовательский путь. Такое разделение убирает дублирование длинных PromQL выражений и делает графики, alerting и ручные запросы в Prometheus консистентными.
 
-## Monitoring as Code
+## Monitoring as Code: все в репозитории
 
 Конфигурация лежит в репозитории и применяется как код, без ручной сборки через UI. Основные файлы такие: `deploy/kubernetes/observability/helmfile.yaml` как точка входа, `releases/recording-rules.yaml` для вычисляемых SLI, `releases/alert-rules.yaml` для пользовательских и operational alert-ов, `releases/dashboards-overview.yaml`, `releases/dashboards-n8n-runtime.yaml` и `releases/dashboards-public-endpoints.yaml` для Grafana dashboards, `releases/app-probes.yaml` и `blackbox-exporter.yaml` для synthetic probes, `releases/traefik-servicemonitor.yaml` для ingress metrics, `releases/loki.yaml` и `releases/alloy.yaml` для логов.
 
@@ -28,9 +28,9 @@ Observability-контур собирается в `deploy/kubernetes/observabil
 | Errors | public/internal availability ratios, `traefik` 5xx, notification failures, scrape health | отказ, деградация SLO, ошибки ingress, проблемы мониторинга |
 | Saturation | replica availability, restarts, FD ratio, event loop lag | приближение к лимитам и деградация runtime до полного outage |
 
-## Alerting policy
+## Политика уведомлений
 
-Alerting здесь строится вокруг одного правила: email должен приходить только тогда, когда от оператора ожидается действие. History-style предупреждения, длинные SLO хвосты и bootstrap/deploy артефакты остаются видимыми в Alertmanager UI и Grafana, но не засоряют почту.
+Alerting здесь строится вокруг одного правила: email должен приходить только тогда, когда от оператора ожидается действие. Исторические предупреждения, длинные SLO хвосты и bootstrap/deploy артефакты остаются видимыми в Alertmanager UI и Grafana, но не засоряют почту.
 
 По operational смыслу набор правил делится на шесть групп. `Internal availability` ловит полную недоступность сервисов внутри кластера. `Public endpoints` проверяет пользовательский HTTPS путь, TLS и synthetic SLO. `Dependencies` отвечает за `postgres`, `redis`, backup-контур и scrape native `/metrics` у `n8n`. `n8n runtime` ловит проблемы процесса и rollout-состояния. `Self-monitoring` следит за самим observability-слоем. `Ingress HTTP` закрывает user-facing 5xx и p95 latency на Traefik.
 
@@ -84,7 +84,7 @@ Deploy-time noise режется не в Alertmanager, а в Prometheus-прав
 
 Критические `*Down` и `*PublicEndpointDown` используют короткий suppressor через `recently_finished`, `deploy_window` и `bootstrap_window`. Это убирает false positive во время fresh install и штатного rollout-а, но не превращает сервис в долгий mute после завершения деплоя. Warning-level SLO и ingress правила используют только `burn_cooldown`, потому что их окна длиннее и они иначе продолжали бы шуметь как history tail.
 
-## Как реализованы три дашборда
+## Как устроены три дашборда
 
 ### Observability Overview
 

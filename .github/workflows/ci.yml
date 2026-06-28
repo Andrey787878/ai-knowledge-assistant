@@ -42,14 +42,15 @@ jobs:
 
       - name: Validate n8n workflow JSON
         run: |
-          node -e '
-            const fs = require("fs");
-            const dir = "n8n/workflows";
-            for (const file of fs.readdirSync(dir).filter((name) => name.endsWith(".json"))) {
-              JSON.parse(fs.readFileSync(`${dir}/${file}`, "utf8"));
-              console.log(`ok ${file}`);
-            }
-          '
+          node <<'NODE'
+          const fs = require("fs");
+          const dir = "n8n/workflows";
+
+          for (const file of fs.readdirSync(dir).filter((name) => name.endsWith(".json"))) {
+            JSON.parse(fs.readFileSync(`${dir}/${file}`, "utf8"));
+            console.log(`ok ${file}`);
+          }
+          NODE
 
       - name: Check local-only files are not committed
         run: |
@@ -211,7 +212,7 @@ jobs:
       - name: Render full Kubernetes stack
         run: |
           helmfile -f deploy/kubernetes/helmfile.yaml -e ci template \
-            >/tmp/k8s-rendered.yaml
+            >/tmp/k3s-rendered.yaml
 
       - name: Validate rendered manifests
         run: |
@@ -231,7 +232,7 @@ jobs:
             -strict \
             -summary \
             -ignore-missing-schemas \
-            /tmp/k8s-rendered.yaml
+            /tmp/k3s-rendered.yaml
 
   ansible:
     name: Ansible syntax
@@ -259,13 +260,35 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y shellcheck
 
+      - name: Install actionlint
+        env:
+          ACTIONLINT_VERSION: '1.7.7'
+        run: |
+          curl -sSL \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+            -o /tmp/actionlint.tar.gz
+          tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
+          sudo install -m 0755 /tmp/actionlint /usr/local/bin/actionlint
+          actionlint -version
+
       - name: Lint bash scripts
-        run: shellcheck deploy/kubernetes/apps/postgres/scripts/*.sh
+        run: |
+          shellcheck deploy/kubernetes/apps/postgres/scripts/*.sh
+          shellcheck .github/scripts/cd/*.sh
 
       - name: Validate bash syntax
         run: |
           bash -n deploy/kubernetes/apps/postgres/scripts/backup-postgres.sh
           bash -n deploy/kubernetes/apps/postgres/scripts/restore-postgres.sh
+          bash -n .github/scripts/cd/detect-k3s-scopes.sh
+          bash -n .github/scripts/cd/deploy-k3s-scope.sh
+          bash -n .github/scripts/cd/smoke-k3s-scope.sh
+
+      - name: Validate GitHub workflows
+        run: |
+          actionlint -config-file actionlint.yaml .github/workflows/ci.yml
+          actionlint -config-file actionlint.yaml .github/workflows/cd-k3s-auto.yml
+          actionlint -config-file actionlint.yaml .github/workflows/cd-k3s-manual.yml
 
       - name: Install Ansible collections
         run: |
@@ -293,6 +316,7 @@ jobs:
           cp deploy/kubernetes/bootstrap/inventories/cloud/hosts.yml.example /tmp/k3s-hosts.yml
           ansible-inventory -i /tmp/k3s-hosts.yml --list >/tmp/k3s-inventory.json
           grep -q '"k3s"' /tmp/k3s-inventory.json
+          grep -q '"runner"' /tmp/k3s-inventory.json
 
       - name: Syntax check k3s bootstrap playbook
         env:

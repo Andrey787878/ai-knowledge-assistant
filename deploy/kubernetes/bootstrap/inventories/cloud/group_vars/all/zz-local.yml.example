@@ -1,23 +1,14 @@
 # Local-only overrides (copy to zz-local.yml and set real CIDR values).
 # zz-local.yml is gitignored and loaded after main.yml.
 #
-# Required for firewall role:
-# - firewall_admin_ssh_sources: who can SSH to VM (22/tcp)
-# - kube_api_allowed_cidrs: who can access Kubernetes API (6443/tcp)
-# - edge_allowed_client_cidrs: who can access HTTPS ingress (443/tcp)
-#
-# For HTTP-01 ACME flow keep 80/tcp open in Terraform edge_http_cidrs,
-# or adjust if you switch to DNS-01.
+# Shared admin SSH CIDR list for the public k3s host.
+# Private hosts are reached through ProxyJump via k3s and do not need direct
+# admin SSH CIDRs.
 
 firewall_admin_ssh_sources:
   - 198.51.100.10/32
 
-kube_api_allowed_cidrs:
-  - 198.51.100.10/32
-
-edge_allowed_client_cidrs:
-  - 198.51.100.0/24
-
-# Optional: override API certificate SAN list for k3s.
-# k3s_server_tls_sans:
-#   - 198.51.100.10
+# k3s-specific CIDR overrides live in:
+# inventories/cloud/group_vars/k3s_hosts/zz-local.yml
+# Runner-specific secrets live in:
+# inventories/cloud/group_vars/github_runners/zz-local.yml
