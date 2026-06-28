@@ -1,4 +1,4 @@
-# Эксплуатация и приемка (Этап B)
+# Эксплуатация и приемка (этап B)
 
 ## Область
 
@@ -10,6 +10,11 @@
 2. Bootstrap k3s: Ansible в `deploy/kubernetes/bootstrap`.
 3. Platform: `deploy/kubernetes/platform`.
 4. Apps: `deploy/kubernetes/apps` (`postgres`, `redis`, `wiki`, `ollama`, `n8n`).
+
+Если используется этап C, после этого же контура работают:
+
+5. `CI` для проверки инфраструктурного кода;
+6. `CD` через self-hosted runner и scope-aware smoke checks.
 
 Главный ранбук Kubernetes-слоя:
 [deploy/kubernetes/README.md](../../deploy/kubernetes/README.md).
@@ -106,7 +111,7 @@ curl -skI https://wiki.poluyanov.net
 kubectl -n ollama exec deploy/ollama -- curl -sf http://127.0.0.1:11434/api/version
 ```
 
-## Release Gate
+## Критерий успешного релиза
 
 Релиз этапа B считается успешным только если одновременно выполняется:
 
@@ -116,6 +121,9 @@ kubectl -n ollama exec deploy/ollama -- curl -sf http://127.0.0.1:11434/api/vers
 4. `postgres`, `wiki`, `ollama`, `n8n-web`, `n8n-worker` в `Ready`.
 5. Проверки ingress/health проходят (`n8n`, `wiki`).
 6. Для `n8n` отсутствуют ошибки импорта workflows и ошибок доступа к PostgreSQL/Redis/Ollama.
+
+Если запуск шел через этап C, дополнительно ожидается зеленый результат
+scope-specific smoke check в GitHub Actions.
 
 ## Инциденты и быстрые фиксы
 

@@ -1,4 +1,4 @@
-# Этап B/C (single-node k3s): Kubernetes runbook
+# Этапы B и C (single-node k3s): руководство по Kubernetes-деплою
 
 Единая точка запуска для Kubernetes-этапа (k3s + Helmfile).
 
@@ -19,12 +19,12 @@
 - `apps/ollama`
 - `apps/n8n`
 
-Поверх этого же контура Stage C добавляет:
+Поверх этого же контура этап C добавляет:
 
 - self-hosted runner VM для GitHub Actions CD;
-- CI-gated auto deploy changed scopes for commits already landed in `main`;
-- manual full/scope/changed deploy with CI precheck for selected ref;
-- post-deploy smoke checks по scope.
+- автоматический деплой измененных scope для коммитов, которые уже попали в `main` и прошли `CI`;
+- ручной деплой `full` / `scope` / `changed` с проверкой успешного `CI` для выбранного `ref`;
+- проверки после деплоя по каждому scope.
 
 ## Быстрый старт
 
