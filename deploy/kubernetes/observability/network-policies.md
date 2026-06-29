@@ -58,6 +58,8 @@ NetworkPolicy после маршрутизации через Service.
 | Blackbox Exporter | n8n web | `5678/tcp` | Внутренняя HTTP health-проверка |
 | Blackbox Exporter | Wiki.js | `3000/tcp` | Внутренняя HTTP health-проверка |
 | Blackbox Exporter | Ollama | `11434/tcp` | Внутренняя HTTP health-проверка |
+| Blackbox Exporter | PostgreSQL | `5432/tcp` | Внутренняя TCP-проверка доступности зависимости |
+| Blackbox Exporter | Redis | `6379/tcp` | Внутренняя TCP-проверка доступности зависимости |
 | Blackbox Exporter | Public endpoints (`n8n.poluyanov.net`, `wiki.poluyanov.net`) | `443/tcp` | Публичные HTTPS probes: доступность, latency, TLS-сертификаты |
 | Alloy | Loki gateway | `8080/tcp` | Отправка логов |
 | Alloy | Kubernetes API | `443`, `6443/tcp` | Обнаружение pod-ов |
@@ -91,8 +93,10 @@ Destination namespace также должен разрешать соедине�
 Blackbox только к web pod-у на `5678/tcp`, политика Wiki.js — к приложению на
 `3000/tcp`, политика Ollama — к API на `11434/tcp`.
 
-PostgreSQL и Redis не проверяются Blackbox. Для них используются exporters,
-которые отдают не только доступность процесса, но и профильные метрики СУБД.
+PostgreSQL и Redis теперь тоже проверяются через Blackbox, но не HTTP-модулем, а
+через внутренние TCP probes. Это делает availability единообразной для всех
+сервисов: она означает реальную достижимость зависимости по сетевому пути, а
+не только наличие exporter-метрик.
 
 Внутренние probes не проверяют публичный DNS, TLS-сертификаты, Security Group и
 маршрут Traefik. Для этого существую публичные HTTPS probes в том же релизе
@@ -193,6 +197,14 @@ kubectl -n observability port-forward svc/observability-prometheus 9090:9090
 curl -fsS 'http://127.0.0.1:9090/api/v1/targets?state=active'
 curl -fsS --get \
   --data-urlencode 'query=probe_success{job=~"blackbox-(n8n|wiki|ollama)"}' \
+  'http://127.0.0.1:9090/api/v1/query'
+```
+
+После добавления TCP probes для зависимостей полезно отдельно проверить и их:
+
+```bash
+curl -fsS --get \
+  --data-urlencode 'query=probe_success{job=~"blackbox-(postgres|redis)"}' \
   'http://127.0.0.1:9090/api/v1/query'
 ```
 

@@ -1,8 +1,9 @@
 # Этап B (k3s): ранбук Ansible bootstrap
 
-Пошаговый ранбук для первого и повторного запуска bootstrap-этапа k3s.
-Подготовка single-node k3s VM и optional runner VM
-(OS baseline, firewall, k3s, self-hosted GitHub runner, smoke).
+Пошаговый ранбук для первого и повторного запуска bootstrap-этапа `k3s`.
+Документ покрывает подготовку single-node `k3s`-VM и, при необходимости,
+отдельной VM для self-hosted GitHub Actions runner: базовую настройку хоста,
+firewall, установку `k3s`, регистрацию runner и smoke-проверки.
 
 Индекс этапной документации: [README этапа B](../../../docs/kubernetes_deploy/README.md)
 
@@ -18,6 +19,7 @@ cd ../../kubernetes/bootstrap
 
 # Подготовьте локальные файлы
 cp -n inventories/cloud/group_vars/all/zz-local.yml.example inventories/cloud/group_vars/all/zz-local.yml
+cp -n inventories/cloud/group_vars/github_runners/zz-local.yml.example inventories/cloud/group_vars/github_runners/zz-local.yml
 
 # Экспортируйте env для стабильного запуска
 export ANSIBLE_ROLES_PATH="$(pwd)/roles"
@@ -42,7 +44,7 @@ bash scripts/pull_kubeconfig.sh
 
 Если в Terraform включен `runner_enabled: true`, тот же `site.yml` дополнительно
 настроит host group `github_runners` и поднимет self-hosted GitHub Actions
-runner для Stage B/C CD.
+runner для доставки изменений в этапах B/C.
 
 ## Связанная документация
 
@@ -112,6 +114,7 @@ cp inventories/cloud/hosts.yml.example inventories/cloud/hosts.yml
 cd deploy/kubernetes/bootstrap
 
 cp -n inventories/cloud/group_vars/all/zz-local.yml.example inventories/cloud/group_vars/all/zz-local.yml
+cp -n inventories/cloud/group_vars/github_runners/zz-local.yml.example inventories/cloud/group_vars/github_runners/zz-local.yml
 ```
 
 Что заполняем:
@@ -120,21 +123,22 @@ cp -n inventories/cloud/group_vars/all/zz-local.yml.example inventories/cloud/gr
   - `firewall_admin_ssh_sources` для `22/tcp` на публичном `k3s`.
   - `kube_api_allowed_cidrs` для внешнего admin-доступа к `6443/tcp`.
   - `edge_allowed_client_cidrs` для `443/tcp`.
-  - при необходимости локально переопределить `k3s_secrets_encryption_enabled` (по умолчанию уже `true` в `group_vars/all/main.yml`).
-
-Важно: если включен runner, его доступ к Kubernetes API не зависит от
-`kube_api_allowed_cidrs`. Для runner Terraform автоматически добавляет отдельное
-SG-правило на `k3s:6443` по private IP runner VM. На уровне host firewall это
-тоже делается автоматически: `k3s_hosts/main.yml` собирает effective allow-list
-для `6443/tcp`, который включает и внешние admin CIDR, и private `/32` адреса
-из inventory group `github_runners`. Ручной дописки runner IP в
-`k3s_hosts/zz-local.yml` не требуется.
   - при необходимости локально переопределить `k3s_server_tls_sans`.
   - опционально `edge_http_cidrs` для `80/tcp` (если хотите переопределить).
+  - при необходимости локально переопределить `k3s_secrets_encryption_enabled`
+    (по умолчанию уже `true` в `group_vars/all/main.yml`).
 - `inventories/cloud/group_vars/github_runners/zz-local.yml`:
   - `github_runner_registration_token`;
   - `github_runner_sops_age_key`;
   - при ротации runner: `github_runner_replace_existing: true`.
+
+Если включен runner, его доступ к Kubernetes API не зависит от
+`kube_api_allowed_cidrs`. Для runner Terraform автоматически добавляет
+отдельное SG-правило на `k3s:6443` по private IP runner VM. На уровне host
+firewall это тоже делается автоматически: `k3s_hosts/main.yml` собирает
+effective allow-list для `6443/tcp`, который включает и внешние admin CIDR, и
+private `/32` адреса из inventory group `github_runners`. Ручной дописки runner
+IP в `k3s_hosts/zz-local.yml` не требуется.
 
 Для runner не нужно отдельно задавать SSH CIDR: host firewall и cloud SG
 разрешают `22/tcp` только от private IP `k3s`, а администраторский доступ идет
@@ -249,6 +253,11 @@ ansible -i inventories/cloud/hosts.yml k3s_hosts -b -m shell -a "systemctl is-ac
 ansible -i inventories/cloud/hosts.yml k3s_hosts -b -m shell -a "kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml get nodes -o wide"
 ansible -i inventories/cloud/hosts.yml k3s_hosts -b -m shell -a "kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml -n kube-system get pods -o wide"
 ansible -i inventories/cloud/hosts.yml k3s_hosts -b -m shell -a "k3s secrets-encrypt status"
+```
+
+Если `runner_enabled: true`, дополнительно проверьте runner:
+
+```bash
 ansible -i inventories/cloud/hosts.yml github_runners -b -m shell -a "systemctl is-active github-actions-runner"
 ansible -i inventories/cloud/hosts.yml github_runners -b -u github-runner -m shell -a "kubectl --kubeconfig /home/github-runner/.kube/config get nodes"
 ```
