@@ -24,6 +24,7 @@ fi
 
 scope="$1"
 repo_root="$(git rev-parse --show-toplevel)"
+cluster_issuer_values_file="${repo_root}/deploy/kubernetes/platform/environments/prod/cluster-issuer.values.yaml"
 port_forward_pids=()
 port_forward_logs=()
 
@@ -114,12 +115,24 @@ wait_pods_ready() {
     --timeout=10m
 }
 
+cluster_issuer_name() {
+  sed -nE "s/^cluster_issuer_name:[[:space:]]*['\"]?([^'\"]+)['\"]?/\1/p" \
+    "${cluster_issuer_values_file}" | head -n1
+}
+
 smoke_platform() {
+  local issuer_name
+
   kubectl get namespace db observability n8n wiki ollama >/dev/null
   rollout_deployment cert-manager cert-manager
   rollout_deployment cert-manager cert-manager-cainjector
   rollout_deployment cert-manager cert-manager-webhook
-  kubectl get clusterissuer letsencrypt-staging >/dev/null
+  issuer_name="$(cluster_issuer_name)"
+  if [[ -z "${issuer_name}" ]]; then
+    echo "error: failed to resolve cluster_issuer_name from ${cluster_issuer_values_file}" >&2
+    exit 1
+  fi
+  kubectl get clusterissuer "${issuer_name}" >/dev/null
 }
 
 smoke_observability() {
