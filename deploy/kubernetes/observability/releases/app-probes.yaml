@@ -1,0 +1,198 @@
+---
+helmDefaults:
+  skipDeps: true
+
+releases:
+  - name: app-probes
+    namespace: {{ .Values.namespace | quote }}
+    createNamespace: false
+    chart: ../../vendor_charts/raw
+    wait: true
+    values:
+      - resources:
+          - apiVersion: monitoring.coreos.com/v1
+            kind: Probe
+            metadata:
+              name: n8n
+              labels:
+                release: kube-prometheus-stack
+                app.kubernetes.io/name: blackbox-probe
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              jobName: blackbox-n8n
+              interval: {{ .Values.blackbox.interval | quote }}
+              module: {{ .Values.blackbox.targets.n8n.module | quote }}
+              prober:
+                url: blackbox-exporter.{{ .Values.namespace }}.svc.cluster.local:9115
+                scheme: http
+                path: /probe
+              targets:
+                staticConfig:
+                  static:
+                    - {{ .Values.blackbox.targets.n8n.url | quote }}
+                  labels:
+                    app: {{ .Values.blackbox.targets.n8n.app | quote }}
+                    namespace: {{ .Values.blackbox.targets.n8n.namespace | quote }}
+                    signal: availability
+
+          - apiVersion: monitoring.coreos.com/v1
+            kind: Probe
+            metadata:
+              name: wiki
+              labels:
+                release: kube-prometheus-stack
+                app.kubernetes.io/name: blackbox-probe
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              jobName: blackbox-wiki
+              interval: {{ .Values.blackbox.interval | quote }}
+              module: {{ .Values.blackbox.targets.wiki.module | quote }}
+              prober:
+                url: blackbox-exporter.{{ .Values.namespace }}.svc.cluster.local:9115
+                scheme: http
+                path: /probe
+              targets:
+                staticConfig:
+                  static:
+                    - {{ .Values.blackbox.targets.wiki.url | quote }}
+                  labels:
+                    app: {{ .Values.blackbox.targets.wiki.app | quote }}
+                    namespace: {{ .Values.blackbox.targets.wiki.namespace | quote }}
+                    signal: availability
+
+          - apiVersion: monitoring.coreos.com/v1
+            kind: Probe
+            metadata:
+              name: ollama
+              labels:
+                release: kube-prometheus-stack
+                app.kubernetes.io/name: blackbox-probe
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              jobName: blackbox-ollama
+              interval: {{ .Values.blackbox.interval | quote }}
+              module: {{ .Values.blackbox.targets.ollama.module | quote }}
+              prober:
+                url: blackbox-exporter.{{ .Values.namespace }}.svc.cluster.local:9115
+                scheme: http
+                path: /probe
+              targets:
+                staticConfig:
+                  static:
+                    - {{ .Values.blackbox.targets.ollama.url | quote }}
+                  labels:
+                    app: {{ .Values.blackbox.targets.ollama.app | quote }}
+                    namespace: {{ .Values.blackbox.targets.ollama.namespace | quote }}
+                    signal: availability
+
+          - apiVersion: monitoring.coreos.com/v1
+            kind: Probe
+            metadata:
+              name: postgres
+              labels:
+                release: kube-prometheus-stack
+                app.kubernetes.io/name: blackbox-probe
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              jobName: blackbox-postgres
+              interval: {{ .Values.blackbox.interval | quote }}
+              module: {{ .Values.blackbox.targets.postgres.module | quote }}
+              prober:
+                url: blackbox-exporter.{{ .Values.namespace }}.svc.cluster.local:9115
+                scheme: http
+                path: /probe
+              targets:
+                staticConfig:
+                  static:
+                    - {{ .Values.blackbox.targets.postgres.url | quote }}
+                  labels:
+                    app: {{ .Values.blackbox.targets.postgres.app | quote }}
+                    namespace: {{ .Values.blackbox.targets.postgres.namespace | quote }}
+                    signal: availability
+
+          - apiVersion: monitoring.coreos.com/v1
+            kind: Probe
+            metadata:
+              name: redis
+              labels:
+                release: kube-prometheus-stack
+                app.kubernetes.io/name: blackbox-probe
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              jobName: blackbox-redis
+              interval: {{ .Values.blackbox.interval | quote }}
+              module: {{ .Values.blackbox.targets.redis.module | quote }}
+              prober:
+                url: blackbox-exporter.{{ .Values.namespace }}.svc.cluster.local:9115
+                scheme: http
+                path: /probe
+              targets:
+                staticConfig:
+                  static:
+                    - {{ .Values.blackbox.targets.redis.url | quote }}
+                  labels:
+                    app: {{ .Values.blackbox.targets.redis.app | quote }}
+                    namespace: {{ .Values.blackbox.targets.redis.namespace | quote }}
+                    signal: availability
+
+          {{- if .Values.blackbox.publicTargets }}
+          {{- if .Values.blackbox.publicTargets.n8n }}
+          - apiVersion: monitoring.coreos.com/v1
+            kind: Probe
+            metadata:
+              name: n8n-public
+              labels:
+                release: kube-prometheus-stack
+                app.kubernetes.io/name: blackbox-probe
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              jobName: blackbox-public-n8n
+              interval: {{ .Values.blackbox.interval | quote }}
+              module: {{ .Values.blackbox.publicTargets.n8n.module | default .Values.blackbox.module | quote }}
+              prober:
+                url: blackbox-exporter.{{ .Values.namespace }}.svc.cluster.local:9115
+                scheme: http
+                path: /probe
+              targets:
+                staticConfig:
+                  static:
+                    - {{ .Values.blackbox.publicTargets.n8n.url | quote }}
+                  labels:
+                    app: {{ .Values.blackbox.publicTargets.n8n.app | quote }}
+                    namespace: {{ .Values.blackbox.publicTargets.n8n.namespace | quote }}
+                    signal: public-availability
+          {{- end }}
+          {{- if .Values.blackbox.publicTargets.wiki }}
+          - apiVersion: monitoring.coreos.com/v1
+            kind: Probe
+            metadata:
+              name: wiki-public
+              labels:
+                release: kube-prometheus-stack
+                app.kubernetes.io/name: blackbox-probe
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              jobName: blackbox-public-wiki
+              interval: {{ .Values.blackbox.interval | quote }}
+              module: {{ .Values.blackbox.publicTargets.wiki.module | default .Values.blackbox.module | quote }}
+              prober:
+                url: blackbox-exporter.{{ .Values.namespace }}.svc.cluster.local:9115
+                scheme: http
+                path: /probe
+              targets:
+                staticConfig:
+                  static:
+                    - {{ .Values.blackbox.publicTargets.wiki.url | quote }}
+                  labels:
+                    app: {{ .Values.blackbox.publicTargets.wiki.app | quote }}
+                    namespace: {{ .Values.blackbox.publicTargets.wiki.namespace | quote }}
+                    signal: public-availability
+          {{- end }}
+          {{- end }}

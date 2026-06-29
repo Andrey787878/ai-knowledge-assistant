@@ -1,16 +1,8 @@
 # Ранбук: сертификаты edge (cert-manager + Let's Encrypt)
 
-Эксплуатационный документ по выпуску, продлению и диагностике TLS-сертификатов на этапе B.
-
-## Оглавление
-
-- [Что отвечает за сертификаты](#step-1)
-- [Базовый операционный цикл](#step-2)
-- [Проверка состояния](#step-3)
-- [Переход staging -> production](#step-4)
-- [Инциденты и быстрые фиксы](#step-5)
-
-<a id="step-1"></a>
+Документ описывает выпуск, продление и диагностику TLS-сертификатов в
+Kubernetes-контуре этапа B. Здесь зафиксированы базовый операционный цикл,
+проверки состояния `cert-manager` и типовые сценарии разбора проблем.
 
 ## Что отвечает за сертификаты
 
@@ -24,8 +16,6 @@
 
 - в Secret namespace приложения (`Ingress.spec.tls.secretName`)
 - ACME account key в `cert-manager` (`acme_account_private_key_secret_name`)
-
-<a id="step-2"></a>
 
 ## Базовый операционный цикл
 
@@ -45,8 +35,6 @@ helmfile -e prod sync
 cd ../n8n
 helmfile -e prod sync
 ```
-
-<a id="step-3"></a>
 
 ## Проверка состояния
 
@@ -75,10 +63,16 @@ kubectl -n cert-manager logs deploy/cert-manager --tail=200
 
 <a id="step-4"></a>
 
-## Переход staging -> production
+## Production-контракт
 
-1. В [cluster-issuer.values.yaml](../../deploy/kubernetes/platform/environments/prod/cluster-issuer.values.yaml) сменить `acme_server` на production URL:
-   `https://acme-v02.api.letsencrypt.org/directory`.
+Production-контур должен работать на production ACME directory:
+`https://acme-v02.api.letsencrypt.org/directory`.
+
+Проверочный цикл:
+
+1. Убедиться, что в
+   [cluster-issuer.values.yaml](../../deploy/kubernetes/platform/environments/prod/cluster-issuer.values.yaml)
+   задан production URL.
 2. Применить platform-слой.
 3. Переприменить `wiki` и `n8n`.
 4. Убедиться, что новые `Order`/`Challenge` успешны.
@@ -96,7 +90,7 @@ kubectl -n cert-manager logs deploy/cert-manager --tail=200
 
 `ACME rate limit`:
 
-- временно переключиться на staging URL
+- временно переключиться на staging URL только для диагностики
 - подтвердить, что challenge проходит
 - вернуть production URL и повторить apply
 

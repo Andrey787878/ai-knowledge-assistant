@@ -1,53 +1,69 @@
 # deploy/kubernetes/apps/wiki
 
-## Что это
-Слой Wiki.js, который использует внешний PostgreSQL (из `apps/postgres`).
+## Назначение слоя
 
-## Что ставится
+Этот слой разворачивает `Wiki.js` в Kubernetes и подключает его к внешнему
+`PostgreSQL`, который поднимается отдельно в `apps/postgres`. Внутри слоя
+собираются runtime-ресурсы приложения, ingress, секрет с параметрами доступа к
+базе и сетевые ограничения.
 
-- Wiki.js Deployment/Service/Ingress
-- Secret с паролем к внешнему PostgreSQL
-- Traefik Middleware для HTTP->HTTPS redirect
-- NetworkPolicy
+`Wiki.js` здесь остается пользовательским сервисом, а не встроенной частью
+базы знаний `n8n`. Поэтому у него отдельный namespace, отдельный ingress и
+отдельная observability-модель через внешние blackbox-пробы и ingress-метрики.
 
-## Какие chart используются
+## Что применяет Helmfile
 
-- `../../../vendor_charts/wiki` (upstream `requarks/wiki`) для runtime
-- `../../../vendor_charts/raw` (upstream `bedag/raw`) для secret и networkpolicy
+Точкой входа служит `helmfile.yaml`. Сам runtime `Wiki.js` ставится через
+`../../../vendor_charts/wiki`, а служебные объекты вокруг него собираются
+через `../../../vendor_charts/raw`.
 
-## Основные файлы
+Основной runtime находится в `releases/wikijs.yaml`. Доступ к базе задается в
+`releases/db-secret.yaml`. Redirect middleware для Traefik вынесен в
+`releases/http-redirect-middleware.yaml`. Сетевые правила задаются в
+`releases/networkpolicy.yaml`. Рабочие параметры лежат в
+`environments/prod/app.values.yaml`.
 
-- `helmfile.yaml` — точка входа
-- `releases/wikijs.yaml` — runtime wiki
-- `releases/db-secret.yaml` — пароль БД
-- `releases/http-redirect-middleware.yaml` — redirect HTTP->HTTPS
-- `releases/networkpolicy.yaml` — сетевые правила
-- `environments/prod/app.values.yaml` — ingress и externalPostgresql
+## Что должно быть готово до применения
 
-## Зависимости
+До этого слоя уже должен быть применен `deploy/kubernetes/platform`, чтобы в
+кластере существовали namespace `wiki`, ingress-контур, `cert-manager` и
+`ClusterIssuer`. Отдельно должен быть поднят `deploy/kubernetes/apps/postgres`,
+потому что `Wiki.js` использует внешнюю базу `wikijs`.
 
-- `deploy/kubernetes/platform` уже применен (namespace `wiki`, cert-manager, ClusterIssuer)
-- `deploy/kubernetes/apps/postgres` уже применен (БД `wikijs` доступна)
-- настроены `sops` и `helm-secrets`
+На машине, с которой выполняется деплой, должны быть доступны `sops` и
+`helm-secrets`, потому что пароль к базе и часть values читаются из
+зашифрованных файлов.
 
 ## Как применять
 
 ```bash
 cd deploy/kubernetes/apps/wiki
 
-# Проверка рендера
 helmfile -e prod build > /tmp/wiki-build.yaml
-
-# Применение
 helmfile -e prod sync
 ```
 
-## Проверка
+Слой использует upstream chart, поэтому локального `helm lint chart` здесь
+нет. Основная проверка перед применением — это корректный рендер итогового
+state через `helmfile build`.
+
+## Как проверять после выкладки
+
+Сначала имеет смысл проверить сами runtime-ресурсы:
 
 ```bash
 kubectl -n wiki get deploy,pods,svc,ingress,secret,networkpolicy
 kubectl -n wiki rollout status deploy/wikijs
+```
+
+После этого нужно убедиться, что выпущен TLS-сертификат и что оба входа
+через ingress отвечают ожидаемо:
+
+```bash
 kubectl -n wiki get certificate,secret | grep wiki-tls
 curl -I http://wiki.poluyanov.net
 curl -I https://wiki.poluyanov.net
 ```
+
+Если deployment уже `Ready`, а пользовательский путь по-прежнему недоступен,
+следующий шаг — проверять ingress, selector сервиса и наличие `Endpoints`.

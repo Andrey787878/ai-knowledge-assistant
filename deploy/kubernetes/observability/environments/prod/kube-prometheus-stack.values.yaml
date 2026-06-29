@@ -1,0 +1,189 @@
+---
+fullnameOverride: observability
+
+defaultRules:
+  create: true
+
+# k3s single-node does not expose the control-plane the same way as a
+# standard kubeadm cluster, so the upstream monitors below tend to create
+# noisy or permanently down targets unless they are wired explicitly.
+kubeControllerManager:
+  enabled: false
+
+kubeEtcd:
+  enabled: false
+
+kubeProxy:
+  enabled: false
+
+kubeScheduler:
+  enabled: false
+
+grafana:
+  enabled: true
+  fullnameOverride: observability-grafana
+  defaultDashboardsEnabled: true
+  sidecar:
+    dashboards:
+      enabled: true
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      uid: loki
+      access: proxy
+      url: http://loki-gateway.observability.svc.cluster.local
+      isDefault: false
+      jsonData:
+        maxLines: 1000
+  admin:
+    existingSecret: observability-grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+      traefik.ingress.kubernetes.io/router.middlewares: observability-https-redirect@kubernetescrd
+    hosts:
+      - grafana.poluyanov.net
+    path: /
+    pathType: Prefix
+    tls:
+      - secretName: grafana-tls
+        hosts:
+          - grafana.poluyanov.net
+  persistence:
+    enabled: true
+    type: pvc
+    storageClassName: local-path
+    accessModes:
+      - ReadWriteOnce
+    size: 2Gi
+
+prometheus:
+  prometheusSpec:
+    retention: 7d
+    retentionSize: 8GB
+    scrapeInterval: 30s
+    evaluationInterval: 30s
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    scrapeConfigSelectorNilUsesHelmValues: false
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
+
+alertmanager:
+  enabled: true
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+      traefik.ingress.kubernetes.io/router.middlewares: observability-https-redirect@kubernetescrd
+    hosts:
+      - alertmanager.poluyanov.net
+    paths:
+      - /
+    pathType: Prefix
+    tls:
+      - secretName: alertmanager-tls
+        hosts:
+          - alertmanager.poluyanov.net
+  tplConfig: true
+  config:
+    global:
+      resolve_timeout: 5m
+      smtp_smarthost: smtp.yandex.ru:587
+      smtp_from: alerts@poluyanov.net
+      smtp_auth_username: andrey@poluyanov.net
+      smtp_auth_password: '{{ .Values.alertmanager.smtp.auth_password }}'
+      smtp_require_tls: true
+      smtp_tls_config:
+        server_name: smtp.yandex.ru
+    inhibit_rules:
+      - source_matchers:
+          - 'severity = critical'
+        target_matchers:
+          - 'severity =~ warning|info'
+        equal:
+          - namespace
+          - alertname
+      - source_matchers:
+          - 'severity = warning'
+        target_matchers:
+          - 'severity = info'
+        equal:
+          - namespace
+          - alertname
+      - source_matchers:
+          - 'alertname = InfoInhibitor'
+        target_matchers:
+          - 'severity = info'
+        equal:
+          - namespace
+      - target_matchers:
+          - 'alertname = InfoInhibitor'
+      - source_matchers:
+          - 'alertname = RedisDown'
+          - 'service = redis'
+        target_matchers:
+          - 'service = n8n'
+          - 'alertname =~ N8nDown|N8nPublicEndpointDown'
+      - source_matchers:
+          - 'alertname = PostgresDown'
+          - 'service = postgres'
+        target_matchers:
+          - 'service = n8n'
+          - 'alertname =~ N8nDown|N8nPublicEndpointDown'
+      - source_matchers:
+          - 'alertname = PostgresDown'
+          - 'service = postgres'
+        target_matchers:
+          - 'service = wiki'
+          - 'alertname =~ WikiDown|WikiPublicEndpointDown'
+    route:
+      group_by:
+        - namespace
+        - alertname
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      receiver: "null"
+      routes:
+        # Email is intentionally allowlist-based: only root outages, public
+        # user-facing outages, ingress quality regressions, backup failure,
+        # and broken notification delivery reach the inbox. All other alerts
+        # remain visible in Alertmanager UI and Grafana through the root null
+        # receiver.
+        - receiver: email-default
+          matchers:
+            - alertname =~ "N8nDown|WikiDown|OllamaDown|N8nPublicEndpointDown|WikiPublicEndpointDown|PostgresDown|RedisDown|PostgresBackupFailed|AlertmanagerNotificationsDown|AlertmanagerNotificationsFailing|AlertmanagerNoMetrics|N8nIngress5xxHigh|WikiIngress5xxHigh|N8nIngressLatencyP95High|WikiIngressLatencyP95High"
+    receivers:
+      - name: email-default
+        email_configs:
+          - to: andrey@poluyanov.net
+            send_resolved: true
+      - name: "null"
+    templates:
+      - /etc/alertmanager/config/*.tmpl
+  alertmanagerSpec:
+    retention: 120h
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 2Gi

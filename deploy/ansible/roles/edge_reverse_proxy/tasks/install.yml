@@ -17,4 +17,3 @@
     name: "{{ nginx_rp_package_name }}"
     state: present
   tags: [nginx_rp, nginx_rp_install]
-

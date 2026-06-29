@@ -1,0 +1,20 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    metrics:
+      prometheus:
+        entryPoint: metrics
+        addEntryPointsLabels: true
+        addRoutersLabels: true
+        addServicesLabels: true
+    ports:
+      metrics:
+        port: {{ k3s_traefik_metrics_port }}
+        expose:
+          default: true
+        exposedPort: {{ k3s_traefik_metrics_port }}
+        protocol: TCP

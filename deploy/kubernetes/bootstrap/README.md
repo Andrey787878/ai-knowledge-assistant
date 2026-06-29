@@ -1,7 +1,9 @@
 # Этап B (k3s): ранбук Ansible bootstrap
 
-Пошаговый ранбук для первого и повторного запуска bootstrap-этапа k3s.
-Подготовка single-node k3s VM (OS baseline, firewall, k3s, smoke).
+Пошаговый ранбук для первого и повторного запуска bootstrap-этапа `k3s`.
+Документ покрывает подготовку single-node `k3s`-VM и, при необходимости,
+отдельной VM для self-hosted GitHub Actions runner: базовую настройку хоста,
+firewall, установку `k3s`, регистрацию runner и smoke-проверки.
 
 Индекс этапной документации: [README этапа B](../../../docs/kubernetes_deploy/README.md)
 
@@ -17,6 +19,7 @@ cd ../../kubernetes/bootstrap
 
 # Подготовьте локальные файлы
 cp -n inventories/cloud/group_vars/all/zz-local.yml.example inventories/cloud/group_vars/all/zz-local.yml
+cp -n inventories/cloud/group_vars/github_runners/zz-local.yml.example inventories/cloud/group_vars/github_runners/zz-local.yml
 
 # Экспортируйте env для стабильного запуска
 export ANSIBLE_ROLES_PATH="$(pwd)/roles"
@@ -38,6 +41,10 @@ ansible-playbook -i inventories/cloud/hosts.yml playbooks/smoke.yml
 # Получите kubeconfig на локальную машину
 bash scripts/pull_kubeconfig.sh
 ```
+
+Если в Terraform включен `runner_enabled: true`, тот же `site.yml` дополнительно
+настроит host group `github_runners` и поднимет self-hosted GitHub Actions
+runner для доставки изменений в этапах B/C.
 
 ## Связанная документация
 
@@ -63,6 +70,8 @@ bash scripts/pull_kubeconfig.sh
 - `ansible-playbook ... playbooks/site.yml` завершился с `failed=0`.
 - `ansible-playbook ... playbooks/smoke.yml` завершился с `failed=0`.
 - `kubectl get nodes` показывает `Ready` для single-node k3s.
+- если включен `runner_enabled`, runner host зарегистрирован в GitHub и
+  сервис `github-actions-runner` находится в `active`.
 
 <a id="step-1"></a>
 
@@ -90,6 +99,12 @@ cp inventories/cloud/hosts.yml.example inventories/cloud/hosts.yml
 
 - `ansible_host` - публичный IP VM `k3s`.
 - `private_ip` - внутренний IP VM `k3s`.
+- при наличии runner:
+  - `ansible_host` - внутренний IP VM `runner`;
+  - `private_ip` - внутренний IP VM `runner`.
+
+`github_runners` при этом должны лежать внутри inventory group
+`private_hosts`: именно она добавляет `ProxyJump` через публичный `k3s`.
 
 <a id="step-2"></a>
 
@@ -99,22 +114,78 @@ cp inventories/cloud/hosts.yml.example inventories/cloud/hosts.yml
 cd deploy/kubernetes/bootstrap
 
 cp -n inventories/cloud/group_vars/all/zz-local.yml.example inventories/cloud/group_vars/all/zz-local.yml
+cp -n inventories/cloud/group_vars/github_runners/zz-local.yml.example inventories/cloud/group_vars/github_runners/zz-local.yml
 ```
 
 Что заполняем:
 
 - `inventories/cloud/group_vars/all/zz-local.yml`:
-  - `firewall_admin_ssh_sources` для `22/tcp`.
-  - `kube_api_allowed_cidrs` для `6443/tcp`.
+  - `firewall_admin_ssh_sources` для `22/tcp` на публичном `k3s`.
+  - `kube_api_allowed_cidrs` для внешнего admin-доступа к `6443/tcp`.
   - `edge_allowed_client_cidrs` для `443/tcp`.
-  - при необходимости локально переопределить `k3s_secrets_encryption_enabled` (по умолчанию уже `true` в `group_vars/all/main.yml`).
   - при необходимости локально переопределить `k3s_server_tls_sans`.
   - опционально `edge_http_cidrs` для `80/tcp` (если хотите переопределить).
+  - при необходимости локально переопределить `k3s_secrets_encryption_enabled`
+    (по умолчанию уже `true` в `group_vars/all/main.yml`).
+- `inventories/cloud/group_vars/github_runners/zz-local.yml`:
+  - `github_runner_registration_token`;
+  - `github_runner_sops_age_key`;
+  - при ротации runner: `github_runner_replace_existing: true`.
+
+Если включен runner, его доступ к Kubernetes API не зависит от
+`kube_api_allowed_cidrs`. Для runner Terraform автоматически добавляет
+отдельное SG-правило на `k3s:6443` по private IP runner VM. На уровне host
+firewall это тоже делается автоматически: `k3s_hosts/main.yml` собирает
+effective allow-list для `6443/tcp`, который включает и внешние admin CIDR, и
+private `/32` адреса из inventory group `github_runners`. Ручной дописки runner
+IP в `k3s_hosts/zz-local.yml` не требуется.
+
+Для runner не нужно отдельно задавать SSH CIDR: host firewall и cloud SG
+разрешают `22/tcp` только от private IP `k3s`, а администраторский доступ идет
+через `ProxyJump`.
 
 По умолчанию `edge_http_cidrs` задается в роли firewall как `0.0.0.0/0`
 (нужно для HTTP-01 challenge и HTTP->HTTPS redirect).
 
 Файл `zz-local.yml` локальный и не должен коммититься.
+
+Secret-модель runner проста: bootstrap использует short-lived registration
+token из GitHub только во время первой регистрации (или при явной
+перерегистрации через `github_runner_replace_existing: true`), после чего
+runner сохраняет long-lived credential локально в `.credentials`.
+
+Это значит:
+
+- при первом bootstrap нужен свежий `github_runner_registration_token`;
+- при обычных повторных прогонах bootstrap новый token не нужен, если runner уже
+  зарегистрирован;
+- для ротации нужно получить fresh token в GitHub UI, положить его в
+  `group_vars/github_runners/zz-local.yml` и повторно прогнать bootstrap с
+  `github_runner_replace_existing: true`.
+
+Для deploy в Kubernetes этого недостаточно: runner также должен иметь
+`github_runner_sops_age_key`, чтобы `helmfile` и `helm-secrets` могли
+расшифровывать `*.enc.yaml` values во время CD. Bootstrap кладет ключ в
+`/home/github-runner/.config/sops/age/keys.txt` с правами `0600`.
+
+Как получить оба значения:
+
+```bash
+# 1. GitHub runner registration token
+# Repo -> Settings -> Actions -> Runners -> New self-hosted runner
+# либо через GitHub CLI:
+gh api \
+  --method POST \
+  /repos/Andrey787878/ai-knowledge-assistant/actions/runners/registration-token \
+  --jq '.token'
+
+# 2. Existing SOPS age private key from your local workstation
+cat ~/.config/sops/age/keys.txt
+```
+
+В `github_runner_sops_age_key` нужно положить именно строку
+`AGE-SECRET-KEY-...`, которая уже используется для расшифровки проектных
+`*.enc.yaml`.
 
 <a id="step-3"></a>
 
@@ -184,6 +255,13 @@ ansible -i inventories/cloud/hosts.yml k3s_hosts -b -m shell -a "kubectl --kubec
 ansible -i inventories/cloud/hosts.yml k3s_hosts -b -m shell -a "k3s secrets-encrypt status"
 ```
 
+Если `runner_enabled: true`, дополнительно проверьте runner:
+
+```bash
+ansible -i inventories/cloud/hosts.yml github_runners -b -m shell -a "systemctl is-active github-actions-runner"
+ansible -i inventories/cloud/hosts.yml github_runners -b -u github-runner -m shell -a "kubectl --kubeconfig /home/github-runner/.kube/config get nodes"
+```
+
 <a id="step-7"></a>
 
 ## Получите kubeconfig на локальную машину
@@ -232,6 +310,13 @@ bash scripts/pull_kubeconfig.sh \
   bash scripts/sync_inventory.sh
   ```
 
+`github_runner_registration_token` missing:
+
+- причина: runner host включен в inventory, но token не задан в
+  `group_vars/github_runners/zz-local.yml`;
+- фикс: получить fresh registration token в GitHub repo settings и положить
+  его в локальный `zz-local.yml`.
+
 `UNREACHABLE` на первом запуске:
 
 - причина: VM еще не готова по SSH после create/reboot;
@@ -258,3 +343,9 @@ bash scripts/pull_kubeconfig.sh \
 
   Если для этого хоста использовался другой ключ (например `ansible_deploy`),
   передайте его через `--identity`.
+
+`UNREACHABLE` на `github_runners` при прямом SSH:
+
+- причина: runner private-only и не должен быть доступен напрямую;
+- фикс: убедиться, что runner расположен в inventory group `private_hosts`,
+  а `k3s` доступен по своему публичному `ansible_host`.

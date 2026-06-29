@@ -1,0 +1,729 @@
+---
+helmDefaults:
+  skipDeps: true
+
+releases:
+  - name: observability-dashboards-n8n-runtime
+    namespace: {{ .Values.namespace | quote }}
+    createNamespace: false
+    chart: ../../vendor_charts/raw
+    wait: true
+    values:
+      - resources:
+          - apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: observability-n8n-runtime-dashboard
+              labels:
+                grafana_dashboard: "1"
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            data:
+              observability-n8n-runtime.json: |
+                {
+                  "annotations": {
+                    "list": [
+                      {
+                        "builtIn": 1,
+                        "datasource": {
+                          "type": "grafana",
+                          "uid": "-- Grafana --"
+                        },
+                        "enable": true,
+                        "hide": true,
+                        "iconColor": "rgba(0, 211, 255, 1)",
+                        "name": "Annotations & Alerts",
+                        "target": {
+                          "limit": 100,
+                          "matchAny": false,
+                          "tags": [],
+                          "type": "dashboard"
+                        },
+                        "type": "dashboard"
+                      }
+                    ]
+                  },
+                  "editable": true,
+                  "fiscalYearStartMonth": 0,
+                  "graphTooltip": 0,
+                  "links": [],
+                  "panels": [
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "decimals": 1,
+                          "max": 1,
+                          "min": 0,
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "red", "value": 0 },
+                              { "color": "yellow", "value": 0.99 },
+                              { "color": "green", "value": 0.995 }
+                            ]
+                          },
+                          "unit": "percentunit"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 4, "w": 3, "x": 0, "y": 0 },
+                      "id": 1,
+                      "options": {
+                        "colorMode": "background",
+                        "graphMode": "none",
+                        "justifyMode": "center",
+                        "orientation": "auto",
+                        "reduceOptions": {
+                          "calcs": ["lastNotNull"],
+                          "fields": "",
+                          "values": false
+                        },
+                        "textMode": "value"
+                      },
+                      "targets": [
+                        {
+                          "expr": "max(sli:n8n_availability:ratio_5m) or vector(0)",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "Availability 5m",
+                      "type": "stat"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "decimals": 1,
+                          "max": 1,
+                          "min": 0,
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "red", "value": 0 },
+                              { "color": "yellow", "value": 0.99 },
+                              { "color": "green", "value": 1 }
+                            ]
+                          },
+                          "unit": "percentunit"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 4, "w": 3, "x": 3, "y": 0 },
+                      "id": 2,
+                      "options": {
+                        "colorMode": "background",
+                        "graphMode": "none",
+                        "justifyMode": "center",
+                        "orientation": "auto",
+                        "reduceOptions": {
+                          "calcs": ["lastNotNull"],
+                          "fields": "",
+                          "values": false
+                        },
+                        "textMode": "value"
+                      },
+                      "targets": [
+                        {
+                          "expr": "avg(sli:n8n_metrics_target:ratio_5m)",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "Metrics Scrape 5m",
+                      "type": "stat"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "decimals": 1,
+                          "max": 1,
+                          "min": 0,
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "red", "value": 0 },
+                              { "color": "yellow", "value": 0.99 },
+                              { "color": "green", "value": 1 }
+                            ]
+                          },
+                          "unit": "percentunit"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 4, "w": 3, "x": 6, "y": 0 },
+                      "id": 3,
+                      "options": {
+                        "colorMode": "background",
+                        "graphMode": "none",
+                        "justifyMode": "center",
+                        "orientation": "auto",
+                        "reduceOptions": {
+                          "calcs": ["lastNotNull"],
+                          "fields": "",
+                          "values": false
+                        },
+                        "textMode": "value"
+                      },
+                      "targets": [
+                        {
+                          "expr": "sum(kube_deployment_status_replicas_available{namespace=\"n8n\",deployment=\"n8n-web\"}) / clamp_min(sum(kube_deployment_spec_replicas{namespace=\"n8n\",deployment=\"n8n-web\"}), 1)",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "Web Ready",
+                      "type": "stat"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "decimals": 1,
+                          "max": 1,
+                          "min": 0,
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "red", "value": 0 },
+                              { "color": "yellow", "value": 0.99 },
+                              { "color": "green", "value": 1 }
+                            ]
+                          },
+                          "unit": "percentunit"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 4, "w": 3, "x": 9, "y": 0 },
+                      "id": 4,
+                      "options": {
+                        "colorMode": "background",
+                        "graphMode": "none",
+                        "justifyMode": "center",
+                        "orientation": "auto",
+                        "reduceOptions": {
+                          "calcs": ["lastNotNull"],
+                          "fields": "",
+                          "values": false
+                        },
+                        "textMode": "value"
+                      },
+                      "targets": [
+                        {
+                          "expr": "sum(kube_deployment_status_replicas_available{namespace=\"n8n\",deployment=\"n8n-worker\"}) / clamp_min(sum(kube_deployment_spec_replicas{namespace=\"n8n\",deployment=\"n8n-worker\"}), 1)",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "Worker Ready",
+                      "type": "stat"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "decimals": 3,
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "green", "value": 0 },
+                              { "color": "yellow", "value": 0.2 },
+                              { "color": "red", "value": 1 }
+                            ]
+                          },
+                          "unit": "s"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 4, "w": 3, "x": 12, "y": 0 },
+                      "id": 5,
+                      "options": {
+                        "colorMode": "background",
+                        "graphMode": "none",
+                        "justifyMode": "center",
+                        "orientation": "auto",
+                        "reduceOptions": {
+                          "calcs": ["lastNotNull"],
+                          "fields": "",
+                          "values": false
+                        },
+                        "textMode": "value"
+                      },
+                      "targets": [
+                        {
+                          "expr": "max(n8n_nodejs_eventloop_lag_seconds{job=\"n8n-web\",namespace=\"n8n\"})",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "Lag Now",
+                      "type": "stat"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "decimals": 1,
+                          "max": 1,
+                          "min": 0,
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "green", "value": 0 },
+                              { "color": "yellow", "value": 0.7 },
+                              { "color": "red", "value": 0.85 }
+                            ]
+                          },
+                          "unit": "percentunit"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 4, "w": 3, "x": 15, "y": 0 },
+                      "id": 6,
+                      "options": {
+                        "colorMode": "background",
+                        "graphMode": "none",
+                        "justifyMode": "center",
+                        "orientation": "auto",
+                        "reduceOptions": {
+                          "calcs": ["lastNotNull"],
+                          "fields": "",
+                          "values": false
+                        },
+                        "textMode": "value"
+                      },
+                      "targets": [
+                        {
+                          "expr": "max(n8n_process_open_fds{job=\"n8n-web\",namespace=\"n8n\"} / n8n_process_max_fds{job=\"n8n-web\",namespace=\"n8n\"})",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "FD Usage",
+                      "type": "stat"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "decimals": 0,
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "green", "value": 0 },
+                              { "color": "yellow", "value": 1 },
+                              { "color": "red", "value": 3 }
+                            ]
+                          }
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 4, "w": 3, "x": 18, "y": 0 },
+                      "id": 7,
+                      "options": {
+                        "colorMode": "background",
+                        "graphMode": "none",
+                        "justifyMode": "center",
+                        "orientation": "auto",
+                        "reduceOptions": {
+                          "calcs": ["lastNotNull"],
+                          "fields": "",
+                          "values": false
+                        },
+                        "textMode": "value"
+                      },
+                      "targets": [
+                        {
+                          "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=\"n8n\",pod=~\"n8n-(web|worker)-.*\",container=~\"n8n-(web|worker)\"}[6h]))",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "Runtime Restarts 6h",
+                      "type": "stat"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "decimals": 0,
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "green", "value": 0 },
+                              { "color": "yellow", "value": 1 }
+                            ]
+                          },
+                          "unit": "short"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 4, "w": 3, "x": 21, "y": 0 },
+                      "id": 8,
+                      "options": {
+                        "colorMode": "background",
+                        "graphMode": "none",
+                        "justifyMode": "center",
+                        "orientation": "auto",
+                        "reduceOptions": {
+                          "calcs": ["lastNotNull"],
+                          "fields": "",
+                          "values": false
+                        },
+                        "textMode": "value"
+                      },
+                      "targets": [
+                        {
+                          "expr": "max(rollout:n8n_deploy_window) or vector(0)",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "Deploy Window 20m",
+                      "type": "stat"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "custom": {
+                            "drawStyle": "line",
+                            "fillOpacity": 8,
+                            "lineInterpolation": "linear",
+                            "lineWidth": 2,
+                            "showPoints": "never",
+                            "spanNulls": true
+                          },
+                          "max": 1,
+                          "min": 0,
+                          "unit": "percentunit"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 4 },
+                      "id": 9,
+                      "options": {
+                        "legend": {
+                          "calcs": ["lastNotNull", "min"],
+                          "displayMode": "table",
+                          "placement": "bottom",
+                          "showLegend": true
+                        },
+                        "tooltip": {
+                          "mode": "multi",
+                          "sort": "desc"
+                        }
+                      },
+                      "targets": [
+                        {
+                          "expr": "sli:n8n_availability:ratio_30m",
+                          "legendFormat": "availability",
+                          "refId": "A"
+                        },
+                        {
+                          "expr": "sli:n8n_metrics_target:ratio_30m",
+                          "legendFormat": "metrics scrape",
+                          "refId": "B"
+                        }
+                      ],
+                      "title": "Availability And Metrics",
+                      "type": "timeseries"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "custom": {
+                            "drawStyle": "line",
+                            "fillOpacity": 8,
+                            "lineInterpolation": "linear",
+                            "lineWidth": 2,
+                            "showPoints": "never",
+                            "spanNulls": true
+                          },
+                          "unit": "bytes"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 4 },
+                      "id": 10,
+                      "options": {
+                        "legend": {
+                          "calcs": ["lastNotNull", "max"],
+                          "displayMode": "table",
+                          "placement": "bottom",
+                          "showLegend": true
+                        },
+                        "tooltip": {
+                          "mode": "multi",
+                          "sort": "desc"
+                        }
+                      },
+                      "targets": [
+                        {
+                          "expr": "n8n_process_resident_memory_bytes{job=\"n8n-web\",namespace=\"n8n\"}",
+                          "legendFormat": "resident",
+                          "refId": "A"
+                        },
+                        {
+                          "expr": "n8n_process_heap_bytes{job=\"n8n-web\",namespace=\"n8n\"}",
+                          "legendFormat": "heap",
+                          "refId": "B"
+                        },
+                        {
+                          "expr": "n8n_process_virtual_memory_bytes{job=\"n8n-web\",namespace=\"n8n\"}",
+                          "legendFormat": "virtual",
+                          "refId": "C"
+                        }
+                      ],
+                      "title": "Memory",
+                      "type": "timeseries"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "custom": {
+                            "drawStyle": "line",
+                            "fillOpacity": 8,
+                            "lineInterpolation": "linear",
+                            "lineWidth": 2,
+                            "showPoints": "never",
+                            "spanNulls": true
+                          },
+                          "unit": "short"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 4 },
+                      "id": 11,
+                      "options": {
+                        "legend": {
+                          "calcs": ["lastNotNull", "max"],
+                          "displayMode": "table",
+                          "placement": "bottom",
+                          "showLegend": true
+                        },
+                        "tooltip": {
+                          "mode": "multi",
+                          "sort": "desc"
+                        }
+                      },
+                      "targets": [
+                        {
+                          "expr": "rate(n8n_process_cpu_user_seconds_total{job=\"n8n-web\",namespace=\"n8n\"}[$__rate_interval])",
+                          "legendFormat": "cpu user",
+                          "refId": "A"
+                        },
+                        {
+                          "expr": "rate(n8n_process_cpu_system_seconds_total{job=\"n8n-web\",namespace=\"n8n\"}[$__rate_interval])",
+                          "legendFormat": "cpu system",
+                          "refId": "B"
+                        }
+                      ],
+                      "title": "CPU Rate",
+                      "type": "timeseries"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "custom": {
+                            "drawStyle": "line",
+                            "fillOpacity": 8,
+                            "lineInterpolation": "linear",
+                            "lineWidth": 2,
+                            "showPoints": "never",
+                            "spanNulls": true
+                          },
+                          "unit": "s"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 12 },
+                      "id": 12,
+                      "options": {
+                        "legend": {
+                          "calcs": ["lastNotNull", "max"],
+                          "displayMode": "table",
+                          "placement": "bottom",
+                          "showLegend": true
+                        },
+                        "tooltip": {
+                          "mode": "multi",
+                          "sort": "desc"
+                        }
+                      },
+                      "targets": [
+                        {
+                          "expr": "n8n_nodejs_eventloop_lag_seconds{job=\"n8n-web\",namespace=\"n8n\"}",
+                          "legendFormat": "current",
+                          "refId": "A"
+                        },
+                        {
+                          "expr": "n8n_nodejs_eventloop_lag_mean_seconds{job=\"n8n-web\",namespace=\"n8n\"}",
+                          "legendFormat": "mean",
+                          "refId": "B"
+                        },
+                        {
+                          "expr": "n8n_nodejs_eventloop_lag_max_seconds{job=\"n8n-web\",namespace=\"n8n\"}",
+                          "legendFormat": "max",
+                          "refId": "C"
+                        }
+                      ],
+                      "title": "Event Loop Lag",
+                      "type": "timeseries"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "custom": {
+                            "drawStyle": "line",
+                            "fillOpacity": 8,
+                            "lineInterpolation": "linear",
+                            "lineWidth": 2,
+                            "showPoints": "never",
+                            "spanNulls": true
+                          },
+                          "unit": "short"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 12 },
+                      "id": 13,
+                      "options": {
+                        "legend": {
+                          "calcs": ["lastNotNull", "max"],
+                          "displayMode": "table",
+                          "placement": "bottom",
+                          "showLegend": true
+                        },
+                        "tooltip": {
+                          "mode": "multi",
+                          "sort": "desc"
+                        }
+                      },
+                      "targets": [
+                        {
+                          "expr": "n8n_process_open_fds{job=\"n8n-web\",namespace=\"n8n\"}",
+                          "legendFormat": "open",
+                          "refId": "A"
+                        },
+                        {
+                          "expr": "n8n_process_max_fds{job=\"n8n-web\",namespace=\"n8n\"}",
+                          "legendFormat": "max",
+                          "refId": "B"
+                        }
+                      ],
+                      "title": "File Descriptors",
+                      "type": "timeseries"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "custom": {
+                            "drawStyle": "bars",
+                            "fillOpacity": 70,
+                            "lineInterpolation": "linear",
+                            "lineWidth": 1,
+                            "showPoints": "never",
+                            "spanNulls": true
+                          },
+                          "min": 0,
+                          "unit": "short"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 12 },
+                      "id": 15,
+                      "options": {
+                        "legend": {
+                          "calcs": ["lastNotNull", "max"],
+                          "displayMode": "table",
+                          "placement": "bottom",
+                          "showLegend": true
+                        },
+                        "tooltip": {
+                          "mode": "single",
+                          "sort": "desc"
+                        }
+                      },
+                      "targets": [
+                        {
+                          "expr": "sum by (container) (increase(kube_pod_container_status_restarts_total{namespace=\"n8n\",pod=~\"n8n-(web|worker)-.*\",container=~\"n8n-(web|worker)\"}[6h]))",
+                          "legendFormat": "{{`{{ container }}`}}",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "Restarts by Container 6h",
+                      "type": "timeseries"
+                    }
+                  ],
+                  "refresh": "30s",
+                  "schemaVersion": 39,
+                  "tags": ["observability", "n8n", "runtime"],
+                  "templating": {
+                    "list": [
+                      {
+                        "current": {
+                          "selected": true,
+                          "text": "default",
+                          "value": "default"
+                        },
+                        "hide": 0,
+                        "label": "Data source",
+                        "name": "datasource",
+                        "query": "prometheus",
+                        "regex": "",
+                        "type": "datasource"
+                      }
+                    ]
+                  },
+                  "time": {
+                    "from": "now-6h",
+                    "to": "now"
+                  },
+                  "timezone": "",
+                  "title": "n8n Runtime",
+                  "uid": "observability-n8n-runtime",
+                  "version": 1,
+                  "weekStart": ""
+                }

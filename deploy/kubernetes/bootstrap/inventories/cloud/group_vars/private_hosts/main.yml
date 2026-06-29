@@ -1,0 +1,8 @@
+---
+# Private hosts are reached through the public k3s node via SSH ProxyJump.
+# This mirrors the Stage A inventory model and keeps private-only VMs off the
+# public Internet while preserving a single Ansible entrypoint.
+bastion_user: "{{ ansible_user }}"
+ansible_ssh_common_args: >-
+  -o ProxyCommand="ssh -i {{ ansible_ssh_private_key_file }} -o IdentitiesOnly=yes -W %h:%p {{ bastion_user }}@{{ hostvars['k3s']['ansible_host'] }}"
+  -o IdentitiesOnly=yes

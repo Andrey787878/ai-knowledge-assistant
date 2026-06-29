@@ -35,7 +35,7 @@ spec:
           image: {{ include "n8n.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
           command: ["n8n"]
-          args: ["worker"]
+          args: ["worker", "--concurrency={{ .Values.n8n.workerConcurrency }}"]
           {{- with .Values.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
@@ -52,6 +52,10 @@ spec:
                 name: {{ include "n8n.name" . }}-cm
             - secretRef:
                 name: {{ include "n8n.name" . }}-secret
+          {{- with .Values.worker.probes.startup }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with .Values.worker.probes.readiness }}
           readinessProbe:
             {{- toYaml . | nindent 12 }}

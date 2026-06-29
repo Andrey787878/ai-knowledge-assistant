@@ -1,8 +1,10 @@
-# Эксплуатация и приемка (Этап B)
+# Эксплуатация и приемка (этап B)
 
-## Область
+## Что описывает документ
 
-Документ описывает эксплуатационный процесс этапа B (single-node k3s) и критерии приемки релиза.
+Документ описывает рабочий цикл этапа B: в каком порядке запускать
+инфраструктурный и Kubernetes-деплой, какие проверки выполнять перед релизом
+и что считать успешной приемкой.
 
 ## Порядок этапа B
 
@@ -11,10 +13,15 @@
 3. Platform: `deploy/kubernetes/platform`.
 4. Apps: `deploy/kubernetes/apps` (`postgres`, `redis`, `wiki`, `ollama`, `n8n`).
 
+Если используется этап C, после этого же контура работают:
+
+5. `CI` для проверки инфраструктурного кода;
+6. `CD` через собственный runner и smoke-проверки по областям.
+
 Главный ранбук Kubernetes-слоя:
 [deploy/kubernetes/README.md](../../deploy/kubernetes/README.md).
 
-Карта helmfile/release структуры:
+Карта Helmfile/release-структуры:
 [helmfiles-releases-map.md](./helmfiles-releases-map.md).
 
 ## Внутренний порядок Kubernetes-деплоя
@@ -28,7 +35,7 @@
 5. `apps/ollama/helmfile.yaml`
 6. `apps/n8n/helmfile.yaml`
 
-## Preflight перед релизом
+## Предварительная проверка перед релизом
 
 Перед запуском проверьте:
 
@@ -61,7 +68,7 @@ helm plugin list
 
 ```bash
 cd deploy/kubernetes
-helmfile -e prod build > /tmp/k8s-stage-b-build.yaml
+helmfile -e prod build > /tmp/k3s-stage-b-build.yaml
 helmfile -e prod sync
 ```
 
@@ -69,7 +76,7 @@ helmfile -e prod sync
 
 ```bash
 cd deploy/kubernetes/apps/n8n
-helmfile -e prod build > /tmp/k8s-n8n-build.yaml
+helmfile -e prod build > /tmp/k3s-n8n-build.yaml
 helmfile -e prod sync
 ```
 
@@ -106,7 +113,7 @@ curl -skI https://wiki.poluyanov.net
 kubectl -n ollama exec deploy/ollama -- curl -sf http://127.0.0.1:11434/api/version
 ```
 
-## Release Gate
+## Критерии успешного релиза
 
 Релиз этапа B считается успешным только если одновременно выполняется:
 
@@ -116,6 +123,9 @@ kubectl -n ollama exec deploy/ollama -- curl -sf http://127.0.0.1:11434/api/vers
 4. `postgres`, `wiki`, `ollama`, `n8n-web`, `n8n-worker` в `Ready`.
 5. Проверки ingress/health проходят (`n8n`, `wiki`).
 6. Для `n8n` отсутствуют ошибки импорта workflows и ошибок доступа к PostgreSQL/Redis/Ollama.
+
+Если запуск шел через этап C, дополнительно ожидается зеленый результат
+scope-specific smoke check в GitHub Actions.
 
 ## Инциденты и быстрые фиксы
 

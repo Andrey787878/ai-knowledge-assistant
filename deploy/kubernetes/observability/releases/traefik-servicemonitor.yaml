@@ -1,0 +1,32 @@
+---
+helmDefaults:
+  skipDeps: true
+
+releases:
+  - name: observability-traefik-servicemonitor
+    namespace: {{ .Values.namespace | quote }}
+    createNamespace: false
+    chart: ../../vendor_charts/raw
+    wait: true
+    values:
+      - resources:
+          - apiVersion: monitoring.coreos.com/v1
+            kind: ServiceMonitor
+            metadata:
+              name: traefik
+              labels:
+                release: kube-prometheus-stack
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              namespaceSelector:
+                matchNames:
+                  - kube-system
+              selector:
+                matchLabels:
+                  app.kubernetes.io/name: traefik
+              endpoints:
+                - port: metrics
+                  path: /metrics
+                  interval: 30s
+                  scrapeTimeout: 10s

@@ -1,0 +1,23 @@
+---
+helmDefaults:
+  skipDeps: true
+
+releases:
+  - name: observability-http-redirect
+    namespace: {{ .Values.namespace | quote }}
+    createNamespace: false
+    chart: ../../vendor_charts/raw
+    wait: true
+    values:
+      - resources:
+          - apiVersion: traefik.io/v1alpha1
+            kind: Middleware
+            metadata:
+              name: https-redirect
+              labels:
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              redirectScheme:
+                scheme: https
+                permanent: true

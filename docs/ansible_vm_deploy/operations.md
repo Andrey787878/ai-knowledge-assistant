@@ -1,8 +1,10 @@
 # Эксплуатация и приемка
 
-## Область
+## Что описывает документ
 
-Документ описывает эксплуатационный процесс и критерии приемки.
+Документ описывает рабочий цикл этапа A: в каком порядке запускать
+Terraform и Ansible, что считается успешной приемкой и какие проверки
+выполняются после деплоя.
 
 ## Порядок этапа A
 
@@ -39,7 +41,7 @@ export ANSIBLE_VAULT_PASSWORD_FILE="${ANSIBLE_VAULT_PASSWORD_FILE:-~/.ansible/va
 Полный ранбук:
 [deploy/ansible/README.md](../../deploy/ansible/README.md).
 
-## Область smoke-проверок этапа A
+## Что покрывают smoke-проверки этапа A
 
 Текущий `playbooks/smoke.yml` покрывает:
 
@@ -51,7 +53,7 @@ export ANSIBLE_VAULT_PASSWORD_FILE="${ANSIBLE_VAULT_PASSWORD_FILE:-~/.ansible/va
 - срок действия edge сертификата,
 - e2e `agent-query` (включен по умолчанию).
 
-## Release gate
+## Критерии приемки
 
 Релиз этапа A успешен только если:
 
@@ -59,7 +61,7 @@ export ANSIBLE_VAULT_PASSWORD_FILE="${ANSIBLE_VAULT_PASSWORD_FILE:-~/.ansible/va
 2. `playbooks/smoke.yml` завершился с `failed=0`.
 3. Backup/restore ранбук подтвержден практическим прогоном.
 
-## Backup/Restore
+## Резервное копирование и восстановление
 
 Смотрите отдельный ранбук:
 [backup-restore.md](./backup-restore.md).

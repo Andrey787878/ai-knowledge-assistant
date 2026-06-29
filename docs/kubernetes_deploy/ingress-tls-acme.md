@@ -1,6 +1,6 @@
 # Edge TLS через cert-manager + Let's Encrypt (HTTP-01)
 
-## Область
+## Что описывает документ
 
 Документ описывает выпуск и продление публичных TLS-сертификатов на этапе B.
 
@@ -10,7 +10,7 @@
 - `ClusterIssuer`
 - Traefik ingress controller
 
-## Как устроено
+## Как устроен этот слой
 
 1. В `platform` устанавливается `cert-manager`.
 2. В `platform` создается `ClusterIssuer`.
@@ -56,10 +56,16 @@ kubectl -n wiki describe certificate
 kubectl -n n8n describe certificate
 ```
 
-## Переход staging -> production ACME
+## Текущий production-контракт
 
-1. В [cluster-issuer.values.yaml](../../deploy/kubernetes/platform/environments/prod/cluster-issuer.values.yaml) установить production URL:
-   `https://acme-v02.api.letsencrypt.org/directory`
+Production-контур должен использовать production ACME directory:
+`https://acme-v02.api.letsencrypt.org/directory`.
+
+Проверка:
+
+1. Убедиться, что в
+   [cluster-issuer.values.yaml](../../deploy/kubernetes/platform/environments/prod/cluster-issuer.values.yaml)
+   указан production URL.
 2. Применить `platform`:
    `helmfile -e prod sync`
 3. Переприменить `wiki` и `n8n` releases.
@@ -71,3 +77,7 @@ kubectl -n n8n describe certificate
 2. Проверить доступность `80/tcp` и `443/tcp`.
 3. Проверить `ClusterIssuer` и события `Order/Challenge`.
 4. Проверить ingress host/annotation/secretName.
+
+Временный возврат на staging ACME допустим только как диагностический шаг при
+разборе rate limit или challenge failure, но не как штатная production
+конфигурация.

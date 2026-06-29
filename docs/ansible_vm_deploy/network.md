@@ -1,19 +1,34 @@
 # Сеть Ansible-деплоя (Этап A, 4 VM)
 
-## Цель сетевой модели
+## Что описывает документ
 
-В Этапе A сеть спроектирована по принципу минимальной публичной поверхности и многоуровневой защиты:
+В этапе A сеть спроектирована по принципу минимальной публичной поверхности и
+многоуровневой защиты:
 
-- снаружи доступен только edge/bastion host (`wiki`),
-- приватные VM (`db`, `n8n`, `ollama`) не имеют public IP,
-- входящие потоки ограничены на нескольких слоях (Cloud SG, host firewall, reverse proxy),
+- снаружи доступен только edge/bastion host `wiki`,
+- приватные VM `db`, `n8n`, `ollama` не имеют public IP,
+- входящие потоки ограничены на нескольких слоях: Cloud SG, host firewall,
+  reverse proxy,
 - доступы описаны как явные сервисные потоки.
 
 ## Схема сети
 
-![Схема сети Ansible VM](./diagrams/network-topology.png)
+<p align="center">
+  <a href="./diagrams/network-topology.png">
+    <img src="./diagrams/network-topology.png" alt="Схема сети Ansible VM" width="920">
+  </a>
+</p>
 
-## Источники правил (код)
+<p align="center">
+  <a href="./diagrams/network-topology.png">
+    <img src="https://img.shields.io/badge/Open-full_size-1f6feb?style=for-the-badge" alt="Open full size">
+  </a>
+  <a href="./README.md">
+    <img src="https://img.shields.io/badge/Back-stage_A-2ea043?style=for-the-badge" alt="Back to stage A docs">
+  </a>
+</p>
+
+## Источники правил в коде
 
 - Terraform сеть и SG:
   - `deploy/terraform/ansible_deploy/network.tf`
@@ -30,7 +45,7 @@
 - SSH jump:
   - `deploy/ansible/inventories/cloud/group_vars/private_hosts/main.yml`
 
-## Сетевые зоны и trust boundary
+## Сетевые зоны и границы доступа
 
 - `public subnet` (по умолчанию `10.10.0.16/28`): только VM `wiki` с public IP.
 - `private subnet` (по умолчанию `10.10.0.0/28`): `db`, `n8n`, `ollama` без public IP.
@@ -42,7 +57,7 @@
 - администрирование приватных VM идет через bastion/ProxyJump,
 - исходящий доступ приватного контура идет через NAT.
 
-## Многоуровневые сетевые контроли
+## Многоуровневые сетевые ограничения
 
 ### Cloud Security Groups (внешний периметр)
 
@@ -61,11 +76,11 @@
 - `11434/tcp` только от `n8n`
 - egress: `ANY -> 0.0.0.0/0`
 
-### Host firewall (`firewalld`, роль `firewall`)
+### Host firewall через роль `firewall`
 
-- зона с `target=DROP` (deny-by-default inbound),
+- зона с `target=DROP`,
 - только source-restricted `rich_rule`,
-- без broad-правил `allow port to all`,
+- без широких правил `allow port to all`,
 - на Debian отключается `ufw` для исключения конфликтов.
 
 ### Edge layer (`nginx` allow-list)
@@ -100,11 +115,11 @@
 | `n8n` | `ollama` | `11434/tcp` | n8n runtime -> Ollama API |
 | `wiki` | `db`, `n8n`, `ollama` | `22/tcp` | bastion SSH jump |
 
-## Egress модель
+## Модель исходящих соединений
 
 В Этапе A детальная egress-фильтрация по сервисам не применяется.
 
-- ingress жестко минимизирован,
+- входящий трафик жестко минимизирован,
 - egress в SG оставлен `ANY`,
 - приватные VM изолированы отсутствием public IP и выходят в интернет через NAT.
 
@@ -134,7 +149,7 @@
 - связность `n8n -> postgres` и `n8n -> ollama`,
 - проверку сертификатов.
 
-### Операционные (runbook)
+### Операционные проверки
 
 ```bash
 cd deploy/ansible

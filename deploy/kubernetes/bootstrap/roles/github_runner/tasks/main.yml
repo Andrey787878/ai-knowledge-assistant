@@ -1,0 +1,26 @@
+---
+- name: End host when runner disabled
+  ansible.builtin.meta: end_host
+  when: not github_runner_enabled | bool
+  tags: always
+
+- name: Include validation tasks
+  ansible.builtin.import_tasks: validate.yml
+  tags: [github_runner, validation]
+
+- name: Include install tasks
+  ansible.builtin.import_tasks: install.yml
+  tags: [github_runner, install]
+
+- name: Include configure tasks
+  ansible.builtin.import_tasks: configure.yml
+  tags: [github_runner, configure]
+
+- name: Include service tasks
+  ansible.builtin.import_tasks: service.yml
+  tags: [github_runner, service]
+
+- name: Include verification tasks
+  ansible.builtin.import_tasks: verify.yml
+  when: not ansible_check_mode
+  tags: [github_runner, verify]

@@ -1,0 +1,13 @@
+extends: default
+
+ignore: |
+  deploy/kubernetes/vendor_charts/
+  **/*.enc.yaml
+  **/releases/
+  **/templates/
+
+rules:
+  document-start: disable
+  line-length: disable
+  truthy:
+    allowed-values: ['true', 'false', 'on']

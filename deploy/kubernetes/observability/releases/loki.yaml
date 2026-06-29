@@ -1,0 +1,12 @@
+---
+helmDefaults:
+  skipDeps: true
+
+releases:
+  - name: loki
+    namespace: {{ .Values.namespace | quote }}
+    createNamespace: false
+    chart: ../../vendor_charts/loki
+    wait: true
+    values:
+      - ../environments/prod/loki.values.yaml

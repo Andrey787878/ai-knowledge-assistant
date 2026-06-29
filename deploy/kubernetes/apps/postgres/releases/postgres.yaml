@@ -8,7 +8,12 @@ releases:
     createNamespace: false
     chart: ../../../vendor_charts/postgresql
     wait: true
-    values:
-      - ../environments/prod/app.values.yaml
     secrets:
+      {{- if eq .Environment.Name "prod" }}
       - ../environments/prod/secrets.values.enc.yaml
+      {{- end }}
+    values:
+      {{- if eq .Environment.Name "ci" }}
+      - ../environments/ci/validation.values.yaml
+      {{- end }}
+      - ../environments/prod/app.values.yaml

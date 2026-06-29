@@ -23,6 +23,8 @@ data:
   N8N_HOST: {{ .Values.n8n.host | quote }}
   N8N_PROTOCOL: {{ .Values.n8n.protocol | quote }}
   N8N_PORT: {{ .Values.web.service.targetPort | toString | quote }}
+  N8N_PROXY_HOPS: {{ .Values.n8n.proxyHops | toString | quote }}
+  N8N_METRICS: {{ .Values.metrics.enabled | toString | quote }}
   N8N_BLOCK_ENV_ACCESS_IN_NODE: {{ .Values.n8n.blockEnvAccessInNode | toString | quote }}
   N8N_EDITOR_BASE_URL: {{ .Values.n8n.editorBaseUrl | quote }}
   WEBHOOK_URL: {{ .Values.n8n.webhookUrl | quote }}
@@ -42,7 +44,6 @@ data:
   OLLAMA_MODEL: {{ .Values.n8n.ollamaModel | quote }}
   {{- end }}
   N8N_LOG_LEVEL: {{ .Values.n8n.logLevel | quote }}
-  N8N_CONCURRENCY: {{ .Values.n8n.workerConcurrency | toString | quote }}
 
   TZ: {{ .Values.n8n.timezone | quote }}
   GENERIC_TIMEZONE: {{ .Values.n8n.timezone | quote }}

@@ -9,7 +9,7 @@
   when: ansible_os_family == "Debian"
   tags: [firewall, firewall_apply]
 
-- name: Install ufw packages if ufw not install
+- name: Install ufw package
   ansible.builtin.apt:
     name: '{{ firewall_package }}'
     state: present
@@ -29,40 +29,18 @@
     policy: '{{ firewall_default_outgoing_policy }}'
   tags: [firewall, firewall_apply]
 
-- name: Allow SSH from admin CIDRs
+- name: Allow inbound TCP rules per host group
   community.general.ufw:
     rule: allow
     proto: tcp
-    port: '22'
-    src: '{{ item }}'
-  loop: '{{ firewall_admin_ssh_sources }}'
-  tags: [firewall, firewall_apply]
-
-- name: Allow Kubernetes API from admin CIDRs
-  community.general.ufw:
-    rule: allow
-    proto: tcp
-    port: '6443'
-    src: '{{ item }}'
-  loop: '{{ kube_api_allowed_cidrs }}'
-  tags: [firewall, firewall_apply]
-
-- name: Allow HTTP from allowed CIDRs
-  community.general.ufw:
-    rule: allow
-    proto: tcp
-    port: '80'
-    src: '{{ item }}'
-  loop: '{{ edge_http_cidrs }}'
-  tags: [firewall, firewall_apply]
-
-- name: Allow HTTPS from allowed CIDRs
-  community.general.ufw:
-    rule: allow
-    proto: tcp
-    port: '443'
-    src: '{{ item }}'
-  loop: '{{ edge_allowed_client_cidrs }}'
+    port: '{{ rule.port | string }}'
+    src: '{{ source }}'
+  loop: "{{ firewall_tcp_rules | subelements('sources') }}"
+  loop_control:
+    label: "{{ rule.port }}/tcp <- {{ source }}"
+  vars:
+    rule: '{{ item.0 }}'
+    source: '{{ item.1 }}'
   tags: [firewall, firewall_apply]
 
 - name: Enable UFW

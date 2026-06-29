@@ -1,0 +1,652 @@
+---
+helmDefaults:
+  skipDeps: true
+
+releases:
+  - name: observability-dashboards-public-endpoints
+    namespace: {{ .Values.namespace | quote }}
+    createNamespace: false
+    chart: ../../vendor_charts/raw
+    wait: true
+    values:
+      - resources:
+          - apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: observability-public-endpoints-dashboard
+              labels:
+                grafana_dashboard: "1"
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            data:
+              observability-public-endpoints.json: |
+                {
+                  "annotations": {
+                    "list": [
+                      {
+                        "builtIn": 1,
+                        "datasource": {
+                          "type": "grafana",
+                          "uid": "-- Grafana --"
+                        },
+                        "enable": true,
+                        "hide": true,
+                        "iconColor": "rgba(0, 211, 255, 1)",
+                        "name": "Annotations & Alerts",
+                        "target": {
+                          "limit": 100,
+                          "matchAny": false,
+                          "tags": [],
+                          "type": "dashboard"
+                        },
+                        "type": "dashboard"
+                      }
+                    ]
+                  },
+                  "editable": true,
+                  "fiscalYearStartMonth": 0,
+                  "graphTooltip": 0,
+                  "links": [],
+                  "panels": [
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "decimals": 1,
+                          "max": 1,
+                          "min": 0,
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "red", "value": 0 },
+                              { "color": "yellow", "value": 0.99 },
+                              { "color": "green", "value": 0.995 }
+                            ]
+                          },
+                          "unit": "percentunit"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+                      "id": 1,
+                      "options": {
+                        "colorMode": "background",
+                        "graphMode": "none",
+                        "justifyMode": "center",
+                        "orientation": "auto",
+                        "reduceOptions": {
+                          "calcs": ["lastNotNull"],
+                          "fields": "",
+                          "values": false
+                        },
+                        "textMode": "value"
+                      },
+                      "targets": [
+                        {
+                          "expr": "max(sli:n8n_public_availability:ratio_5m) or vector(0)",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "n8n Public Availability 5m",
+                      "type": "stat"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "decimals": 1,
+                          "max": 1,
+                          "min": 0,
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "red", "value": 0 },
+                              { "color": "yellow", "value": 0.99 },
+                              { "color": "green", "value": 0.995 }
+                            ]
+                          },
+                          "unit": "percentunit"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+                      "id": 3,
+                      "options": {
+                        "colorMode": "background",
+                        "graphMode": "none",
+                        "justifyMode": "center",
+                        "orientation": "auto",
+                        "reduceOptions": {
+                          "calcs": ["lastNotNull"],
+                          "fields": "",
+                          "values": false
+                        },
+                        "textMode": "value"
+                      },
+                      "targets": [
+                        {
+                          "expr": "max(sli:wiki_public_availability:ratio_5m) or vector(0)",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "Wiki Public Availability 5m",
+                      "type": "stat"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "decimals": 0,
+                          "min": 0,
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "red", "value": 0 },
+                              { "color": "orange", "value": 7 },
+                              { "color": "yellow", "value": 14 },
+                              { "color": "green", "value": 21 }
+                            ]
+                          },
+                          "unit": "d"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+                      "id": 5,
+                      "options": {
+                        "colorMode": "background",
+                        "graphMode": "none",
+                        "justifyMode": "center",
+                        "orientation": "auto",
+                        "reduceOptions": {
+                          "calcs": ["lastNotNull"],
+                          "fields": "",
+                          "values": false
+                        },
+                        "textMode": "value"
+                      },
+                      "targets": [
+                        {
+                          "expr": "(probe_ssl_earliest_cert_expiry{job=\"blackbox-public-n8n\",namespace=\"n8n\",instance=\"{{ .Values.public_probe_targets.n8n }}\"} - time()) / 86400",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "n8n TLS Cert Expiry (days)",
+                      "type": "stat"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "decimals": 0,
+                          "min": 0,
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "red", "value": 0 },
+                              { "color": "orange", "value": 7 },
+                              { "color": "yellow", "value": 14 },
+                              { "color": "green", "value": 21 }
+                            ]
+                          },
+                          "unit": "d"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
+                      "id": 6,
+                      "options": {
+                        "colorMode": "background",
+                        "graphMode": "none",
+                        "justifyMode": "center",
+                        "orientation": "auto",
+                        "reduceOptions": {
+                          "calcs": ["lastNotNull"],
+                          "fields": "",
+                          "values": false
+                        },
+                        "textMode": "value"
+                      },
+                      "targets": [
+                        {
+                          "expr": "(probe_ssl_earliest_cert_expiry{job=\"blackbox-public-wiki\",namespace=\"wiki\",instance=\"{{ .Values.public_probe_targets.wiki }}\"} - time()) / 86400",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "Wiki TLS Cert Expiry (days)",
+                      "type": "stat"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "decimals": 1,
+                          "min": 0,
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "green", "value": 0 },
+                              { "color": "yellow", "value": 1000 },
+                              { "color": "red", "value": 2000 }
+                            ]
+                          },
+                          "unit": "ms"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
+                      "id": 7,
+                      "options": {
+                        "colorMode": "background",
+                        "graphMode": "none",
+                        "justifyMode": "center",
+                        "orientation": "auto",
+                        "reduceOptions": {
+                          "calcs": ["lastNotNull"],
+                          "fields": "",
+                          "values": false
+                        },
+                        "textMode": "value"
+                      },
+                      "targets": [
+                        {
+                          "expr": "quantile_over_time(0.95, probe_duration_seconds{job=\"blackbox-public-n8n\",namespace=\"n8n\",instance=\"{{ .Values.public_probe_targets.n8n }}\"}[30m]) * 1000",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "n8n Probe p95 30m",
+                      "type": "stat"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "decimals": 1,
+                          "min": 0,
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "green", "value": 0 },
+                              { "color": "yellow", "value": 1000 },
+                              { "color": "red", "value": 2000 }
+                            ]
+                          },
+                          "unit": "ms"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
+                      "id": 18,
+                      "options": {
+                        "colorMode": "background",
+                        "graphMode": "none",
+                        "justifyMode": "center",
+                        "orientation": "auto",
+                        "reduceOptions": {
+                          "calcs": ["lastNotNull"],
+                          "fields": "",
+                          "values": false
+                        },
+                        "textMode": "value"
+                      },
+                      "targets": [
+                        {
+                          "expr": "quantile_over_time(0.95, probe_duration_seconds{job=\"blackbox-public-wiki\",namespace=\"wiki\",instance=\"{{ .Values.public_probe_targets.wiki }}\"}[30m]) * 1000",
+                          "refId": "A"
+                        }
+                      ],
+                      "title": "Wiki Probe p95 30m",
+                      "type": "stat"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "drawStyle": "line",
+                          "lineInterpolation": "linear",
+                          "lineWidth": 2,
+                          "fillOpacity": 10,
+                          "stacking": { "group": "A", "mode": "none" },
+                          "thresholdsStyle": { "mode": "line" },
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "green", "value": null },
+                              { "color": "red", "value": 0.995 },
+                              { "color": "yellow", "value": 0.99 }
+                            ]
+                          },
+                          "unit": "percentunit",
+                          "min": 0,
+                          "max": 1
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+                      "id": 8,
+                      "options": {
+                        "legend": { "calcs": ["lastNotNull", "mean"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+                        "tooltip": { "mode": "multi", "sort": "none" }
+                      },
+                      "targets": [
+                        {
+                          "expr": "sli:n8n_public_availability:ratio_5m",
+                          "legendFormat": "n8n 5m",
+                          "refId": "A"
+                        },
+                        {
+                          "expr": "sli:n8n_public_availability:ratio_30m",
+                          "legendFormat": "n8n 30m",
+                          "refId": "B"
+                        },
+                        {
+                          "expr": "sli:wiki_public_availability:ratio_5m",
+                          "legendFormat": "wiki 5m",
+                          "refId": "C"
+                        },
+                        {
+                          "expr": "sli:wiki_public_availability:ratio_30m",
+                          "legendFormat": "wiki 30m",
+                          "refId": "D"
+                        }
+                      ],
+                      "title": "Public Availability Over Time",
+                      "type": "timeseries"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "drawStyle": "line",
+                          "lineInterpolation": "linear",
+                          "lineWidth": 2,
+                          "fillOpacity": 10,
+                          "stacking": { "group": "A", "mode": "none" },
+                          "thresholdsStyle": { "mode": "line" },
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "green", "value": null },
+                              { "color": "yellow", "value": 1 },
+                              { "color": "red", "value": 2 }
+                            ]
+                          },
+                          "unit": "ms"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+                      "id": 9,
+                      "options": {
+                        "legend": { "calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+                        "tooltip": { "mode": "multi", "sort": "none" }
+                      },
+                      "targets": [
+                        {
+                          "expr": "quantile_over_time(0.95, probe_duration_seconds{job=\"blackbox-public-n8n\",namespace=\"n8n\",instance=\"{{ .Values.public_probe_targets.n8n }}\"}[30m]) * 1000",
+                          "legendFormat": "n8n p95",
+                          "refId": "A"
+                        },
+                        {
+                          "expr": "quantile_over_time(0.95, probe_duration_seconds{job=\"blackbox-public-wiki\",namespace=\"wiki\",instance=\"{{ .Values.public_probe_targets.wiki }}\"}[30m]) * 1000",
+                          "legendFormat": "wiki p95",
+                          "refId": "B"
+                        }
+                      ],
+                      "title": "Public Endpoint Latency p95",
+                      "type": "timeseries"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "drawStyle": "line",
+                          "lineInterpolation": "linear",
+                          "lineWidth": 2,
+                          "fillOpacity": 10,
+                          "stacking": { "group": "A", "mode": "none" },
+                          "thresholdsStyle": { "mode": "off" },
+                          "unit": "short"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 12 },
+                      "id": 14,
+                      "options": {
+                        "legend": { "calcs": ["lastNotNull", "mean"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+                        "tooltip": { "mode": "multi", "sort": "none" }
+                      },
+                      "targets": [
+                        {
+                          "expr": "((1 - sli:n8n_public_availability:ratio_5m) / (1 - {{ .Values.slo.n8n }}))",
+                          "legendFormat": "n8n 5m",
+                          "refId": "A"
+                        },
+                        {
+                          "expr": "((1 - sli:n8n_public_availability:ratio_1h) / (1 - {{ .Values.slo.n8n }}))",
+                          "legendFormat": "n8n 1h",
+                          "refId": "B"
+                        },
+                        {
+                          "expr": "((1 - sli:n8n_public_availability:ratio_30m) / (1 - {{ .Values.slo.n8n }}))",
+                          "legendFormat": "n8n 30m",
+                          "refId": "E"
+                        },
+                        {
+                          "expr": "((1 - sli:n8n_public_availability:ratio_6h) / (1 - {{ .Values.slo.n8n }}))",
+                          "legendFormat": "n8n 6h",
+                          "refId": "F"
+                        },
+                        {
+                          "expr": "((1 - sli:wiki_public_availability:ratio_5m) / (1 - {{ .Values.slo.wiki }}))",
+                          "legendFormat": "wiki 5m",
+                          "refId": "C"
+                        },
+                        {
+                          "expr": "((1 - sli:wiki_public_availability:ratio_1h) / (1 - {{ .Values.slo.wiki }}))",
+                          "legendFormat": "wiki 1h",
+                          "refId": "D"
+                        },
+                        {
+                          "expr": "((1 - sli:wiki_public_availability:ratio_30m) / (1 - {{ .Values.slo.wiki }}))",
+                          "legendFormat": "wiki 30m",
+                          "refId": "G"
+                        },
+                        {
+                          "expr": "((1 - sli:wiki_public_availability:ratio_6h) / (1 - {{ .Values.slo.wiki }}))",
+                          "legendFormat": "wiki 6h",
+                          "refId": "H"
+                        }
+                      ],
+                      "title": "Burn Rate Over Time",
+                      "type": "timeseries"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "drawStyle": "line",
+                          "lineInterpolation": "linear",
+                          "lineWidth": 2,
+                          "fillOpacity": 10,
+                          "stacking": { "group": "A", "mode": "none" },
+                          "thresholdsStyle": { "mode": "off" },
+                          "unit": "reqps"
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 20 },
+                      "id": 15,
+                      "options": {
+                        "legend": { "calcs": ["lastNotNull", "mean"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+                        "tooltip": { "mode": "multi", "sort": "none" }
+                      },
+                      "targets": [
+                        {
+                          "expr": "sli:n8n_ingress_requests:rate5m",
+                          "legendFormat": "n8n",
+                          "refId": "A"
+                        },
+                        {
+                          "expr": "sli:wiki_ingress_requests:rate5m",
+                          "legendFormat": "wiki",
+                          "refId": "B"
+                        }
+                      ],
+                      "title": "Ingress Request Rate",
+                      "type": "timeseries"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "drawStyle": "line",
+                          "lineInterpolation": "linear",
+                          "lineWidth": 2,
+                          "fillOpacity": 10,
+                          "stacking": { "group": "A", "mode": "none" },
+                          "thresholdsStyle": { "mode": "line" },
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "green", "value": null },
+                              { "color": "red", "value": 0.05 }
+                            ]
+                          },
+                          "unit": "percentunit",
+                          "min": 0,
+                          "max": 0.2
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 20 },
+                      "id": 16,
+                      "options": {
+                        "legend": { "calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+                        "tooltip": { "mode": "multi", "sort": "none" }
+                      },
+                      "targets": [
+                        {
+                          "expr": "sli:n8n_ingress_5xx:ratio5m",
+                          "legendFormat": "n8n",
+                          "refId": "A"
+                        },
+                        {
+                          "expr": "sli:wiki_ingress_5xx:ratio5m",
+                          "legendFormat": "wiki",
+                          "refId": "B"
+                        }
+                      ],
+                      "title": "Ingress 5xx Ratio",
+                      "type": "timeseries"
+                    },
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                      },
+                      "fieldConfig": {
+                        "defaults": {
+                          "drawStyle": "line",
+                          "lineInterpolation": "linear",
+                          "lineWidth": 2,
+                          "fillOpacity": 10,
+                          "stacking": { "group": "A", "mode": "none" },
+                          "thresholdsStyle": { "mode": "line" },
+                          "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                              { "color": "green", "value": null },
+                              { "color": "red", "value": 1 }
+                            ]
+                          },
+                          "unit": "s",
+                          "min": 0
+                        },
+                        "overrides": []
+                      },
+                      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 20 },
+                      "id": 17,
+                      "options": {
+                        "legend": { "calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+                        "tooltip": { "mode": "multi", "sort": "none" }
+                      },
+                      "targets": [
+                        {
+                          "expr": "sli:n8n_ingress_latency:p95_5m",
+                          "legendFormat": "n8n",
+                          "refId": "A"
+                        },
+                        {
+                          "expr": "sli:wiki_ingress_latency:p95_5m",
+                          "legendFormat": "wiki",
+                          "refId": "B"
+                        }
+                      ],
+                      "title": "Ingress p95 Latency",
+                      "type": "timeseries"
+                    }
+                  ],
+                  "refresh": "30s",
+                  "schemaVersion": 39,
+                  "tags": ["observability", "public-endpoints", "edge"],
+                  "templating": {
+                    "list": [
+                      {
+                        "current": {
+                          "selected": true,
+                          "text": "default",
+                          "value": "default"
+                        },
+                        "hide": 0,
+                        "label": "Data source",
+                        "name": "datasource",
+                        "query": "prometheus",
+                        "regex": "",
+                        "type": "datasource"
+                      }
+                    ]
+                  },
+                  "time": {
+                    "from": "now-6h",
+                    "to": "now"
+                  },
+                  "timezone": "",
+                  "title": "Public Endpoints / Edge",
+                  "uid": "observability-public-endpoints",
+                  "version": 1,
+                  "weekStart": ""
+                }
