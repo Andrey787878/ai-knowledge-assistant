@@ -1,28 +1,18 @@
-# PostgreSQL: backup и restore (Этап B)
+# PostgreSQL: резервное копирование и восстановление (этап B)
 
-Короткий ранбук по резервному копированию и восстановлению PostgreSQL в Kubernetes.
+Документ описывает резервное копирование и восстановление PostgreSQL в
+Kubernetes-контуре этапа B. Здесь собраны команды для ручного запуска backup,
+one-shot restore и проверки базы после восстановления.
 
-## Оглавление
-
-- [Что используется](#step-1)
-- [Проверка перед работой](#step-2)
-- [Запуск backup](#step-3)
-- [Запуск restore](#step-4)
-- [Проверка после restore](#step-5)
-- [Частые ошибки](#step-6)
-
-<a id="step-1"></a>
-
-## Что используется
+## Что использует этот сценарий
 
 - `deploy/kubernetes/apps/postgres/releases/backup-cronjob.yaml`
 - `deploy/kubernetes/apps/postgres/releases/restore-job.yaml`
 - `deploy/kubernetes/apps/postgres/scripts/backup-postgres.sh`
 - `deploy/kubernetes/apps/postgres/scripts/restore-postgres.sh`
 
-Backup хранится в PVC `postgres-backups` через CronJob `postgres-backup`.
-
-<a id="step-2"></a>
+Резервные копии хранятся в PVC `postgres-backups` через CronJob
+`postgres-backup`.
 
 ## Проверка перед работой
 
@@ -39,9 +29,7 @@ cd deploy/kubernetes/apps/postgres
 helmfile -e prod sync
 ```
 
-<a id="step-3"></a>
-
-## Запуск backup
+## Запуск резервного копирования
 
 Ручной запуск из CronJob:
 
@@ -75,11 +63,9 @@ bash scripts/backup-postgres.sh
 - правим `environments/prod/backup.values.yaml`
 - применяем `helmfile -e prod sync`
 
-<a id="step-4"></a>
+## Запуск восстановления
 
-## Запуск restore
-
-One-shot restore через `helmfile.restore.yaml`:
+Одноразовое восстановление через `helmfile.restore.yaml`:
 
 ```bash
 cd deploy/kubernetes/apps/postgres
@@ -92,7 +78,7 @@ helmfile -f helmfile.restore.yaml -e prod \
   sync
 ```
 
-После завершения выключить restore release:
+После завершения удалить restore-release:
 
 ```bash
 cd deploy/kubernetes/apps/postgres
@@ -108,9 +94,7 @@ RESTORE_CONFIRM=YES bash scripts/restore-postgres.sh /var/backups/ai-agent/postg
 
 Примечание: `scripts/restore-postgres.sh` читает backup из локального пути на машине оператора.
 
-<a id="step-5"></a>
-
-## Проверка после restore
+## Проверка после восстановления
 
 ```bash
 kubectl -n db exec postgres-postgresql-0 -- sh -lc '
@@ -125,8 +109,6 @@ PGPASSWORD="$PW" psql -U postgres -d wikijs -tAc "SELECT 1"
 
 - `wiki` читает/пишет в `wikijs` БД
 - `n8n` выполняет workflow без ошибок БД
-
-<a id="step-6"></a>
 
 ## Частые ошибки
 
