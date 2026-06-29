@@ -13,14 +13,27 @@ blackbox:
       url: http://n8n-web-svc.n8n.svc.cluster.local/healthz
       app: n8n
       namespace: n8n
+      module: http_2xx
     wiki:
       url: http://wikijs.wiki.svc.cluster.local/healthz
       app: wiki
       namespace: wiki
+      module: http_2xx
     ollama:
       url: http://ollama-svc.ollama.svc.cluster.local:11434/api/version
       app: ollama
       namespace: ollama
+      module: http_2xx
+    postgres:
+      url: postgres-postgresql.db.svc.cluster.local:5432
+      app: postgres
+      namespace: db
+      module: tcp_connect
+    redis:
+      url: redis-master.n8n.svc.cluster.local:6379
+      app: redis
+      namespace: n8n
+      module: tcp_connect
   # Public HTTPS probes are disabled in CI: there is no real ingress/TLS in the
   # validation environment, and external endpoints must not be probed from CI.
   publicTargets: {}
