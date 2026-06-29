@@ -22,7 +22,7 @@ releases:
             spec:
               jobName: blackbox-n8n
               interval: {{ .Values.blackbox.interval | quote }}
-              module: {{ .Values.blackbox.module | quote }}
+              module: {{ .Values.blackbox.targets.n8n.module | quote }}
               prober:
                 url: blackbox-exporter.{{ .Values.namespace }}.svc.cluster.local:9115
                 scheme: http
@@ -48,7 +48,7 @@ releases:
             spec:
               jobName: blackbox-wiki
               interval: {{ .Values.blackbox.interval | quote }}
-              module: {{ .Values.blackbox.module | quote }}
+              module: {{ .Values.blackbox.targets.wiki.module | quote }}
               prober:
                 url: blackbox-exporter.{{ .Values.namespace }}.svc.cluster.local:9115
                 scheme: http
@@ -74,7 +74,7 @@ releases:
             spec:
               jobName: blackbox-ollama
               interval: {{ .Values.blackbox.interval | quote }}
-              module: {{ .Values.blackbox.module | quote }}
+              module: {{ .Values.blackbox.targets.ollama.module | quote }}
               prober:
                 url: blackbox-exporter.{{ .Values.namespace }}.svc.cluster.local:9115
                 scheme: http
@@ -86,6 +86,58 @@ releases:
                   labels:
                     app: {{ .Values.blackbox.targets.ollama.app | quote }}
                     namespace: {{ .Values.blackbox.targets.ollama.namespace | quote }}
+                    signal: availability
+
+          - apiVersion: monitoring.coreos.com/v1
+            kind: Probe
+            metadata:
+              name: postgres
+              labels:
+                release: kube-prometheus-stack
+                app.kubernetes.io/name: blackbox-probe
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              jobName: blackbox-postgres
+              interval: {{ .Values.blackbox.interval | quote }}
+              module: {{ .Values.blackbox.targets.postgres.module | quote }}
+              prober:
+                url: blackbox-exporter.{{ .Values.namespace }}.svc.cluster.local:9115
+                scheme: http
+                path: /probe
+              targets:
+                staticConfig:
+                  static:
+                    - {{ .Values.blackbox.targets.postgres.url | quote }}
+                  labels:
+                    app: {{ .Values.blackbox.targets.postgres.app | quote }}
+                    namespace: {{ .Values.blackbox.targets.postgres.namespace | quote }}
+                    signal: availability
+
+          - apiVersion: monitoring.coreos.com/v1
+            kind: Probe
+            metadata:
+              name: redis
+              labels:
+                release: kube-prometheus-stack
+                app.kubernetes.io/name: blackbox-probe
+                app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
+                app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
+            spec:
+              jobName: blackbox-redis
+              interval: {{ .Values.blackbox.interval | quote }}
+              module: {{ .Values.blackbox.targets.redis.module | quote }}
+              prober:
+                url: blackbox-exporter.{{ .Values.namespace }}.svc.cluster.local:9115
+                scheme: http
+                path: /probe
+              targets:
+                staticConfig:
+                  static:
+                    - {{ .Values.blackbox.targets.redis.url | quote }}
+                  labels:
+                    app: {{ .Values.blackbox.targets.redis.app | quote }}
+                    namespace: {{ .Values.blackbox.targets.redis.namespace | quote }}
                     signal: availability
 
           {{- if .Values.blackbox.publicTargets }}

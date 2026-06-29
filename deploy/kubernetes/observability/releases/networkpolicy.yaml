@@ -556,6 +556,28 @@ releases:
                 - to:
                     - namespaceSelector:
                         matchLabels:
+                          kubernetes.io/metadata.name: db
+                      podSelector:
+                        matchLabels:
+                          app.kubernetes.io/instance: postgres
+                          app.kubernetes.io/name: postgresql
+                  ports:
+                    - protocol: TCP
+                      port: 5432
+                - to:
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: n8n
+                      podSelector:
+                        matchLabels:
+                          app.kubernetes.io/instance: redis
+                          app.kubernetes.io/name: redis
+                  ports:
+                    - protocol: TCP
+                      port: 6379
+                - to:
+                    - namespaceSelector:
+                        matchLabels:
                           kubernetes.io/metadata.name: kube-system
                       podSelector:
                         matchLabels:

@@ -47,6 +47,12 @@ releases:
                       podSelector:
                         matchLabels:
                           app.kubernetes.io/name: n8n
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: observability
+                      podSelector:
+                        matchLabels:
+                          app.kubernetes.io/name: blackbox-exporter
                   ports:
                     - protocol: TCP
                       port: 6379

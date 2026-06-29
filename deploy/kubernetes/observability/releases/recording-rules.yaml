@@ -24,45 +24,45 @@ releases:
                   interval: 30s
                   rules:
                     - record: sli:n8n_availability:ratio_5m
-                      expr: avg_over_time(probe_success{job="blackbox-n8n",namespace="n8n"}[5m])
+                      expr: avg(avg_over_time(probe_success{job="blackbox-n8n",namespace="n8n"}[5m])) or on() vector(0)
                     - record: sli:n8n_availability:ratio_30m
-                      expr: avg_over_time(probe_success{job="blackbox-n8n",namespace="n8n"}[30m])
+                      expr: avg(avg_over_time(probe_success{job="blackbox-n8n",namespace="n8n"}[30m])) or on() vector(0)
                     - record: sli:wiki_availability:ratio_5m
-                      expr: avg_over_time(probe_success{job="blackbox-wiki",namespace="wiki"}[5m])
+                      expr: avg(avg_over_time(probe_success{job="blackbox-wiki",namespace="wiki"}[5m])) or on() vector(0)
                     - record: sli:wiki_availability:ratio_30m
-                      expr: avg_over_time(probe_success{job="blackbox-wiki",namespace="wiki"}[30m])
+                      expr: avg(avg_over_time(probe_success{job="blackbox-wiki",namespace="wiki"}[30m])) or on() vector(0)
                     - record: sli:ollama_availability:ratio_5m
-                      expr: avg_over_time(probe_success{job="blackbox-ollama",namespace="ollama"}[5m])
+                      expr: avg(avg_over_time(probe_success{job="blackbox-ollama",namespace="ollama"}[5m])) or on() vector(0)
                     - record: sli:ollama_availability:ratio_30m
-                      expr: avg_over_time(probe_success{job="blackbox-ollama",namespace="ollama"}[30m])
+                      expr: avg(avg_over_time(probe_success{job="blackbox-ollama",namespace="ollama"}[30m])) or on() vector(0)
                     - record: sli:n8n_public_availability:ratio_5m
-                      expr: avg(avg_over_time(probe_success{job="blackbox-public-n8n",namespace="n8n",instance={{ .Values.public_probe_targets.n8n | quote }}}[5m]))
+                      expr: avg(avg_over_time(probe_success{job="blackbox-public-n8n",namespace="n8n",instance={{ .Values.public_probe_targets.n8n | quote }}}[5m])) or on() vector(0)
                     - record: sli:n8n_public_availability:ratio_30m
-                      expr: avg(avg_over_time(probe_success{job="blackbox-public-n8n",namespace="n8n",instance={{ .Values.public_probe_targets.n8n | quote }}}[30m]))
+                      expr: avg(avg_over_time(probe_success{job="blackbox-public-n8n",namespace="n8n",instance={{ .Values.public_probe_targets.n8n | quote }}}[30m])) or on() vector(0)
                     - record: sli:n8n_public_availability:ratio_1h
-                      expr: avg(avg_over_time(probe_success{job="blackbox-public-n8n",namespace="n8n",instance={{ .Values.public_probe_targets.n8n | quote }}}[1h]))
+                      expr: avg(avg_over_time(probe_success{job="blackbox-public-n8n",namespace="n8n",instance={{ .Values.public_probe_targets.n8n | quote }}}[1h])) or on() vector(0)
                     - record: sli:n8n_public_availability:ratio_6h
-                      expr: avg(avg_over_time(probe_success{job="blackbox-public-n8n",namespace="n8n",instance={{ .Values.public_probe_targets.n8n | quote }}}[6h]))
+                      expr: avg(avg_over_time(probe_success{job="blackbox-public-n8n",namespace="n8n",instance={{ .Values.public_probe_targets.n8n | quote }}}[6h])) or on() vector(0)
                     - record: sli:wiki_public_availability:ratio_5m
-                      expr: avg(avg_over_time(probe_success{job="blackbox-public-wiki",namespace="wiki",instance={{ .Values.public_probe_targets.wiki | quote }}}[5m]))
+                      expr: avg(avg_over_time(probe_success{job="blackbox-public-wiki",namespace="wiki",instance={{ .Values.public_probe_targets.wiki | quote }}}[5m])) or on() vector(0)
                     - record: sli:wiki_public_availability:ratio_30m
-                      expr: avg(avg_over_time(probe_success{job="blackbox-public-wiki",namespace="wiki",instance={{ .Values.public_probe_targets.wiki | quote }}}[30m]))
+                      expr: avg(avg_over_time(probe_success{job="blackbox-public-wiki",namespace="wiki",instance={{ .Values.public_probe_targets.wiki | quote }}}[30m])) or on() vector(0)
                     - record: sli:wiki_public_availability:ratio_1h
-                      expr: avg(avg_over_time(probe_success{job="blackbox-public-wiki",namespace="wiki",instance={{ .Values.public_probe_targets.wiki | quote }}}[1h]))
+                      expr: avg(avg_over_time(probe_success{job="blackbox-public-wiki",namespace="wiki",instance={{ .Values.public_probe_targets.wiki | quote }}}[1h])) or on() vector(0)
                     - record: sli:wiki_public_availability:ratio_6h
-                      expr: avg(avg_over_time(probe_success{job="blackbox-public-wiki",namespace="wiki",instance={{ .Values.public_probe_targets.wiki | quote }}}[6h]))
+                      expr: avg(avg_over_time(probe_success{job="blackbox-public-wiki",namespace="wiki",instance={{ .Values.public_probe_targets.wiki | quote }}}[6h])) or on() vector(0)
                     - record: sli:n8n_metrics_target:ratio_5m
-                      expr: avg_over_time(up{job="n8n-web",namespace="n8n"}[5m])
+                      expr: avg(avg_over_time(up{job="n8n-web",namespace="n8n"}[5m])) or on() vector(0)
                     - record: sli:n8n_metrics_target:ratio_30m
-                      expr: avg_over_time(up{job="n8n-web",namespace="n8n"}[30m])
+                      expr: avg(avg_over_time(up{job="n8n-web",namespace="n8n"}[30m])) or on() vector(0)
                     - record: sli:postgres_availability:ratio_5m
-                      expr: avg_over_time(up{job=~".*postgresql-metrics.*",namespace="db"}[5m])
+                      expr: avg(avg_over_time(probe_success{job="blackbox-postgres",namespace="db"}[5m])) or on() vector(0)
                     - record: sli:postgres_availability:ratio_30m
-                      expr: avg_over_time(up{job=~".*postgresql-metrics.*",namespace="db"}[30m])
+                      expr: avg(avg_over_time(probe_success{job="blackbox-postgres",namespace="db"}[30m])) or on() vector(0)
                     - record: sli:redis_availability:ratio_5m
-                      expr: avg_over_time(up{job=~".*redis-metrics.*",namespace="n8n"}[5m])
+                      expr: avg(avg_over_time(probe_success{job="blackbox-redis",namespace="n8n"}[5m])) or on() vector(0)
                     - record: sli:redis_availability:ratio_30m
-                      expr: avg_over_time(up{job=~".*redis-metrics.*",namespace="n8n"}[30m])
+                      expr: avg(avg_over_time(probe_success{job="blackbox-redis",namespace="n8n"}[30m])) or on() vector(0)
                 - name: rollout
                   interval: 30s
                   rules:
@@ -93,19 +93,14 @@ releases:
                     - record: rollout:n8n_deploy_window
                       expr: |
                         (
+                          time() - kube_deployment_created{namespace="n8n",deployment="n8n-web"} < 20 * 60
+                        )
+                        or on() (
                           kube_deployment_metadata_generation{namespace="n8n",deployment="n8n-web"}
                           != kube_deployment_status_observed_generation{namespace="n8n",deployment="n8n-web"}
                         )
                         or on() (
                           changes(kube_deployment_metadata_generation{namespace="n8n",deployment="n8n-web"}[20m]) > 0
-                        )
-                    - record: rollout:n8n_bootstrap_window
-                      expr: |
-                        (
-                          (time() - kube_deployment_created{namespace="n8n",deployment="n8n-web"}) < 1200
-                        )
-                        or on() (
-                          absent(kube_deployment_status_replicas_available{namespace="n8n",deployment="n8n-web"})
                         )
                     - record: rollout:n8n_burn_cooldown
                       expr: max_over_time(rollout:n8n_active[75m]) > 0
@@ -136,19 +131,14 @@ releases:
                     - record: rollout:wiki_deploy_window
                       expr: |
                         (
+                          time() - kube_deployment_created{namespace="wiki",deployment="wikijs"} < 20 * 60
+                        )
+                        or on() (
                           kube_deployment_metadata_generation{namespace="wiki",deployment="wikijs"}
                           != kube_deployment_status_observed_generation{namespace="wiki",deployment="wikijs"}
                         )
                         or on() (
                           changes(kube_deployment_metadata_generation{namespace="wiki",deployment="wikijs"}[20m]) > 0
-                        )
-                    - record: rollout:wiki_bootstrap_window
-                      expr: |
-                        (
-                          (time() - kube_deployment_created{namespace="wiki",deployment="wikijs"}) < 1200
-                        )
-                        or on() (
-                          absent(kube_deployment_status_replicas_available{namespace="wiki",deployment="wikijs"})
                         )
                     - record: rollout:wiki_burn_cooldown
                       expr: max_over_time(rollout:wiki_active[75m]) > 0
@@ -179,19 +169,14 @@ releases:
                     - record: rollout:ollama_deploy_window
                       expr: |
                         (
+                          time() - kube_deployment_created{namespace="ollama",deployment="ollama"} < 20 * 60
+                        )
+                        or on() (
                           kube_deployment_metadata_generation{namespace="ollama",deployment="ollama"}
                           != kube_deployment_status_observed_generation{namespace="ollama",deployment="ollama"}
                         )
                         or on() (
                           changes(kube_deployment_metadata_generation{namespace="ollama",deployment="ollama"}[20m]) > 0
-                        )
-                    - record: rollout:ollama_bootstrap_window
-                      expr: |
-                        (
-                          (time() - kube_deployment_created{namespace="ollama",deployment="ollama"}) < 1200
-                        )
-                        or on() (
-                          absent(kube_deployment_status_replicas_available{namespace="ollama",deployment="ollama"})
                         )
                     - record: rollout:ollama_burn_cooldown
                       expr: max_over_time(rollout:ollama_active[75m]) > 0

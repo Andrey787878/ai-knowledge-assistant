@@ -1,8 +1,10 @@
 # PostgreSQL: резервное копирование и восстановление
 
-## Область
+## Что описывает документ
 
-Документ описывает эксплуатационный процесс резервного копирования и восстановления PostgreSQL.
+Документ описывает порядок резервного копирования и восстановления PostgreSQL
+в контуре этапа A. Здесь собраны команды ручного запуска, расположение
+артефактов и шаги проверки после восстановления.
 
 Используемые компоненты:
 
@@ -18,7 +20,7 @@
 - В текущей shell-сессии задан `ANSIBLE_VAULT_PASSWORD_FILE`
   (см. [deploy/ansible/README.md, шаг 3](../../deploy/ansible/README.md#step-3)).
 
-## Где лежат backup-артефакты
+## Где лежат резервные копии
 
 По умолчанию:
 
@@ -33,7 +35,7 @@
 - `wikijs.dump`,
 - `SHA256SUMS`.
 
-## Запуск backup вручную
+## Ручной запуск резервного копирования
 
 ```bash
 cd deploy/ansible
@@ -46,7 +48,7 @@ Playbook:
 2. запускает `backup-postgres.sh`,
 3. делает post-check (`current`, `SHA256SUMS`, dump count, non-empty files).
 
-## Включение cron backup
+## Включение резервного копирования по расписанию
 
 Пример:
 
@@ -57,7 +59,7 @@ postgres_backup_cron_schedule: '30 2 * * *'
 
 Применить через `site.yml` или отдельный playbook.
 
-## Запуск restore
+## Запуск восстановления
 
 Перед restore рекомендуется остановить или изолировать writers (`n8n`, `wikijs`).
 
@@ -110,7 +112,7 @@ ansible-playbook -i inventories/cloud/hosts.yml playbooks/restore_postgres.yml \
 
 Практика: для предсказуемости лучше передавать в restore разрешенный timestamp-путь через `readlink -f`, а не `current`.
 
-## Проверка после restore
+## Проверка после восстановления
 
 ```bash
 cd deploy/ansible

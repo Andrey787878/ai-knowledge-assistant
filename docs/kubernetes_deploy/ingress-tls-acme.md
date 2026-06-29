@@ -1,6 +1,6 @@
 # Edge TLS через cert-manager + Let's Encrypt (HTTP-01)
 
-## Область
+## Что описывает документ
 
 Документ описывает выпуск и продление публичных TLS-сертификатов на этапе B.
 
@@ -10,7 +10,7 @@
 - `ClusterIssuer`
 - Traefik ingress controller
 
-## Как устроено
+## Как устроен этот слой
 
 1. В `platform` устанавливается `cert-manager`.
 2. В `platform` создается `ClusterIssuer`.

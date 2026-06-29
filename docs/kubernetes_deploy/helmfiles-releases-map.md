@@ -1,6 +1,6 @@
-# Карта этапа B: bootstrap, Helmfile и releases
+# Карта этапа B: bootstrap, Helmfile и release-файлы
 
-## Область
+## Что описывает документ
 
 Документ показывает, кто за что отвечает на этапе B:
 
@@ -9,7 +9,7 @@
 - Helmfile platform/apps,
 - release-файлы и значения (`values`/`secrets`).
 
-## Общая архитектура запуска
+## Общий порядок запуска
 
 Порядок этапа B:
 
@@ -40,7 +40,7 @@ Playbook:
 - `deploy/kubernetes/bootstrap/inventories/cloud/group_vars/all/main.yml`
 - `deploy/kubernetes/bootstrap/inventories/cloud/group_vars/all/zz-local.yml`
 
-## Helmfile: верхний уровень
+## Верхний уровень Helmfile
 
 В [deploy/kubernetes/helmfile.yaml](../../deploy/kubernetes/helmfile.yaml) слои идут строго по порядку:
 
@@ -52,7 +52,7 @@ Playbook:
 6. `apps/ollama/helmfile.yaml`
 7. `apps/n8n/helmfile.yaml`
 
-## Platform слой
+## Слой platform
 
 Helmfile:
 
@@ -68,7 +68,7 @@ Values:
 - `environments/prod/platform.values.yaml`
 - `environments/prod/cluster-issuer.values.yaml`
 
-## Observability слой
+## Слой observability
 
 Helmfile:
 
@@ -90,7 +90,7 @@ Values:
 - `environments/prod/alloy.values.yaml`
 - `environments/prod/secrets.values.enc.yaml`
 
-## Apps слой (карта по namespace)
+## Слой приложений по namespace
 
 ### `db` namespace (PostgreSQL)
 

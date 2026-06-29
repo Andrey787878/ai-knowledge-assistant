@@ -133,6 +133,24 @@ alertmanager:
           - namespace
       - target_matchers:
           - 'alertname = InfoInhibitor'
+      - source_matchers:
+          - 'alertname = RedisDown'
+          - 'service = redis'
+        target_matchers:
+          - 'service = n8n'
+          - 'alertname =~ N8nDown|N8nPublicEndpointDown'
+      - source_matchers:
+          - 'alertname = PostgresDown'
+          - 'service = postgres'
+        target_matchers:
+          - 'service = n8n'
+          - 'alertname =~ N8nDown|N8nPublicEndpointDown'
+      - source_matchers:
+          - 'alertname = PostgresDown'
+          - 'service = postgres'
+        target_matchers:
+          - 'service = wiki'
+          - 'alertname =~ WikiDown|WikiPublicEndpointDown'
     route:
       group_by:
         - namespace
@@ -140,44 +158,16 @@ alertmanager:
       group_wait: 30s
       group_interval: 5m
       repeat_interval: 4h
-      receiver: email-default
+      receiver: "null"
       routes:
-        # SLO history alerts (*AvailabilityDegraded, *BurnRateFast/Slow) are
-        # useful in the observability layer but noisy over email: they are
-        # computed on 30m/1h/6h windows and tend to fire (and then send
-        # resolved) as a tail after a rollout rather than signalling a
-        # current outage. Route them to the null receiver so they stay
-        # visible in Alertmanager/Grafana but never reach the inbox and do
-        # not generate resolved notifications.
-        - receiver: "null"
+        # Email is intentionally allowlist-based: only root outages, public
+        # user-facing outages, ingress quality regressions, backup failure,
+        # and broken notification delivery reach the inbox. All other alerts
+        # remain visible in Alertmanager UI and Grafana through the root null
+        # receiver.
+        - receiver: email-default
           matchers:
-            - alertname =~ ".*AvailabilityDegraded"
-        - receiver: "null"
-          matchers:
-            - alertname =~ ".*BurnRateFast"
-        - receiver: "null"
-          matchers:
-            - alertname =~ ".*BurnRateSlow"
-        # PrometheusScrapeHealthDegraded is a 30m-window history signal over
-        # scrape quality per job/namespace. During bootstrap or a deploy it
-        # remembers a temporary scrape gap (e.g. n8n-web was down while its new
-        # pod started) and fires a warning + resolved tail. It is not an
-        # immediate incident requiring action: actual scrape failure of core
-        # targets is surfaced by *Down alerts and Prometheus self-alerts from
-        # kube-prometheus-stack. Route it to the null receiver so it stays
-        # visible in Alertmanager UI / Grafana but does not spam the inbox.
-        - receiver: "null"
-          matchers:
-            - alertname = "PrometheusScrapeHealthDegraded"
-        - receiver: "null"
-          matchers:
-            - alertname = "Watchdog"
-        - receiver: "null"
-          matchers:
-            - alertname = "InfoInhibitor"
-        - receiver: "null"
-          matchers:
-            - severity = "info"
+            - alertname =~ "N8nDown|WikiDown|OllamaDown|N8nPublicEndpointDown|WikiPublicEndpointDown|PostgresDown|RedisDown|PostgresBackupFailed|AlertmanagerNotificationsDown|AlertmanagerNotificationsFailing|AlertmanagerNoMetrics|N8nIngress5xxHigh|WikiIngress5xxHigh|N8nIngressLatencyP95High|WikiIngressLatencyP95High"
     receivers:
       - name: email-default
         email_configs:

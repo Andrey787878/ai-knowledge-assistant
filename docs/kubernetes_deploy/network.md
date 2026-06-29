@@ -1,12 +1,13 @@
 # Сеть Kubernetes-деплоя (Этап B, single-node k3s)
 
-## Цель сетевой модели
+## Что описывает документ
 
-В Этапе B сеть построена как zero-trust для pod-сети при сохранении управляемого edge-доступа:
+В этапе B сеть построена по модели `default deny` для pod-сети при сохранении
+управляемого внешнего доступа:
 
-- публичный периметр ограничен CIDR allow-list,
-- внутри кластера действует `default deny` и разрешены только явные сервисные потоки,
-- ingress, TLS и ACME встроены в единую модель (Traefik + cert-manager).
+- публичный периметр ограничен CIDR-списком доступа,
+- внутри кластера действует `default deny`, а разрешены только явные сервисные потоки,
+- ingress, TLS и ACME встроены в единую модель `Traefik + cert-manager`.
 
 ## Схема сети
 
@@ -25,7 +26,7 @@
   </a>
 </p>
 
-## Источники правил (код)
+## Источники сетевых правил в коде
 
 - Terraform сеть и SG:
   - `deploy/terraform/k3s_deploy/network.tf`
@@ -43,18 +44,18 @@
   - `deploy/kubernetes/observability/releases/networkpolicy.yaml`
   - `deploy/kubernetes/observability/network-policies.md`
 
-## Сетевые зоны и границы доверия
+## Сетевые зоны и границы доступа
 
 - одна VM `k3s` (по умолчанию subnet `10.20.0.0/24`) с public IP;
-- одна private-only VM `runner` в той же subnet без публичного IP;
+- одна private-only VM `runner` в той же подсети без публичного IP;
 - внешний вход только через `80/443` edge-порты и ограниченный `6443`;
 - основная изоляция сервисов реализована внутри кластера через NetworkPolicy;
-- private egress для runner обеспечивается через `NAT Gateway + route table`,
+- исходящий доступ runner обеспечивается через `NAT Gateway + route table`,
   а не через отдельный публичный IP.
 
-## Многоуровневые сетевые контроли
+## Многоуровневые сетевые ограничения
 
-### Cloud Security Group (внешний периметр)
+### Cloud Security Group во внешнем периметре
 
 `k3s_sg`:
 
@@ -72,7 +73,7 @@
   registry и DNS;
 - входа извне из интернета нет.
 
-### Host firewall (UFW, bootstrap)
+### Host firewall на этапе bootstrap
 
 - incoming: `deny`
 - outgoing: `allow`
@@ -82,7 +83,7 @@
   - `80/tcp` из `edge_http_cidrs`
   - `443/tcp` из `edge_allowed_client_cidrs`
 
-### Kubernetes NetworkPolicy (внутренний периметр)
+### Kubernetes NetworkPolicy во внутреннем периметре
 
 - в `db`, `n8n`, `wiki`, `ollama`, `observability` используется `default deny` (`Ingress + Egress`),
 - далее добавляются только целевые `allow` policy,
@@ -91,9 +92,10 @@
 Полная матрица observability-потоков, порядок безопасного включения и rollback
 описаны в `deploy/kubernetes/observability/network-policies.md`.
 
-Важно: в `n8n` namespace policy Redis selector-ограничена (применяется к redis pod-ам), что корректно для этой роли.
+Важно: в `n8n` namespace policy для Redis ограничена selector-ом и
+применяется именно к redis pod-ам, что корректно для этой роли.
 
-## Модель доступов
+## Модель доступа
 
 ### Административный доступ
 
@@ -104,11 +106,11 @@
 
 ### Пользовательский доступ
 
-- UI-сервисы (`wiki`, `n8n`) публикуются через Traefik Ingress.
+- UI-сервисы `wiki` и `n8n` публикуются через Traefik Ingress.
 - Публичный HTTPS доступ ограничен `edge_allowed_client_cidrs`.
 - `80/tcp` используется для ACME HTTP-01 и редиректа на HTTPS.
 
-### Внутренние сервисные потоки (Ingress, pod-level)
+### Внутренние сервисные потоки
 
 | Источник                                  | Назначение                  | Порт        | Где задано                             |
 | ----------------------------------------- | --------------------------- | ----------- | -------------------------------------- |
@@ -122,12 +124,14 @@
 | `observability/blackbox-exporter`         | `n8n/web`                   | `5678/tcp`  | `n8n/releases/networkpolicy.yaml`      |
 | `observability/blackbox-exporter`         | `wiki/wikijs`               | `3000/tcp`  | `wiki/releases/networkpolicy.yaml`     |
 | `observability/blackbox-exporter`         | `ollama`                    | `11434/tcp` | `ollama/releases/networkpolicy.yaml`   |
+| `observability/blackbox-exporter`         | `db/postgresql`             | `5432/tcp`  | `postgres/releases/networkpolicy.yaml` |
+| `observability/blackbox-exporter`         | `n8n/redis`                 | `6379/tcp`  | `redis/releases/networkpolicy.yaml`    |
 | `kube-system/traefik`                     | `n8n/http01-solver`         | `8089/tcp`  | `n8n/releases/networkpolicy.yaml`      |
 | `kube-system/traefik`                     | `wiki/http01-solver`        | `8089/tcp`  | `wiki/releases/networkpolicy.yaml`     |
 
 Примечание: для Traefik учитываются оба варианта labels (`app.kubernetes.io/name=traefik` и `app=traefik`).
 
-## Egress модель (pod-level)
+## Модель исходящих соединений
 
 | Источник                    | Назначение                 | Порт         | Где задано                             |
 | --------------------------- | -------------------------- | ------------ | -------------------------------------- |
@@ -147,7 +151,7 @@
 
 Ключевой момент:
 
-- Internet egress на `443/tcp` разрешен runtime pod-ам Ollama,
+- исходящий доступ в интернет на `443/tcp` разрешен runtime pod-ам Ollama,
 - DNS egress разрешен только workload-ам, которым он нужен.
 
 ## DNS и TLS в сетевой модели
@@ -165,7 +169,8 @@
 - прямой SSH к runner извне,
 - произвольный Internet egress для большинства приложений.
 
-Примечание: pull container images выполняется node-level компонентами (`container runtime`/`kubelet`) и не ограничивается Kubernetes NetworkPolicy.
+Примечание: загрузка container images выполняется node-level компонентами
+(`container runtime`/`kubelet`) и не ограничивается Kubernetes NetworkPolicy.
 
 ## Проверки: автоматические и операционные
 
@@ -179,7 +184,7 @@
   - доступные replicas у Traefik, если Traefik не отключен,
   - `deploy/kubernetes/bootstrap/playbooks/smoke.yml`
 
-### Операционные (runbook)
+### Операционные проверки
 
 ```bash
 kubectl -n db get networkpolicy

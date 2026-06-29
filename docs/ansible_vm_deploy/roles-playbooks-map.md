@@ -1,10 +1,12 @@
-# Карта Ansible: роли и playbook
+# Карта Ansible: роли и плейбуки
 
-## Область
+## Что описывает документ
 
-Документ описывает карту ролей и playbook Ansible-этапа A, включая зону ответственности и порядок применения.
+Документ показывает, как устроен Ansible-контур этапа A: какие playbook есть
+в репозитории, в каком порядке они запускаются и за какую часть системы
+отвечает каждая роль.
 
-## Общая архитектура запуска
+## Общий порядок запуска
 
 `playbooks/site.yml` выполняется слоями:
 
@@ -271,7 +273,7 @@ ansible-playbook -i inventories/cloud/hosts.yml playbooks/site.yml
 ansible-playbook -i inventories/cloud/hosts.yml playbooks/smoke.yml
 ```
 
-## Операционные playbook (ручные)
+## Операционные плейбуки
 
 ```bash
 cd deploy/ansible
@@ -280,7 +282,7 @@ ansible-playbook -i inventories/cloud/hosts.yml playbooks/restore_postgres.yml -
 ansible-playbook -i inventories/cloud/hosts.yml playbooks/firewall_reconcile_strict.yml
 ```
 
-## Быстрый troubleshooting
+## Быстрая диагностика
 
 1. `site.yml` падает на ролях `common/docker/firewall`:
    сначала проверь inventory и `zz-local.yml`.

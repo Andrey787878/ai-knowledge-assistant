@@ -1,62 +1,128 @@
 # deploy/kubernetes/observability
 
-## Что это
+## Назначение слоя
 
-Этот каталог содержит весь observability-слой кластера как код: метрики Kubernetes и приложений, synthetic probes, routing alert-ов, три provisioned Grafana dashboard-а и log pipeline на базе `Loki` и `Alloy`.
+Этот каталог содержит весь observability-слой кластера как код. Здесь
+собраны метрики Kubernetes и приложений, synthetic probes, alert routing,
+дашборды Grafana и логовый контур на базе `Loki` и `Alloy`.
 
-## Что разворачивается
+Слой не ограничивается одной системой мониторинга. Он объединяет метрики,
+алертинг, логи и синтетические проверки в один воспроизводимый Helmfile-state,
+который можно развернуть заново без ручной настройки через интерфейсы.
 
-Через `helmfile` поднимаются `kube-prometheus-stack`, `Prometheus`, `Alertmanager`, `Grafana`, `kube-state-metrics`, `node-exporter`, `blackbox-exporter`, `Loki`, `Alloy` и отдельный `ServiceMonitor` для метрик `Traefik`. В результате кластер получает один связанный стек для метрик, алертинга, дашбордов и логов.
+## Что применяет Helmfile
 
-## Основные файлы
+Точкой входа служит `helmfile.yaml`. Базой стека выступает
+`kube-prometheus-stack`, который поднимает `Prometheus`, `Alertmanager`,
+`Grafana`, `kube-state-metrics` и `node-exporter`. Поверх него добавляются
+`blackbox-exporter`, `Loki`, `Alloy` и отдельный `ServiceMonitor` для метрик
+`Traefik`.
 
-`helmfile.yaml` остается точкой входа. `releases/recording-rules.yaml` считает SLI и rollout-сигналы. `releases/alert-rules.yaml` описывает symptom-level и operational alert-ы. `releases/dashboards-overview.yaml`, `releases/dashboards-n8n-runtime.yaml` и `releases/dashboards-public-endpoints.yaml` провиженят три дашборда Grafana. `releases/app-probes.yaml` и `releases/blackbox-exporter.yaml` задают synthetic probes, `releases/traefik-servicemonitor.yaml` подключает ingress metrics, `releases/loki.yaml` и `releases/alloy.yaml` собирают логи, `releases/networkpolicy.yaml` фиксирует allow-list модель сетевого доступа observability-контура.
+Внутри слоя роли разделены по файлам. `releases/recording-rules.yaml` считает
+SLI и сигналы rollout-окна. `releases/alert-rules.yaml` описывает симптомные и
+эксплуатационные алерты. `releases/dashboards-overview.yaml`,
+`releases/dashboards-n8n-runtime.yaml` и
+`releases/dashboards-public-endpoints.yaml` провиженят три дашборда Grafana.
+`releases/app-probes.yaml` и `releases/blackbox-exporter.yaml` задают
+синтетические проверки. `releases/traefik-servicemonitor.yaml` подключает
+ingress-метрики. `releases/loki.yaml` и `releases/alloy.yaml` собирают логи.
+`releases/networkpolicy.yaml` фиксирует сетевую модель allow-list для
+observability-контура.
 
-Production values лежат в `environments/prod/kube-prometheus-stack.values.yaml`, общие labels и служебные значения — в `environments/prod/meta.values.yaml`, secrets — в `environments/prod/secrets.values.enc.yaml`.
+Рабочие values лежат в `environments/prod/kube-prometheus-stack.values.yaml` и
+`environments/prod/meta.values.yaml`. Секреты находятся в
+`environments/prod/secrets.values.enc.yaml`.
 
-## Что зафиксировано в этом слое
+## Что должно быть готово до применения
 
-Текущая версия observability-контурa держится на трех опорах. Первая — monitoring as code: rules, dashboards и routing не настраиваются вручную в UI. Вторая — high-signal alerting policy: в email уходят только actionable alerts, history-style warnings остаются в UI. Третья — разделение по ролям дашбордов: `Observability Overview` отвечает на вопрос “что сломано”, `n8n Runtime` — “почему ломается именно n8n”, `Public Endpoints / Edge` — “что видит пользователь снаружи”.
+До этого слоя уже должны быть применены `deploy/kubernetes/platform` и
+прикладные слои, которые он наблюдает. Без поднятых приложений `blackbox`
+пробы, `ServiceMonitor` и часть recording rules не смогут собрать осмысленную
+картину.
 
-Полное operational описание стека вынесено в `../../docs/kubernetes_deploy/monitoring.md`. Там зафиксированы компоненты стека, матрица alert routing, реализация четырех золотых сигналов, deploy/bootstrap suppression и места под скриншоты для финальной презентации. Набор SLI/SLO и логика вычисления recording rules описаны в `../../docs/kubernetes_deploy/sli-slo.md`.
+На машине, с которой выполняется деплой, должны быть доступны `helmfile`,
+`sops` и `helm-secrets`, потому что routing, Grafana admin secret и SMTP
+параметры Alertmanager читаются из зашифрованных values.
+
+## Как устроен слой
+
+Слой держится на трех опорных частях. Первая — наблюдаемость как код: rules,
+dashboards и alert routing не собираются вручную в UI. Вторая — политика
+высокосигнального алертинга: в email уходит только ограниченный набор корневых
+и actionable-сигналов, а исторические и диагностические алерты остаются в
+Grafana и Alertmanager. Третья — разделение дашбордов по вопросам:
+`Observability Overview` отвечает на вопрос, где сейчас проблема,
+`n8n Runtime` — что происходит внутри основного сервиса,
+`Public Endpoints / Edge` — что видит пользователь снаружи.
+
+Подробная документация по стеку вынесена отдельно в
+`../../docs/kubernetes_deploy/monitoring.md` и
+`../../docs/kubernetes_deploy/sli-slo.md`. Этот README оставляет только
+структуру слоя, путь применения и практические проверки.
 
 ## Как применять
 
 ```bash
 cd deploy/kubernetes/observability
 
-# Проверка helmfile-рендера
 helmfile -e prod build > /tmp/observability-build.yaml
-
-# Применение
 helmfile -e prod sync
 ```
 
-## Проверка
+Перед фактическим `sync` полезно смотреть итоговый `build`, потому что в одном
+state здесь соединяются storage, rules, probes, network policy, SMTP routing,
+дашборды и логовый контур.
+
+## Как проверять после выкладки
+
+Сначала стоит проверить базовые ресурсы observability namespace:
 
 ```bash
 kubectl -n observability get pods,svc,pvc
 kubectl -n observability get ingress
+```
+
+После этого можно посмотреть, что Alloy читает логи, а Grafana и Alertmanager
+доступны:
+
+```bash
 kubectl -n observability logs daemonset/alloy --tail=100
 kubectl -n observability port-forward svc/observability-grafana 3000:80
 kubectl -n observability get secret observability-grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d
 ```
 
-Grafana будет доступна на `https://grafana.poluyanov.net`, пользователь `admin`.
-Alertmanager будет доступен на `https://alertmanager.poluyanov.net`.
-Port-forward можно использовать для локальной проверки на `http://localhost:3000`.
+Grafana в рабочем контуре доступна по `https://grafana.poluyanov.net`.
+Alertmanager доступен по `https://alertmanager.poluyanov.net`.
+`port-forward` остается удобной локальной проверкой на `http://localhost:3000`.
 
-## Важно
+## Что важно помнить
 
-- Admin password хранится в `environments/prod/secrets.values.enc.yaml` и прокидывается через Secret `observability-grafana-admin`.
-- SMTP app password для Alertmanager хранится в `environments/prod/secrets.values.enc.yaml` по ключу `alertmanager.smtp.auth_password`.
-- Loki хранит логи 7 дней на `local-path` PVC размером `10Gi`.
-- Alloy начинает читать новые строки после запуска и отправляет их в `loki-gateway`.
-- Blackbox одновременно проверяет внутренние ClusterIP endpoints и публичные HTTPS endpoints `n8n` и `wiki`.
-- Traefik metrics scrape теперь идет через `ServiceMonitor` из `kube-system`, что дает базу для ingress-level HTTP alerts и dashboard panels.
-- NetworkPolicy применяются как explicit allow-list с namespace-wide default deny.
-- Перед изменением IP ноды или Service CIDR обновите `network_policy` в `meta.values.yaml`.
-- Во время rollout самого `blackbox-exporter` на single-node k3s может кратко срабатывать `TargetDown` по job `blackbox-exporter`, потому что hostNetwork port `9115` освобождается между старым и новым pod.
-- `AvailabilityDegraded`, `AvailabilityBurnRateFast` и `AvailabilityBurnRateSlow` после rollout могут еще некоторое время существовать как history-style сигналы, потому что считаются по окнам `30m`, `1h` и `6h`, а не только по текущему состоянию.
-- Email routing специально глушит `*AvailabilityDegraded`, `*AvailabilityBurnRateFast` и `*BurnRateSlow`: они остаются в Grafana и Alertmanager UI как SLO-history, но не шумят в почту.
-- Traces пока не входят в этот слой.
+Admin password Grafana хранится в
+`environments/prod/secrets.values.enc.yaml` и прокидывается через Secret
+`observability-grafana-admin`. SMTP password для Alertmanager хранится там же,
+по ключу `alertmanager.smtp.auth_password`.
+
+`Loki` хранит логи семь дней на `local-path` PVC размером `10Gi`. `Alloy`
+начинает читать новые строки после запуска и отправляет их в `loki-gateway`.
+`blackbox-exporter` одновременно проверяет внутренние сервисы `n8n`, `wiki`,
+`ollama`, `postgres`, `redis` и публичные HTTPS endpoints `n8n` и `wiki`.
+Метрики `Traefik` собираются через `ServiceMonitor` из `kube-system`, что дает
+базу для ingress-level HTTP сигналов.
+
+Сетевые правила observability-контура применяются как explicit allow-list с
+namespace-wide default deny. Если меняются IP ноды или сетевые диапазоны
+кластера, соответствующие policy-значения в `meta.values.yaml` тоже нужно
+обновлять.
+
+Во время rollout самого `blackbox-exporter` на single-node `k3s` может
+кратковременно появляться `TargetDown` по job `blackbox-exporter`, потому что
+`hostNetwork` port `9115` освобождается между старым и новым pod. Длинные
+SLO-сигналы вроде `AvailabilityDegraded` и `BurnRate*` тоже могут жить еще
+некоторое время после штатного rollout, потому что считаются по окнам `30m`,
+`1h` и `6h`, а не только по текущему состоянию.
+
+Email routing в этом слое работает по модели явного списка. В письма уходят
+только корневые отказы, отказы публичных точек входа, деградация качества на
+ingress, `PostgresBackupFailed` и сигналы поломки доставки алертов. Остальные
+алерты остаются в Grafana и Alertmanager как диагностические или исторические
+сигналы.

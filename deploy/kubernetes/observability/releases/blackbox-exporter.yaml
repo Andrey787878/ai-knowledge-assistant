@@ -2,6 +2,43 @@
 helmDefaults:
   skipDeps: true
 
+{{- $blackboxConfig := `
+modules:
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      preferred_ip_protocol: ip4
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+  tcp_connect:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      preferred_ip_protocol: ip4
+  http_2xx_n8n_public:
+    prober: http
+    timeout: 5s
+    http:
+      preferred_ip_protocol: ip4
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      headers:
+        Host: n8n.poluyanov.net
+      tls_config:
+        insecure_skip_verify: true
+        server_name: n8n.poluyanov.net
+  http_2xx_wiki_public:
+    prober: http
+    timeout: 5s
+    http:
+      preferred_ip_protocol: ip4
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      headers:
+        Host: wiki.poluyanov.net
+      tls_config:
+        insecure_skip_verify: true
+        server_name: wiki.poluyanov.net
+` }}
+
 releases:
   - name: blackbox-exporter
     namespace: {{ .Values.namespace | quote }}
@@ -29,35 +66,7 @@ releases:
                 app.kubernetes.io/managed-by: {{ .Values.app_managed_by | quote }}
             data:
               blackbox.yml: |
-                modules:
-                  http_2xx:
-                    prober: http
-                    timeout: 5s
-                    http:
-                      preferred_ip_protocol: ip4
-                      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
-                  http_2xx_n8n_public:
-                    prober: http
-                    timeout: 5s
-                    http:
-                      preferred_ip_protocol: ip4
-                      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
-                      headers:
-                        Host: n8n.poluyanov.net
-                      tls_config:
-                        insecure_skip_verify: true
-                        server_name: n8n.poluyanov.net
-                  http_2xx_wiki_public:
-                    prober: http
-                    timeout: 5s
-                    http:
-                      preferred_ip_protocol: ip4
-                      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
-                      headers:
-                        Host: wiki.poluyanov.net
-                      tls_config:
-                        insecure_skip_verify: true
-                        server_name: wiki.poluyanov.net
+{{ $blackboxConfig | indent 16 }}
 
           - apiVersion: apps/v1
             kind: Deployment
@@ -76,6 +85,8 @@ releases:
                   app.kubernetes.io/name: blackbox-exporter
               template:
                 metadata:
+                  annotations:
+                    checksum/blackbox-config: {{ $blackboxConfig | sha256sum | quote }}
                   labels:
                     app.kubernetes.io/name: blackbox-exporter
                     app.kubernetes.io/part-of: {{ .Values.app_part_of | quote }}
