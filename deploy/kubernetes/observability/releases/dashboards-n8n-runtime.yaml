@@ -86,7 +86,7 @@ releases:
                       },
                       "targets": [
                         {
-                          "expr": "sli:n8n_availability:ratio_5m",
+                          "expr": "max(sli:n8n_availability:ratio_5m) or vector(0)",
                           "refId": "A"
                         }
                       ],

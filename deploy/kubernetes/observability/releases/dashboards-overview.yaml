@@ -86,7 +86,7 @@ releases:
                       },
                       "targets": [
                         {
-                          "expr": "sli:n8n_public_availability:ratio_5m",
+                          "expr": "max(sli:n8n_public_availability:ratio_5m) or vector(0)",
                           "refId": "A"
                         }
                       ],
@@ -131,7 +131,7 @@ releases:
                       },
                       "targets": [
                         {
-                          "expr": "sli:wiki_public_availability:ratio_5m",
+                          "expr": "max(sli:wiki_public_availability:ratio_5m) or vector(0)",
                           "refId": "A"
                         }
                       ],
@@ -176,7 +176,7 @@ releases:
                       },
                       "targets": [
                         {
-                          "expr": "sli:ollama_availability:ratio_5m",
+                          "expr": "max(sli:ollama_availability:ratio_5m) or vector(0)",
                           "refId": "A"
                         }
                       ],
@@ -221,7 +221,7 @@ releases:
                       },
                       "targets": [
                         {
-                          "expr": "sli:postgres_availability:ratio_5m",
+                          "expr": "max(sli:postgres_availability:ratio_5m) or vector(0)",
                           "refId": "A"
                         }
                       ],
@@ -266,7 +266,7 @@ releases:
                       },
                       "targets": [
                         {
-                          "expr": "sli:redis_availability:ratio_5m",
+                          "expr": "max(sli:redis_availability:ratio_5m) or vector(0)",
                           "refId": "A"
                         }
                       ],
