@@ -1,57 +1,69 @@
 # deploy/kubernetes/apps/postgres
 
-## Что это
-Слой PostgreSQL для `n8n` и `wikijs`: runtime БД, initdb, backup и опциональный restore.
+## Назначение слоя
 
-## Что ставится
+Этот слой разворачивает `PostgreSQL` для `n8n` и `Wiki.js` и собирает рядом
+операционный контур базы: SQL bootstrap, сетевые правила, резервное
+копирование и отдельный restore-helmfile для ручного восстановления.
 
-- PostgreSQL StatefulSet
-- initdb Secret (создание ролей/БД и служебной схемы)
-- NetworkPolicy
-- backup CronJob + backup PVC
-- restore Job (отдельным restore-helmfile, по запросу)
+Слой разделяет обычный рабочий деплой и сценарий восстановления. Основной
+`helmfile.yaml` отвечает за runtime базы и backup-контур. Отдельный
+`helmfile.restore.yaml` используется только по явному запросу, чтобы restore
+не был случайной частью обычного `sync`.
 
-## Какие chart используются
+## Что применяет Helmfile
 
-- `../../../vendor_charts/postgresql` (upstream `bitnami/postgresql`) для runtime
-- `../../../vendor_charts/raw` (upstream `bedag/raw`) для ops-ресурсов
+Runtime `PostgreSQL` ставится через `../../../vendor_charts/postgresql`, а
+служебные ресурсы вокруг него собираются через
+`../../../vendor_charts/raw`.
 
-## Основные файлы
+Основной StatefulSet и exporter-конфигурация описаны в `releases/postgres.yaml`.
+SQL bootstrap для ролей, баз и служебной схемы лежит в
+`releases/initdb-secret.yaml`. Backup-контур собирается через
+`releases/backup-cronjob.yaml`. Restore job вынесен в
+`releases/restore-job.yaml`. Рабочие и секретные параметры лежат в
+`environments/prod/*.values.yaml`.
 
-- `helmfile.yaml` — основной деплой
-- `helmfile.restore.yaml` — ручной restore
-- `releases/postgres.yaml` — runtime postgres
-- `releases/initdb-secret.yaml` — SQL bootstrap
-- `releases/backup-cronjob.yaml` — backup
-- `releases/restore-job.yaml` — restore job
-- `environments/prod/*.values.yaml` — конфиг
-- `environments/prod/secrets.values.enc.yaml` — SOPS-секреты
+## Что должно быть готово до применения
 
-## Зависимости
+До этого слоя уже должен быть применен `deploy/kubernetes/platform`, чтобы в
+кластере существовал namespace `db`. На машине, с которой выполняется деплой,
+должны быть доступны `sops` и `helm-secrets`, потому что bootstrap и runtime
+используют зашифрованные значения.
 
-- `deploy/kubernetes/platform` уже применен (namespace `db` существует)
-- настроены `sops` и `helm-secrets`
+Этот слой сам по себе не требует наличия `n8n` или `Wiki.js`, но именно он
+создает базу и роли, которые потом используют прикладные сервисы.
 
 ## Как применять
 
 ```bash
 cd deploy/kubernetes/apps/postgres
 
-# Проверка рендера
 helmfile -e prod build > /tmp/postgres-build.yaml
-
-# Применение
 helmfile -e prod sync
 ```
 
-## Проверка
+Перед фактическим применением полезно именно смотреть итоговый `build`, потому
+что здесь в одном state соединяются runtime базы, initdb bootstrap, backup и
+policy-ресурсы.
+
+## Как проверять после выкладки
+
+Базовая проверка начинается с StatefulSet, pod-ов, PVC и backup-ресурсов:
 
 ```bash
 kubectl -n db get sts,pods,svc,pvc,networkpolicy,cronjob
 kubectl -n db rollout status sts/postgres-postgresql
 ```
 
-## Restore (коротко)
+Если runtime поднялся, но приложения не могут подключиться к базе, смотреть
+нужно уже в `pg_hba`, network policy и корректность bootstrap-ролей, а не в
+сам факт существования pod-а.
+
+## Как запускать restore
+
+Restore вынесен в отдельный `helmfile.restore.yaml`, чтобы восстановление
+требовало явного подтверждения и не смешивалось с обычным деплоем:
 
 ```bash
 cd deploy/kubernetes/apps/postgres
@@ -64,7 +76,7 @@ helmfile -f helmfile.restore.yaml -e prod \
   sync
 ```
 
-После завершения restore release обычно удаляют:
+После завершения восстановления отдельный restore release обычно удаляют:
 
 ```bash
 helmfile -f helmfile.restore.yaml -e prod destroy
