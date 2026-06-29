@@ -17,6 +17,16 @@
 Internal AI Knowledge Assistant представляет собой платформенный DevOps/SRE-проект, который разворачивает внутреннего AI-агента компании с корпоративной базой знаний.
 </p>
 
+## Оглавление
+
+| Раздел       | Переход                                                                                                                                                            |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Обзор        | [Если кратко](#если-кратко) · [Зачем вообще этот проект](#зачем-вообще-этот-проект) · [Как работает система](#как-работает-система)                                |
+| Демо         | [Пользовательский сценарий](#демо-пользовательского-сценария) · [Observability-слой](#демо-observability-слоя)                                                     |
+| Архитектура  | [Почему это DevOps/SRE-кейс](#почему-это-именно-devopssre-кейс) · [Этап A](#этап-a-vm-контур) · [Этапы B и C](#этапы-b-и-c-kubernetes-контур-cicd-и-observability) |
+| Эксплуатация | [Сеть и безопасность](#сеть-и-безопасность) · [Эксплуатация и восстановление](#эксплуатация-и-восстановление)                                                      |
+| Навигация    | [Структура репозитория](#структура-репозитория) · [Документация](#документация) · [Будущее развитие проекта](#будущее-развитие-проекта)                            |
+
 ## Если кратко...
 
 Проект демонстрирует не только запуск системы, а полный инфраструктурный и эксплуатационный слои вокруг нее.
@@ -158,11 +168,11 @@ Ollama и применяет защитную логику. Если подхо�
 алерта: `WikiDown` и `WikiPublicEndpointDown`.
 
 <p align="center">
-  <img src="./docs/kubernetes_deploy/demo/wiki_down.png" alt="wiki down" />
+  <img src="./docs/kubernetes_deploy/demo/wiki_down_dark.png" alt="wiki down" />
 </p>
 
 <p align="center">
-  <img src="./docs/kubernetes_deploy/demo/wiki_public_down.png" alt="wiki down" />
+  <img src="./docs/kubernetes_deploy/demo/wiki_public_down_dark.png" alt="wiki down" />
 </p>
 
 ### Управляемая поломка зависимости - отказ Redis
@@ -182,7 +192,7 @@ Ollama и применяет защитную логику. Если подхо�
 На почту прилитает лишь `1` алерт:
 
 <p align="center">
-  <img src="./docs/kubernetes_deploy/demo/redis_down.png" alt="redis down" />
+  <img src="./docs/kubernetes_deploy/demo/redis_down_dark.png" alt="redis down" />
 </p>
 
 ### Какие SLO и SLI зафиксированы?
@@ -283,12 +293,12 @@ Ollama и применяет защитную логику. Если подхо�
 
 > При клике на изображение откроется схема в полном размере.
 
+Terraform создает инфраструктуру VM-контура: сеть, виртуальные машины и
+базовый cloud-периметр для сервисов.
+
 <p align="center">
   <img src="./docs/ansible_vm_deploy/demo/tf_4vm.png" alt="Terraform apply для Этапа A" />
 </p>
-
-Terraform создает инфраструктуру VM-контура: сеть, виртуальные машины и
-базовый cloud-периметр для сервисов.
 
 Что реализовано:
 
@@ -342,6 +352,10 @@ VM для runner, сеть, NAT и группы безопасности.
 <p align="center">
   <img src="./docs/kubernetes_deploy/demo/tf_k3s.png" alt="Terraform apply для этапов B и C" />
 </p>
+
+После `terraform apply` можно отдельно проверить уже созданные ресурсы через
+`yc`, чтобы убедиться, что кластерная VM и runner VM действительно поднялись в
+ожидаемой сети и подсети.
 
 <p align="center">
   <img src="./docs/kubernetes_deploy/demo/yc.png" alt="YC CLI после Terraform apply для этапов B и C" />
@@ -460,7 +474,7 @@ Traefik.
 
 | Уровень         | Реализация                                                     |
 | --------------- | -------------------------------------------------------------- |
-| Cloud perimeter | Yandex Cloud Security Group для `k3s` и отдельной VM runner    |
+| Cloud perimeter | Yandex Cloud Security Group                                    |
 | Сегментация     | публичный IP только у `k3s`, runner остается private-only      |
 | Админ-доступ    | SSH к runner только через `k3s` по `ProxyJump`                 |
 | Host firewall   | UFW, deny incoming, allow только нужных портов/CIDR            |
