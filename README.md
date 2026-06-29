@@ -408,9 +408,48 @@ Traefik.
   <img src="./docs/kubernetes_deploy/demo/get_ingress.png" alt="kubectl get ingress -A" />
 </p>
 
-### CI/CD
+### Демо CI/CD
 
-скрины CI/CD
+### Ручной CD: выборочная выкладка одного слоя
+
+Ручной workflow позволяет явно выбрать режим, `git ref` и конкретный scope
+для выкладки в production.
+
+<p align="center">
+  <img src="./docs/kubernetes_deploy/demo/do_manual_scope.png" alt="Форма ручного запуска CD scope" />
+</p>
+
+<p align="center">
+  <img src="./docs/kubernetes_deploy/demo/manual_scope.png" alt="Успешный ручной CD scope" />
+</p>
+
+Такой запуск удобен, когда нужно предсказуемо перевыкатить только один слой,
+например `observability`, `wiki` или `postgres`, не затрагивая остальные.
+
+### Ручной CD: режим `changed`
+
+Для точечного повторного запуска доступен режим `changed`: workflow сам
+определяет затронутые Kubernetes-области по `git diff` выбранного `ref`, например здесь ничего не было измененно и выкладка не произошла.
+
+<p align="center">
+  <img src="./docs/kubernetes_deploy/demo/do_chanded_manual.png" alt="Форма ручного запуска CD changed" />
+</p>
+
+<p align="center">
+  <img src="./docs/kubernetes_deploy/demo/changed_manual.png" alt="Успешный ручной CD changed" />
+</p>
+
+Этот режим нужен как вспомогательный режим, когда хочется быстро прогнать
+только измененные scope без полного повторного деплоя.
+
+### Автоматический CD: пропуск лишней выкладки
+
+Автоматический workflow умеет определить, были ли вообще затронуты
+Kubernetes-слои. Если commit не меняет какую либо директорию `deploy/kubernetes`, лишняя выкладка не запускается.
+
+<p align="center">
+  <img src="./docs/kubernetes_deploy/demo/auto_no_scopes.png" alt="Автоматический CD пропускает выкладку без изменений Kubernetes-слоев" />
+</p>
 
 Ключевые директории:
 
