@@ -284,6 +284,7 @@ jobs:
           bash -n .github/scripts/cd/detect-k3s-scopes.sh
           bash -n .github/scripts/cd/deploy-k3s-scope.sh
           bash -n .github/scripts/cd/smoke-k3s-scope.sh
+          bash -n .github/scripts/cd/verify-ci-success.sh
 
       - name: Validate GitHub workflows
         run: |

@@ -1,11 +1,16 @@
 name: CD k3s auto
 
 on:
-  workflow_run:
-    workflows:
-      - CI
-    types:
-      - completed
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/cd-k3s-auto.yml
+      - .github/scripts/cd/**
+      - deploy/kubernetes/**
+      - '!deploy/kubernetes/bootstrap/**'
+      - '!deploy/kubernetes/*.md'
+      - '!deploy/kubernetes/**/*.md'
 
 permissions:
   contents: read
@@ -18,12 +23,6 @@ concurrency:
 jobs:
   deploy:
     name: Deploy full k3s stack
-    if: >-
-      ${{
-        github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.head_branch == 'main' &&
-        github.event.workflow_run.event == 'push'
-      }}
     runs-on:
       - self-hosted
       - linux
@@ -39,77 +38,49 @@ jobs:
     env:
       KUBECONFIG: /home/github-runner/.kube/config
       SOPS_AGE_KEY_FILE: /home/github-runner/.config/sops/age/keys.txt
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.sha }}
           fetch-depth: 0
 
-      - name: Verify workflow run is still current main tip
-        id: freshness
+      - name: Wait for successful CI on current main SHA
         run: |
-          git fetch origin main --depth=1
-          current_main_sha="$(git rev-parse origin/main)"
-          workflow_sha="${{ github.event.workflow_run.head_sha }}"
-
-          {
-            echo "current_main_sha=${current_main_sha}"
-          } >> "${GITHUB_OUTPUT}"
-
-          if [[ "${workflow_sha}" != "${current_main_sha}" ]]; then
-            {
-              echo "stale=true"
-            } >> "${GITHUB_OUTPUT}"
-            exit 0
-          fi
-
-          {
-            echo "stale=false"
-          } >> "${GITHUB_OUTPUT}"
+          bash .github/scripts/cd/verify-ci-success.sh \
+            --workflow ci.yml \
+            --ref main \
+            --sha "${{ github.sha }}" \
+            --wait \
+            --timeout-seconds 3600 \
+            --poll-interval-seconds 20
 
       - name: Verify runner tooling
-        if: steps.freshness.outputs.stale != 'true'
         run: |
           kubectl version --client
           helm version
           helmfile --version
           sops --version
 
-      - name: Skip stale auto deploy
-        if: steps.freshness.outputs.stale == 'true'
-        run: |
-          {
-            echo "## k3s CD auto"
-            echo
-            echo "Skipped deploy because the triggering CI run is stale."
-            echo
-            echo "Workflow run SHA: \`${{ github.event.workflow_run.head_sha }}\`"
-            echo "Current main SHA: \`${{ steps.freshness.outputs.current_main_sha }}\`"
-            echo "Mode: full"
-          } >> "${GITHUB_STEP_SUMMARY}"
-
       - name: Deploy full stack
-        if: steps.freshness.outputs.stale != 'true'
         run: |
           bash .github/scripts/cd/deploy-k3s-scope.sh all
           bash .github/scripts/cd/smoke-k3s-scope.sh all
 
       - name: Persist successful deploy state
-        if: steps.freshness.outputs.stale != 'true'
         run: |
           bash .github/scripts/cd/delivery-state.sh mark-success \
-            --sha "${{ github.event.workflow_run.head_sha }}" \
+            --sha "${{ github.sha }}" \
             --mode full \
             --scopes all
 
       - name: Write deploy summary
-        if: steps.freshness.outputs.stale != 'true'
         run: |
           {
             echo "## k3s CD auto"
             echo
-            echo "Ref: \`${{ github.event.workflow_run.head_sha }}\`"
+            echo "Ref: \`${{ github.sha }}\`"
             echo "Mode: full"
             echo "Scopes: \`all\`"
           } >> "${GITHUB_STEP_SUMMARY}"
