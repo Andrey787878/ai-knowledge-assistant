@@ -56,7 +56,27 @@ jobs:
             --timeout-seconds 3600 \
             --poll-interval-seconds 20
 
+      - name: Ensure run still targets current main HEAD
+        id: freshness
+        run: |
+          git fetch origin main --depth=1
+          current_main_sha="$(git rev-parse origin/main)"
+
+          if [[ "${current_main_sha}" != "${{ github.sha }}" ]]; then
+            {
+              echo "stale=true"
+              echo "current_main_sha=${current_main_sha}"
+            } >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          {
+            echo "stale=false"
+            echo "current_main_sha=${current_main_sha}"
+          } >> "${GITHUB_OUTPUT}"
+
       - name: Verify runner tooling
+        if: steps.freshness.outputs.stale != 'true'
         run: |
           kubectl version --client
           helm version
@@ -64,18 +84,32 @@ jobs:
           sops --version
 
       - name: Deploy full stack
+        if: steps.freshness.outputs.stale != 'true'
         run: |
           bash .github/scripts/cd/deploy-k3s-scope.sh all
           bash .github/scripts/cd/smoke-k3s-scope.sh all
 
       - name: Persist successful deploy state
+        if: steps.freshness.outputs.stale != 'true'
         run: |
           bash .github/scripts/cd/delivery-state.sh mark-success \
             --sha "${{ github.sha }}" \
             --mode full \
             --scopes all
 
+      - name: Write stale run summary
+        if: steps.freshness.outputs.stale == 'true'
+        run: |
+          {
+            echo "## k3s CD auto"
+            echo
+            echo "Skipped stale auto-deploy run."
+            echo "Triggered SHA: \`${{ github.sha }}\`"
+            echo "Current main SHA: \`${{ steps.freshness.outputs.current_main_sha }}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
       - name: Write deploy summary
+        if: steps.freshness.outputs.stale != 'true'
         run: |
           {
             echo "## k3s CD auto"

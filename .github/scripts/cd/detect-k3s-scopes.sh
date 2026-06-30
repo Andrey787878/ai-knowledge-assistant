@@ -23,6 +23,9 @@ is_ignored_change() {
     docs/*|README.md|LICENSE|actionlint.yaml)
       return 0
       ;;
+    .github/scripts/cd/*|.github/workflows/cd-k3s-auto.yml|.github/workflows/cd-k3s-manual.yml)
+      return 1
+      ;;
     .github/*)
       return 0
       ;;
@@ -99,6 +102,9 @@ while IFS= read -r file; do
   fi
 
   case "${file}" in
+    .github/scripts/cd/*|.github/workflows/cd-k3s-auto.yml|.github/workflows/cd-k3s-manual.yml)
+      deploy_all=1
+      ;;
     deploy/kubernetes/helmfile.yaml)
       deploy_all=1
       ;;
