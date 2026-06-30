@@ -1,6 +1,8 @@
 # Мониторинг, алертинг и дашборды
 
-Этот документ описывает слой наблюдаемости этапов B/C: из каких компонентов
+## Что описывает документ
+
+Этот документ описывает слой наблюдаемости этапов B и C: из каких компонентов
 собран стек, какие сигналы он считает нормой, какие алерты уходят в почту,
 какие остаются только в интерфейсе и как читать три подготовленных дашборда.
 
@@ -107,11 +109,13 @@ burn-rate алерты и сигналы качества scrape. Насыщен
 - `AlertmanagerNoMetrics`
 
 Отдельно настроено подавление по зависимостям. `RedisDown` подавляет
-`N8nDown` и `N8nPublicEndpointDown`, если `n8n` ломается как следствие
-отказа `redis`. `PostgresDown` подавляет те же производные сигналы у `n8n`,
-а для `wiki` подавляет `WikiDown` и `WikiPublicEndpointDown`, если корневой
-причиной инцидента становится отказ `postgres`. Это убирает каскад из
-корневого алерта и пользовательских симптомов для одного и того же сбоя:
+`N8nDown`, `N8nPublicEndpointDown`, `N8nIngress5xxHigh` и
+`N8nIngressLatencyP95High`, если `n8n` ломается как следствие отказа `redis`.
+`PostgresDown` подавляет те же производные сигналы у `n8n`, а для `wiki`
+подавляет `WikiDown`, `WikiPublicEndpointDown`, `WikiIngress5xxHigh` и
+`WikiIngressLatencyP95High`, если корневой причиной инцидента становится отказ
+`postgres`. Это убирает каскад из корневого алерта и пользовательских
+симптомов для одного и того же сбоя:
 в почту уходит причина, а не весь веер следствий.
 
 | Alert | Severity | Что означает | Email |
@@ -126,8 +130,8 @@ burn-rate алерты и сигналы качества scrape. Насыщен
 | `WikiPublicEndpointDown` | critical | внешний HTTPS путь `wiki` недоступен | да |
 | `N8nPublicLatencyP95High` | warning | synthetic p95 latency `n8n` выше порога | нет |
 | `WikiPublicLatencyP95High` | warning | synthetic p95 latency `wiki` выше порога | нет |
-| `N8nTLSCertificateExpiringSoon` | warning | сертификат `n8n` истекает меньше чем через 14 дней | да |
-| `WikiTLSCertificateExpiringSoon` | warning | сертификат `wiki` истекает меньше чем через 14 дней | да |
+| `N8nTLSCertificateExpiringSoon` | warning | сертификат `n8n` истекает меньше чем через 14 дней | нет |
+| `WikiTLSCertificateExpiringSoon` | warning | сертификат `wiki` истекает меньше чем через 14 дней | нет |
 | `N8nAvailabilityBurnRateFast` | critical | быстрый расход public error budget `n8n` | нет |
 | `N8nAvailabilityBurnRateSlow` | warning | медленный расход public error budget `n8n` | нет |
 | `WikiAvailabilityBurnRateFast` | critical | быстрый расход public error budget `wiki` | нет |

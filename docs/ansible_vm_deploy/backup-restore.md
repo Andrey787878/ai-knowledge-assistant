@@ -24,8 +24,8 @@
 
 По умолчанию:
 
-- корень backup: `/var/backups/ai-agent/postgres`,
-- symlink на последний backup: `/var/backups/ai-agent/postgres/current`,
+- корень резервных копий: `/var/backups/ai-agent/postgres`,
+- symlink на последнюю резервную копию: `/var/backups/ai-agent/postgres/current`,
 - скрипты: `/opt/ai-agent/postgres/scripts`.
 
 В timestamp-каталоге:
@@ -46,7 +46,7 @@ Playbook:
 
 1. применяет `postgres_backup` (validate/setup),
 2. запускает `backup-postgres.sh`,
-3. делает post-check (`current`, `SHA256SUMS`, dump count, non-empty files).
+3. выполняет post-check (`current`, `SHA256SUMS`, число dump-файлов, непустые файлы).
 
 ## Включение резервного копирования по расписанию
 
@@ -61,7 +61,8 @@ postgres_backup_cron_schedule: '30 2 * * *'
 
 ## Запуск восстановления
 
-Перед restore рекомендуется остановить или изолировать writers (`n8n`, `wikijs`).
+Перед восстановлением рекомендуется остановить или изолировать writers
+(`n8n`, `wikijs`).
 
 Сначала получи фактический timestamp-каталог из `current`:
 
@@ -71,7 +72,7 @@ ansible -i inventories/cloud/hosts.yml db_hosts -b -J -m shell -a \
 "readlink -f /var/backups/ai-agent/postgres/current"
 ```
 
-И используйте путь из вывода (`/var/backups/ai-agent/postgres/<timestamp>`) в restore:
+И используйте путь из вывода (`/var/backups/ai-agent/postgres/<timestamp>`) в восстановлении:
 
 ```bash
 cd deploy/ansible
@@ -81,7 +82,7 @@ ansible-playbook -i inventories/cloud/hosts.yml playbooks/restore_postgres.yml \
   -e postgres_restore_with_globals=false
 ```
 
-Опционально с globals:
+Опционально с `globals.sql`:
 
 ```bash
 cd deploy/ansible
@@ -91,7 +92,7 @@ ansible-playbook -i inventories/cloud/hosts.yml playbooks/restore_postgres.yml \
   -e postgres_restore_with_globals=true
 ```
 
-Опционально с авто-stop/start writers (managed mode):
+Опционально с авто-остановкой и авто-запуском writers (`managed mode`):
 
 ```bash
 cd deploy/ansible
@@ -102,15 +103,23 @@ ansible-playbook -i inventories/cloud/hosts.yml playbooks/restore_postgres.yml \
   -e postgres_restore_manage_writers=true
 ```
 
-Защиты restore:
+Защиты восстановления:
 
 - обязательный confirm `postgres_restore_confirm=YES`,
 - обязательный `postgres_restore_source_dir`,
 - `serial: 1`,
 - поддержка symlink источника (`/var/backups/ai-agent/postgres/current`),
-- checksum проверка (`sha256sum -c SHA256SUMS`) до восстановления.
+- проверка checksum (`sha256sum -c SHA256SUMS`) до восстановления.
 
-Практика: для предсказуемости лучше передавать в restore разрешенный timestamp-путь через `readlink -f`, а не `current`.
+В `managed mode` playbook сам:
+
+- останавливает `n8n-web` и `n8n-worker` на хосте `n8n`,
+- останавливает `wikijs` на хосте `wiki`,
+- выполняет восстановление на `db`,
+- поднимает writers обратно в секции `always`.
+
+Практика: для предсказуемости лучше передавать в восстановление явный
+timestamp-путь через `readlink -f`, а не `current`.
 
 ## Проверка после восстановления
 
@@ -131,7 +140,7 @@ ansible -i inventories/cloud/hosts.yml db_hosts -b -J -m shell -a \
 
 ## Частые проблемы
 
-1. `SHA256SUMS not found` - неверный backup-каталог.
-2. `sha256sum -c failed` - поврежденный backup, restore останавливаем.
+1. `SHA256SUMS not found` - неверный каталог резервной копии.
+2. `sha256sum -c failed` - резервная копия повреждена, восстановление нужно остановить.
 3. `POSTGRES_USER/POSTGRES_PASSWORD are required` - проблема с `postgres.env`.
 4. `dump file count does not match postgres_backup_databases` - рассинхрон списка БД.
