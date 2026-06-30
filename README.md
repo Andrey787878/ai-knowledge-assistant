@@ -9,8 +9,6 @@
 <p align="center">
   <a href="https://github.com/Andrey787878/ai-knowledge-assistant/actions/workflows/ci.yml"><img src="https://github.com/Andrey787878/ai-knowledge-assistant/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="https://github.com/Andrey787878/ai-knowledge-assistant/actions/workflows/cd-k3s-auto.yml"><img src="https://github.com/Andrey787878/ai-knowledge-assistant/actions/workflows/cd-k3s-auto.yml/badge.svg" alt="CD k3s auto" /></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-7f8c8d?style=flat-square" alt="License" /></a>
-  <a href="./docs/README.md"><img src="https://img.shields.io/badge/Docs-open-1f6feb?style=flat-square" alt="Docs" /></a>
 </p>
 
 <p align="center">
@@ -380,11 +378,11 @@ Bootstrap подготавливает хосты, устанавливает `k
 - NetworkPolicy реализует запрет по умолчанию и точечные разрешения только для нужных сервисных связей,
 - `kube-prometheus-stack`, `Loki`, `Alloy`, blackbox-пробы, маршрутизация алертов и `3` кастомных Grafana-дашборда собирают эксплуатационный observability-слой.
 
-Для manual `CD` в этом контуре поддерживаются три режима: `full`, `scope` и `changed`.
+Для ручного `CD` в этом контуре поддерживаются три режима: `full`, `scope` и `changed`.
 
 - `full` - полная выкладка всего Kubernetes-контура,
 - `scope` - выкладка одного выбранного слоя,
-- `changed` - вспомогательный режим, который определяет измененные слои по `git diff` для выбранной ветки, тега или коммита.
+- `changed` - вспомогательный режим, который определяет измененные слои относительно последнего полного успешного деплоя.
 
 > Демо наблюдаемости выше в README вы уже могли видеть: там были показаны
 > дашборды и сценарии отказов.
@@ -410,6 +408,11 @@ Traefik.
 
 ### Демо CI/CD
 
+Автоматический `CD` в production запускается только после успешного `CI` для
+`main`, проверяет, что исходный run не устарел, и применяет весь
+Kubernetes-контур целиком. Гибкость вынесена в ручной workflow, где доступны
+режимы `full`, `scope` и `changed`.
+
 ### Ручной CD: выборочная выкладка одного слоя
 
 Ручной workflow позволяет явно выбрать режим, `git ref` и конкретный scope
@@ -429,7 +432,9 @@ Traefik.
 ### Ручной CD: режим `changed`
 
 Для точечного повторного запуска доступен режим `changed`: workflow сам
-определяет затронутые Kubernetes-области по `git diff` выбранного `ref`, например здесь ничего не было измененно и выкладка не произошла.
+определяет затронутые Kubernetes-области по `git diff` между выбранным `ref` и
+последним полным успешным деплоем. Если база для сравнения еще не известна,
+workflow безопасно переходит к полному применению контура.
 
 <p align="center">
   <img src="./docs/kubernetes_deploy/demo/do_chanded_manual.png" alt="Форма ручного запуска CD changed" />
@@ -441,15 +446,6 @@ Traefik.
 
 Этот режим нужен как вспомогательный режим, когда хочется быстро прогнать
 только измененные scope без полного повторного деплоя.
-
-### Автоматический CD: пропуск лишней выкладки
-
-Автоматический workflow умеет определить, были ли вообще затронуты
-Kubernetes-слои. Если commit не меняет какую либо директорию `deploy/kubernetes`, лишняя выкладка не запускается.
-
-<p align="center">
-  <img src="./docs/kubernetes_deploy/demo/auto_no_scopes.png" alt="Автоматический CD пропускает выкладку без изменений Kubernetes-слоев" />
-</p>
 
 Ключевые директории:
 
