@@ -23,12 +23,13 @@
 1. устанавливает `certbot`,
 2. готовит webroot для ACME challenge,
 3. выпускает/обновляет SAN сертификат,
-4. ставит deploy hook для `nginx reload`,
-5. синхронизирует `nginx_rp_tls_cert_path` и `nginx_rp_tls_key_path`.
+4. проверяет `certbot renew --dry-run`,
+5. ставит deploy hook для `nginx reload`,
+6. синхронизирует `nginx_rp_tls_cert_path` и `nginx_rp_tls_key_path`.
 
 `site.yml` использует bootstrap-порядок:
 
-1. `edge_reverse_proxy` в HTTP-only режиме для ACME challenge,
+1. `edge_reverse_proxy` в режиме только HTTP для ACME challenge,
 2. `edge_tls_acme` для выпуска сертификата,
 3. повторный `edge_reverse_proxy` в полном HTTPS-режиме.
 
@@ -73,6 +74,8 @@
 - `edge_tls_acme_webroot_path: /var/www/letsencrypt`
 - `edge_tls_acme_use_staging: false`
 - `edge_tls_acme_force_renew: false`
+- `edge_tls_acme_manage_renew_timer: true`
+- `edge_tls_acme_renew_timer_unit: certbot.timer`
 
 Nginx пути:
 
@@ -117,3 +120,6 @@ echo ok > /var/www/letsencrypt/.well-known/acme-challenge/ping && \
 curl -sS -H 'Host: wiki.poluyanov.net' http://127.0.0.1/.well-known/acme-challenge/ping && echo && \
 curl -sS -H 'Host: n8n.poluyanov.net'  http://127.0.0.1/.well-known/acme-challenge/ping && echo"
 ```
+
+Отдельный набор команд для диагностики и восстановления собран в
+[certificates-runbook.md](./certificates-runbook.md).

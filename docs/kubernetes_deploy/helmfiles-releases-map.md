@@ -1,8 +1,8 @@
-# Карта этапа B: bootstrap, Helmfile и release-файлы
+# Карта этапов B и C: bootstrap, Helmfile и release-файлы
 
 ## Что описывает документ
 
-Документ показывает, кто за что отвечает на этапе B:
+Документ показывает, кто за что отвечает в Kubernetes-контуре этапов B и C:
 
 - Terraform слой инфраструктуры,
 - Ansible bootstrap k3s,
@@ -11,7 +11,7 @@
 
 ## Общий порядок запуска
 
-Порядок этапа B:
+Порядок этапов B и C:
 
 1. Terraform: `deploy/terraform/k3s_deploy`
 2. Bootstrap: `deploy/kubernetes/bootstrap` (Ansible)
@@ -206,6 +206,6 @@ helmfile -e prod sync
 
 ## Связанные документы
 
-- [README этапа B](./README.md)
-- [Сеть этапа B](./network.md)
-- [Эксплуатация этапа B](./operations.md)
+- [README этапов B и C](./README.md)
+- [Сеть этапов B и C](./network.md)
+- [Эксплуатация этапов B и C](./operations.md)

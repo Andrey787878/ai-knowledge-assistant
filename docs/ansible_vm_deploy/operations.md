@@ -9,7 +9,7 @@ Terraform и Ansible, что считается успешной приемко�
 ## Порядок этапа A
 
 1. Terraform: `init -> plan -> apply` в `deploy/terraform/ansible_deploy`.
-2. Синхронизация inventory: `sync_inventory.sh` (terraform output -> `deploy/ansible/inventories/cloud/hosts.yml`).
+2. Синхронизация inventory: `sync_inventory.sh` (`terraform output` -> `deploy/ansible/inventories/cloud/hosts.yml`).
 3. `playbooks/bootstrap_python.yml` на все VM.
 4. `playbooks/site.yml` (основной Ansible-деплой).
 5. `playbooks/smoke.yml` (приемка).
@@ -33,9 +33,12 @@ Terraform и Ansible, что считается успешной приемко�
 
 ```bash
 cd deploy/ansible
+export ANSIBLE_CONFIG="$(pwd)/ansible.cfg"
 export ANSIBLE_ROLES_PATH="$(pwd)/roles"
 export ANSIBLE_LOCAL_TEMP="$(pwd)/.ansible/tmp"
+export ANSIBLE_SSH_PRIVATE_KEY_FILE="${ANSIBLE_SSH_PRIVATE_KEY_FILE:-~/.ssh/ansible_deploy}"
 export ANSIBLE_VAULT_PASSWORD_FILE="${ANSIBLE_VAULT_PASSWORD_FILE:-~/.ansible/vault-pass.txt}"
+mkdir -p .ansible/tmp
 ```
 
 Полный ранбук:
@@ -45,13 +48,16 @@ export ANSIBLE_VAULT_PASSWORD_FILE="${ANSIBLE_VAULT_PASSWORD_FILE:-~/.ansible/va
 
 Текущий `playbooks/smoke.yml` покрывает:
 
+- внешнюю HTTPS-проверку `wiki` и `n8n` с управляющей машины,
 - HTTP-01 challenge path `/.well-known/acme-challenge/*`,
 - edge redirect `HTTP -> HTTPS`,
 - edge `HTTPS /healthz` для `wiki` и `n8n`,
 - связность `n8n -> ollama`,
-- policy-check (включая ожидаемое поведение для `db -> n8n:5678`),
+- связность `n8n -> postgres`,
+- deny-by-default проверки для `db -> n8n:5678` и `db -> ollama:11434`,
 - срок действия edge сертификата,
-- e2e `agent-query` (включен по умолчанию).
+- e2e `agent-query` через edge,
+- запись памяти сессии в PostgreSQL после e2e-вызова.
 
 ## Критерии приемки
 

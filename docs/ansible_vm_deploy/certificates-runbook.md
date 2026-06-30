@@ -73,7 +73,8 @@ Smoke проверяет:
 - доступность `/.well-known/acme-challenge/*` по HTTP без redirect,
 - redirect `HTTP -> HTTPS`,
 - `HTTPS /healthz` для `wiki` и `n8n`,
-- срок действия edge сертификата (`openssl x509 -checkend`).
+- срок действия edge сертификата (`openssl x509 -checkend`),
+- состояние `certbot.timer`, если timer управляется ролью.
 
 ### Через Ansible (предпочтительно)
 

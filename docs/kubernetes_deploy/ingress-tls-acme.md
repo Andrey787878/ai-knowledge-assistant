@@ -2,7 +2,8 @@
 
 ## Что описывает документ
 
-Документ описывает выпуск и продление публичных TLS-сертификатов на этапе B.
+Документ описывает выпуск и продление публичных TLS-сертификатов в
+Kubernetes-контуре этапов B и C.
 
 Компоненты:
 
@@ -17,7 +18,8 @@
 3. В ingress приложений задаются:
    - `cert-manager.io/cluster-issuer`
    - `tls.secretName`
-4. В `wiki` и `n8n` используется Traefik Middleware `redirectScheme` для HTTP->HTTPS redirect.
+4. В `wiki` и `n8n` используется Traefik Middleware `redirectScheme` для
+   `HTTP -> HTTPS` redirect.
 5. cert-manager выпускает сертификат и сохраняет его в Secret namespace приложения.
 
 ## Предусловия
