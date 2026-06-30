@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy changed k3s scopes
+    name: Deploy full k3s stack
     if: >-
       ${{
         github.event.workflow_run.conclusion == 'success' &&
@@ -43,53 +43,73 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: main
           fetch-depth: 0
 
+      - name: Verify workflow run is still current main tip
+        id: freshness
+        run: |
+          git fetch origin main --depth=1
+          current_main_sha="$(git rev-parse origin/main)"
+          workflow_sha="${{ github.event.workflow_run.head_sha }}"
+
+          {
+            echo "current_main_sha=${current_main_sha}"
+          } >> "${GITHUB_OUTPUT}"
+
+          if [[ "${workflow_sha}" != "${current_main_sha}" ]]; then
+            {
+              echo "stale=true"
+            } >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          {
+            echo "stale=false"
+          } >> "${GITHUB_OUTPUT}"
+
       - name: Verify runner tooling
+        if: steps.freshness.outputs.stale != 'true'
         run: |
           kubectl version --client
           helm version
           helmfile --version
           sops --version
 
-      - name: Detect changed scopes
-        id: detect
-        run: |
-          result="$(
-            bash .github/scripts/cd/detect-k3s-scopes.sh \
-              --head-sha "${{ github.event.workflow_run.head_sha }}"
-          )"
-          echo "${result}"
-          printf '%s\n' "${result}" >> "${GITHUB_OUTPUT}"
-
-      - name: Skip deploy when no Kubernetes scope changed
-        if: steps.detect.outputs.no_deploy == 'true'
+      - name: Skip stale auto deploy
+        if: steps.freshness.outputs.stale == 'true'
         run: |
           {
             echo "## k3s CD auto"
             echo
-            echo "No Kubernetes deploy scopes changed."
+            echo "Skipped deploy because the triggering CI run is stale."
             echo
-            echo "Ref: \`${{ github.event.workflow_run.head_sha }}\`"
+            echo "Workflow run SHA: \`${{ github.event.workflow_run.head_sha }}\`"
+            echo "Current main SHA: \`${{ steps.freshness.outputs.current_main_sha }}\`"
+            echo "Mode: full"
           } >> "${GITHUB_STEP_SUMMARY}"
 
-      - name: Deploy changed scopes
-        if: steps.detect.outputs.no_deploy != 'true'
+      - name: Deploy full stack
+        if: steps.freshness.outputs.stale != 'true'
         run: |
-          for scope in ${{ steps.detect.outputs.scopes }}; do
-            bash .github/scripts/cd/deploy-k3s-scope.sh "${scope}"
-            bash .github/scripts/cd/smoke-k3s-scope.sh "${scope}"
-          done
+          bash .github/scripts/cd/deploy-k3s-scope.sh all
+          bash .github/scripts/cd/smoke-k3s-scope.sh all
+
+      - name: Persist successful deploy state
+        if: steps.freshness.outputs.stale != 'true'
+        run: |
+          bash .github/scripts/cd/delivery-state.sh mark-success \
+            --sha "${{ github.event.workflow_run.head_sha }}" \
+            --mode full \
+            --scopes all
 
       - name: Write deploy summary
-        if: steps.detect.outputs.no_deploy != 'true'
+        if: steps.freshness.outputs.stale != 'true'
         run: |
           {
             echo "## k3s CD auto"
             echo
-            echo "Changed scopes: \`${{ steps.detect.outputs.scopes }}\`"
-            echo
             echo "Ref: \`${{ github.event.workflow_run.head_sha }}\`"
-            echo "Mode: changed scopes"
+            echo "Mode: full"
+            echo "Scopes: \`all\`"
           } >> "${GITHUB_STEP_SUMMARY}"

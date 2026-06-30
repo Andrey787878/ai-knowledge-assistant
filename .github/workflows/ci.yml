@@ -280,6 +280,7 @@ jobs:
         run: |
           bash -n deploy/kubernetes/apps/postgres/scripts/backup-postgres.sh
           bash -n deploy/kubernetes/apps/postgres/scripts/restore-postgres.sh
+          bash -n .github/scripts/cd/delivery-state.sh
           bash -n .github/scripts/cd/detect-k3s-scopes.sh
           bash -n .github/scripts/cd/deploy-k3s-scope.sh
           bash -n .github/scripts/cd/smoke-k3s-scope.sh

@@ -16,6 +16,27 @@ USAGE
 base_sha=""
 head_sha=""
 
+is_ignored_change() {
+  local file="$1"
+
+  case "${file}" in
+    docs/*|README.md|LICENSE|actionlint.yaml)
+      return 0
+      ;;
+    .github/*)
+      return 0
+      ;;
+    deploy/kubernetes/bootstrap/*|deploy/ansible/*|deploy/terraform/*|n8n/*)
+      return 0
+      ;;
+    *.md|*.png|*.jpg|*.jpeg|*.gif|*.svg|*.drawio)
+      return 0
+      ;;
+  esac
+
+  return 1
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --base-sha)
@@ -73,6 +94,10 @@ deploy_all=0
 while IFS= read -r file; do
   [[ -n "${file}" ]] || continue
 
+  if is_ignored_change "${file}"; then
+    continue
+  fi
+
   case "${file}" in
     deploy/kubernetes/helmfile.yaml)
       deploy_all=1
@@ -97,6 +122,27 @@ while IFS= read -r file; do
       ;;
     deploy/kubernetes/apps/n8n/*)
       scope_flags[n8n]=1
+      ;;
+    deploy/kubernetes/vendor_charts/cert-manager/*)
+      scope_flags[platform]=1
+      ;;
+    deploy/kubernetes/vendor_charts/alloy/*|deploy/kubernetes/vendor_charts/kube-prometheus-stack/*|deploy/kubernetes/vendor_charts/loki/*)
+      scope_flags[observability]=1
+      ;;
+    deploy/kubernetes/vendor_charts/postgresql/*)
+      scope_flags[postgres]=1
+      ;;
+    deploy/kubernetes/vendor_charts/redis/*)
+      scope_flags[redis]=1
+      ;;
+    deploy/kubernetes/vendor_charts/wiki/*)
+      scope_flags[wiki]=1
+      ;;
+    deploy/kubernetes/vendor_charts/raw/*)
+      deploy_all=1
+      ;;
+    deploy/kubernetes/*)
+      deploy_all=1
       ;;
   esac
 done < <(git diff --name-only "${base_sha}" "${head_sha}")
