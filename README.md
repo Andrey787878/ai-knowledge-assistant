@@ -9,8 +9,6 @@
 <p align="center">
   <a href="https://github.com/Andrey787878/ai-knowledge-assistant/actions/workflows/ci.yml"><img src="https://github.com/Andrey787878/ai-knowledge-assistant/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="https://github.com/Andrey787878/ai-knowledge-assistant/actions/workflows/cd-k3s-auto.yml"><img src="https://github.com/Andrey787878/ai-knowledge-assistant/actions/workflows/cd-k3s-auto.yml/badge.svg" alt="CD k3s auto" /></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-7f8c8d?style=flat-square" alt="License" /></a>
-  <a href="./docs/README.md"><img src="https://img.shields.io/badge/Docs-open-1f6feb?style=flat-square" alt="Docs" /></a>
 </p>
 
 <p align="center">
@@ -380,11 +378,16 @@ Bootstrap подготавливает хосты, устанавливает `k
 - NetworkPolicy реализует запрет по умолчанию и точечные разрешения только для нужных сервисных связей,
 - `kube-prometheus-stack`, `Loki`, `Alloy`, blackbox-пробы, маршрутизация алертов и `3` кастомных Grafana-дашборда собирают эксплуатационный observability-слой.
 
+Автоматический `CD` запускается только для `push` в `main`, которые затрагивают
+кодовые и релизные файлы Kubernetes-контура. Перед выкладкой workflow ждет
+успешный `CI` на этом же SHA, а затем выполняет полный deploy всего
+Kubernetes-контура.
+
 Для manual `CD` в этом контуре поддерживаются три режима: `full`, `scope` и `changed`.
 
 - `full` - полная выкладка всего Kubernetes-контура,
 - `scope` - выкладка одного выбранного слоя,
-- `changed` - вспомогательный режим, который определяет измененные слои по `git diff` для выбранной ветки, тега или коммита.
+- `changed` - вспомогательный режим, который определяет измененные слои по `git diff` между выбранным `git ref` и последним успешным полным deploy. Если база для сравнения еще не известна, workflow безопасно переключается на полный deploy.
 
 > Демо наблюдаемости выше в README вы уже могли видеть: там были показаны
 > дашборды и сценарии отказов.
@@ -429,7 +432,9 @@ Traefik.
 ### Ручной CD: режим `changed`
 
 Для точечного повторного запуска доступен режим `changed`: workflow сам
-определяет затронутые Kubernetes-области по `git diff` выбранного `ref`, например здесь ничего не было измененно и выкладка не произошла.
+определяет затронутые Kubernetes-области по `git diff` между выбранным `ref`
+и последним успешным полным deploy. Если релизных изменений нет, выкладка не
+запускается.
 
 <p align="center">
   <img src="./docs/kubernetes_deploy/demo/do_chanded_manual.png" alt="Форма ручного запуска CD changed" />
@@ -445,7 +450,11 @@ Traefik.
 ### Автоматический CD: пропуск лишней выкладки
 
 Автоматический workflow умеет определить, были ли вообще затронуты
-Kubernetes-слои. Если commit не меняет какую либо директорию `deploy/kubernetes`, лишняя выкладка не запускается.
+Kubernetes-слои. Если коммит не меняет манифесты, chart values, workflow или CD-скрипты Kubernetes-контура, лишняя выкладка не запускается.
+
+Если workflow все же стартовал, он ждет успешный `CI` на этом же SHA и перед
+выкладкой дополнительно проверяет, что этот SHA все еще остается текущей
+головой `main`.
 
 <p align="center">
   <img src="./docs/kubernetes_deploy/demo/auto_no_scopes.png" alt="Автоматический CD пропускает выкладку без изменений Kubernetes-слоев" />

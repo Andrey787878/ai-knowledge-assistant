@@ -4,7 +4,7 @@
 описаны подготовка инфраструктуры, bootstrap `k3s`, структура Helmfile-слоев,
 сеть, наблюдаемость и путь доставки изменений.
 
-## Что описывает этот раздел
+## Что входит в раздел
 
 Этап B разворачивает single-node `k3s` и прикладные сервисы в Kubernetes через
 `Helmfile`:
@@ -32,38 +32,6 @@
 - [CI/CD для этапов B и C](./ci-cd.md)
 - [Эксплуатация и приемка](./operations.md)
 - [Карта Helmfile и release-файлов](./helmfiles-releases-map.md)
-
-### CI/CD
-
-- [Отдельное руководство по CI/CD](./ci-cd.md)
-- `CI`: `.github/workflows/ci.yml`
-- `CD auto`: `.github/workflows/cd-k3s-auto.yml`
-- `CD manual`: `.github/workflows/cd-k3s-manual.yml`
-
-CD работает через отдельную виртуальную машину `runner`, которая создается в
-`deploy/terraform/k3s_deploy`, попадает в inventory group
-`private_hosts -> github_runners`, подготавливается ролью `github_runner` и
-регистрируется как self-hosted GitHub Actions runner с labels
-`self-hosted, linux, x64, k3s, prod, deploy, stage-b`.
-
-Виртуальная машина `runner` остается внутренней private-only VM: снаружи доступен только
-публичный `k3s`, а доступ к `runner` идет через `ProxyJump` и private
-endpoint Kubernetes API.
-
-`cd-k3s-auto.yml` запускается только после успешного `CI` для коммита,
-который уже попал в `main`, и выкатывает только измененные слои Helmfile.
-`cd-k3s-manual.yml` поддерживает три режима:
-`full`, `scope`, `changed`. После выкладки workflow выполняет smoke-проверки
-по областям для `platform`, `observability`, `postgres`, `redis`, `wiki`,
-`ollama` и `n8n`.
-
-Ручной деплой тоже не обходит проверку качества: перед выкладкой workflow
-проверяет, что для выбранного `ref` существует успешный запуск `CI`.
-
-Режим `changed` здесь считается вспомогательным: он вычисляет область из
-`git diff` относительно выбранного `ref` и полезен для повторного частичного
-выката, когда различия хорошо понятны. Для самого предсказуемого сценария в
-production предпочтительнее `full` или явный `scope`.
 
 ### Сеть и безопасность
 

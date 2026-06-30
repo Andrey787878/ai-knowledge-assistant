@@ -138,19 +138,19 @@ alertmanager:
           - 'service = redis'
         target_matchers:
           - 'service = n8n'
-          - 'alertname =~ N8nDown|N8nPublicEndpointDown'
+          - 'alertname =~ N8nDown|N8nPublicEndpointDown|N8nIngress5xxHigh|N8nIngressLatencyP95High'
       - source_matchers:
           - 'alertname = PostgresDown'
           - 'service = postgres'
         target_matchers:
           - 'service = n8n'
-          - 'alertname =~ N8nDown|N8nPublicEndpointDown'
+          - 'alertname =~ N8nDown|N8nPublicEndpointDown|N8nIngress5xxHigh|N8nIngressLatencyP95High'
       - source_matchers:
           - 'alertname = PostgresDown'
           - 'service = postgres'
         target_matchers:
           - 'service = wiki'
-          - 'alertname =~ WikiDown|WikiPublicEndpointDown'
+          - 'alertname =~ WikiDown|WikiPublicEndpointDown|WikiIngress5xxHigh|WikiIngressLatencyP95High'
     route:
       group_by:
         - namespace

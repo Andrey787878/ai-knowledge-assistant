@@ -1,10 +1,12 @@
 # PostgreSQL: резервное копирование и восстановление (этап B)
 
+## Что описывает документ
+
 Документ описывает резервное копирование и восстановление PostgreSQL в
 Kubernetes-контуре этапа B. Здесь собраны команды для ручного запуска backup,
 one-shot restore и проверки базы после восстановления.
 
-## Что использует этот сценарий
+## Что использует документ
 
 - `deploy/kubernetes/apps/postgres/releases/backup-cronjob.yaml`
 - `deploy/kubernetes/apps/postgres/releases/restore-job.yaml`
